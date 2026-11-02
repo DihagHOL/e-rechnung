@@ -299,6 +299,40 @@ const SAMPLES = [
       ],
     },
   },
+  {
+    // SEPA-Lastschrift (BT-81 = 59, BT-89 bis BT-91) und Leistungsdatum je Position (BG-26)
+    name: 'zahlung_lastschrift_59',
+    data: {
+      ...HOL,
+      kaeufer: 'Muster Montage GbR', kaeuferstrasse: 'Gewerbering 3', kaeuferplz: '12345',
+      kaeuferstadt: 'Musterstadt', kaeuferland: 'DE', kaeufermail: 'buero@muster-montage.de',
+      rechnungsnummer: '136/26', rechnungsdatum: '2026-09-22', faelligkeitsdatum: '2026-10-06',
+      zahlungsart: '59', kundeIban: 'DE89 3704 0044 0532 0130 00', mandatsreferenz: 'M-8500001',
+      glaeubigerId: 'DE98ZZZ09999999999',
+      notiz: 'Zahlungsbedingung: Der Betrag wird zum Fälligkeitstag eingezogen.',
+      steuerkategorie: 'S', befreiungsgrund: '',
+      positionen: [
+        { posnr: '1', beschreibung: 'Stiftstein 40x20/6 mm', menge: 200, einheit: 'Stk', einzelpreis: 1.764, rabatt: 0, mwst: 19, leistungVon: '2026-09-04' },
+        { posnr: '2', beschreibung: 'Schruppscheibe 125x15', menge: 20, einheit: 'Stk', einzelpreis: 16.584, rabatt: 0, mwst: 19, leistungVon: '2026-09-04', leistungBis: '2026-09-16' },
+      ],
+    },
+  },
+  {
+    // Ausgleich durch Verrechnung (BT-81 = 97), kein eigenes Konto auf der Rechnung
+    name: 'zahlung_verrechnung_97',
+    data: {
+      ...HOL,
+      kaeufer: 'Muster Montage GbR', kaeuferstrasse: 'Gewerbering 3', kaeuferplz: '12345',
+      kaeuferstadt: 'Musterstadt', kaeuferland: 'DE', kaeufermail: 'buero@muster-montage.de',
+      rechnungsnummer: '137/26', rechnungsdatum: '2026-09-22', faelligkeitsdatum: '2026-10-06',
+      zahlungsart: '97',
+      notiz: 'Zahlungsbedingung: 14 Tage netto, in Verrechnung',
+      steuerkategorie: 'S', befreiungsgrund: '',
+      positionen: [
+        { posnr: '1', beschreibung: 'Trennscheiben', menge: 50, einheit: 'Stk', einzelpreis: 6.84, rabatt: 0, mwst: 19, leistungVon: '2026-09-16' },
+      ],
+    },
+  },
 ];
 
 /* ── Erzeugen ── */

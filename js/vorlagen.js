@@ -33,6 +33,7 @@ const VL_VORLAGE_FELDER = [
   'lieferName', 'lieferStrasse', 'lieferPlz', 'lieferStadt', 'lieferLand',
   'rechnungsart', 'notiz', 'waehrung', 'steuerkategorie', 'befreiungsgrund', 'vertragsnummer',
   'verkaeufkontakt', 'verkaeuftel', 'verkaeuferemail',
+  'zahlungsart', 'kundeIban', 'mandatsreferenz', 'glaeubigerId',
 ];
 const VL_POS_FELDER = ['posnr', 'beschreibung', 'details', 'positionsnotiz', 'bestellposition',
   'menge', 'einheit', 'einzelpreis', 'rabatt', 'mwst'];
@@ -45,7 +46,7 @@ const VL_STAMM_FELDER = ['verkaeufer', 'verkaeufstrasse', 'verkaeufplz', 'verkae
 const VL_LEER_FELDER = ['lieferdatum', 'zahlungsreferenz', 'lieferscheinnummer', 'vorrechnungsnummer',
   'vorrechnungsdatum', 'gezahlt'];
 
-const VL_VORGABEN = { kaeuferland: 'DE', waehrung: 'EUR', rechnungsart: '380', steuerkategorie: 'Z' };
+const VL_VORGABEN = { kaeuferland: 'DE', waehrung: 'EUR', rechnungsart: '380', steuerkategorie: 'Z', zahlungsart: '58' };
 
 /* ── Datum und Leistungsmonat ─────────────────────────────────────────── */
 
@@ -125,10 +126,23 @@ function vlNummerLesen(muster, nummer) {
   return { n, jahr };
 }
 
-/** Vorschlag für die nächste Nummer im Jahr des Rechnungsdatums. */
-function vlNaechsteNummer(kreis, jahr) {
+/** Höchste laufende Nummer eines Jahres unter den vergebenen Nummern (0, wenn keine zum Muster passt). */
+function vlHoechsteNummer(muster, nummern, jahr) {
+  let max = 0;
+  for (const nr of nummern || []) {
+    const g = vlNummerLesen(muster, nr);
+    if (g && g.jahr === String(jahr) && g.n > max) max = g.n;
+  }
+  return max;
+}
+
+/**
+ * Vorschlag für die nächste Nummer im Jahr des Rechnungsdatums: nach der höchsten aus Zähler
+ * und den schon vergebenen Nummern (Rechnungen in AR_<Werk>).
+ */
+function vlNaechsteNummer(kreis, jahr, vergeben) {
   if (!kreis || !kreis.muster) return '';
-  const letzte = Number(((kreis.letzte || {})[String(jahr)]) || 0);
+  const letzte = Math.max(Number(((kreis.letzte || {})[String(jahr)]) || 0), vlHoechsteNummer(kreis.muster, vergeben, jahr));
   return vlNummerBilden(kreis.muster, letzte + 1, jahr);
 }
 
@@ -147,7 +161,7 @@ function vlNummerMerken(kreis, nummer) {
 
 /**
  * Werte fürs Formular aus einer Vorlage (oder ohne Vorlage: leere Rechnung mit Stammdaten).
- * opt: { heute, monat (JJJJ-MM), stamm (Registry des Werks), kreis, kontakt }
+ * opt: { heute, monat (JJJJ-MM), stamm (Registry des Werks), kreis, vergeben (Nummern in AR_<Werk>), kontakt }
  * @returns {{ felder: object, positionen: object[] }}
  */
 function vlAnwenden(vorlage, opt) {
@@ -166,7 +180,7 @@ function vlAnwenden(vorlage, opt) {
   felder.verkaeuferemail = felder.verkaeuferemail || stamm.verkaeuferemail || '';
   for (const k of VL_LEER_FELDER) felder[k] = '';
   felder.rechnungsdatum = heute;
-  felder.rechnungsnummer = vlNaechsteNummer(o.kreis, heute.slice(0, 4));
+  felder.rechnungsnummer = vlNaechsteNummer(o.kreis, heute.slice(0, 4), o.vergeben);
   const ziel = vorlage && vorlage.zahlungszielTage != null && vorlage.zahlungszielTage !== '' ? Number(vorlage.zahlungszielTage) : null;
   felder.faelligkeitsdatum = ziel != null && ziel >= 0 ? vlPlusTage(heute, ziel) : '';
   const g = monat ? vlMonatsgrenzen(monat) : null;
@@ -259,6 +273,7 @@ const VL_FORM_IDS = {
   lieferStadt: 'liefer-stadt', lieferLand: 'liefer-land', rechnungsart: 'rechnungsart', rechnungsnummer: 'rechnungsnummer',
   rechnungsdatum: 'rechnungsdatum', lieferdatum: 'lieferdatum', faelligkeitsdatum: 'faelligkeitsdatum',
   zahlungsreferenz: 'zahlungsreferenz', notiz: 'notiz', bestellnummer: 'bestellnummer',
+  zahlungsart: 'zahlungsart', kundeIban: 'kunde-iban', mandatsreferenz: 'mandatsreferenz', glaeubigerId: 'glaeubiger-id',
   lieferscheinnummer: 'lieferscheinnummer', kundennummer: 'kundennummer', lieferantennummer: 'lieferantennummer',
   vorrechnungsnummer: 'vorrechnungsnummer', vorrechnungsdatum: 'vorrechnungsdatum', waehrung: 'waehrung',
   steuerkategorie: 'steuerkategorie', befreiungsgrund: 'befreiungsgrund', abrZeitraumStart: 'abr-start',
@@ -266,7 +281,8 @@ const VL_FORM_IDS = {
 };
 
 // sichtbar: Vorlagendatei gelesen. Sie hat eigene Rechte, wer nicht freigegeben ist, bekommt 404.
-const _vl = { daten: null, etag: '', geladen: false, sichtbar: false, fehler: '', zuletztNummer: '' };
+// vergeben: Rechnungsnummern je Werk aus AR_<Werk>, damit der Vorschlag auch fremd vergebene Nummern kennt
+const _vl = { daten: null, etag: '', geladen: false, sichtbar: false, fehler: '', zuletztNummer: '', vergeben: {} };
 const VL_NICHT_FREIGEGEBEN = 'Die Vorlagen sind für dieses Konto nicht freigegeben. Die Freigabe erteilt die IT.';
 let _vlVorschauTimer = null;
 
@@ -360,6 +376,19 @@ function _vlListeFuellen(auswahl) {
     + liste.map(x => `<option value="${escHTML(x.id)}">${escHTML(x.name)}</option>`).join('');
   sel.value = auswahl && liste.some(x => x.id === auswahl) ? auswahl : (liste[0] ? liste[0].id : '');
   _vlAuswahlGeaendert();
+  _vlVergebeneLaden(_vlWerk()).then(_vlStatusZeigen);
+}
+
+/** Vergebene Rechnungsnummern des Werks aus AR_<Werk> laden (nur mit Nummernkreis). */
+async function _vlVergebeneLaden(werk) {
+  if (!werk || !_vlKreis(werk) || typeof spRechnungsnummernAR !== 'function') return null;
+  try {
+    const liste = await spRechnungsnummernAR(werk);
+    if (liste) _vl.vergeben[werk] = liste;
+  } catch (e) {
+    console.warn('[Vorlagen] Nummern aus AR_' + werk + ' nicht lesbar:', e.message);
+  }
+  return _vl.vergeben[werk] || null;
 }
 
 function _vlAuswahlGeaendert() {
@@ -369,13 +398,22 @@ function _vlAuswahlGeaendert() {
   monat.disabled = leistung === 'keine';
   monat.value = leistung === 'keine' ? '' : vlLeistungsmonat(vlHeute(), leistung);
   _vlEl('vl-loeschen').disabled = !vorlage;
-  const kreis = _vlKreis(_vlWerk());
-  const nr = kreis ? vlNaechsteNummer(kreis, vlHeute().slice(0, 4)) : '';
+  _vlStatusZeigen();
+}
+
+function _vlStatusZeigen() {
+  const vorlage = _vlAktuelleVorlage();
+  const werk = _vlWerk();
+  const kreis = _vlKreis(werk);
+  const vergeben = _vl.vergeben[werk];
+  const nr = kreis ? vlNaechsteNummer(kreis, vlHeute().slice(0, 4), vergeben) : '';
   const teile = [];
   if (vorlage) teile.push(`Zuletzt geändert ${vorlage.geaendertAm ? _vlDatum(vorlage.geaendertAm) : _vlDatum(vorlage.am)}`
     + ((vorlage.geaendertVon || vorlage.von) ? ` von ${vorlage.geaendertVon || vorlage.von}` : '') + '.');
   if (_vl.geladen && !_vl.sichtbar) teile.push(VL_NICHT_FREIGEGEBEN + ' Die leere Rechnung mit den Stammdaten geht trotzdem, die Rechnungsnummer bitte selbst eintragen.');
-  else if (nr) teile.push(`Nächste Rechnungsnummer laut Nummernkreis: ${nr}. Rechnungen, die außerhalb der App entstehen, kennt der Nummernkreis nicht.`);
+  else if (nr) teile.push(vergeben
+    ? `Nächste Rechnungsnummer nach Nummernkreis und AR_${werk}: ${nr}. Rechnungen, die außerhalb der App entstehen und nicht im Monitoring liegen, kennt sie nicht.`
+    : `Nächste Rechnungsnummer laut Nummernkreis: ${nr}. Rechnungen, die außerhalb der App entstehen, kennt der Nummernkreis nicht.`);
   else teile.push('Für dieses Werk ist kein Nummernkreis hinterlegt, die Rechnungsnummer bitte selbst eintragen.');
   _vlStatus(_vl.fehler ? `Vorlagen nicht geladen: ${_vl.fehler}` : teile.join(' '), _vl.fehler ? 'fehler' : '');
 }
@@ -397,9 +435,10 @@ async function vlUebernehmen(ohneRueckfrage) {
     && !window.confirm('Die Angaben im Formular werden durch die Vorlage ersetzt. Weiter?')) return;
   const vorlage = _vlAktuelleVorlage();
   const user = (typeof getAuthUser === 'function' && getAuthUser()) || {};
+  const vergeben = await _vlVergebeneLaden(werk);   // frisch, falls inzwischen jemand abgelegt hat
   const { felder, positionen } = vlAnwenden(vorlage, {
     heute: vlHeute(), monat: (_vlEl('vl-monat') || {}).value || '', stamm: _vlStamm(werk),
-    kreis: _vlKreis(werk), kontakt: user.name || '',
+    kreis: _vlKreis(werk), vergeben, kontakt: user.name || '',
   });
 
   const ges = _vlEl('gesellschaft');
@@ -430,6 +469,7 @@ async function vlUebernehmen(ohneRueckfrage) {
   if (typeof renumberRows === 'function') renumberRows();
   updateTotals();
   if (typeof lockSellerMaster === 'function') lockSellerMaster();
+  if (typeof zahlungsartAnzeigen === 'function') zahlungsartAnzeigen();
   if (typeof _kundenMailVorschlagen === 'function') {
     _kundenMailVorschlagen(Object.assign({ gesellschaft: werk }, felder)).catch(() => {});
   }
@@ -540,14 +580,15 @@ async function vorlagenNummerVerbraucht(data) {
   if (!vlIstManuell()) return;
   _vl.zuletztNummer = data.rechnungsnummer;
   const werk = String(data.gesellschaft || '').toUpperCase();
-  if (!vlNummerMerken(_vlKreis(werk), data.rechnungsnummer)) return;
+  if (_vl.vergeben[werk]) _vl.vergeben[werk].push(data.rechnungsnummer);
+  if (!vlNummerMerken(_vlKreis(werk), data.rechnungsnummer)) { _vlStatusZeigen(); return; }
   await _vlAendern(d => {
     const neu = vlNummerMerken((d.nummernkreise || {})[werk], data.rechnungsnummer);
     if (!neu) return null;
     d.nummernkreise = Object.assign({}, d.nummernkreise, { [werk]: neu });
     return d;
   });
-  _vlAuswahlGeaendert();
+  _vlStatusZeigen();
 }
 
 function _vlSeiteUmstellen() {
@@ -616,7 +657,7 @@ if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     vlHeute, vlPlusTage, vlTageZwischen, vlLeistungsmonat, vlMonatsgrenzen, vlPlatzhalter, vlZurueck,
-    vlNummerBilden, vlNummerLesen, vlNaechsteNummer, vlNummerMerken, vlAnwenden, vlAusFormular,
+    vlNummerBilden, vlNummerLesen, vlHoechsteNummer, vlNaechsteNummer, vlNummerMerken, vlAnwenden, vlAusFormular,
     vlLeistungAus, vlLeer, vlNeueId, vlVorlagenFuer, vlVorlageSpeichern, vlVorlageLoeschen,
     VL_VORLAGE_FELDER, VL_STAMM_FELDER,
     _vl, _vlAendern, VL_NICHT_FREIGEGEBEN,   // für die Tests

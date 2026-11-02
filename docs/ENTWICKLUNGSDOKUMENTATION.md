@@ -311,7 +311,7 @@ Alle Berechnungen, XML-Generierung und PDF-Manipulation erfolgen im Browser des 
 |---|---|---|
 | EN 16931-1 | 2017 | Semantisches Modell, beide Profile |
 | XRechnung CII | 3.0 | `xrechnung.js` → BT-24 `urn:xeinkauf.de:kosit:xrechnung_3.0` |
-| ZUGFeRD / Factur-X | 2.4 / 1.08 | `zugferd.js` → BT-24 `urn:cen.eu:en16931:2017` |
+| ZUGFeRD / Factur-X | 2.4 / 1.08 | Kunde im Inland: Profil XRECHNUNG, BT-24 `urn:xeinkauf.de:kosit:xrechnung_3.0`, Anhang `xrechnung.xml` (seit 02.11.2026). Kunde im Ausland: Profil EN 16931, BT-24 `urn:cen.eu:en16931:2017`, `factur-x.xml` |
 | PEPPOL BIS Billing | 3.0 | BT-23 `urn:fdc:peppol.eu:2017:poacc:billing:01:1.0` |
 | PDF/A | ISO 19005-3 (PDF/A-3b) | OutputIntent sRGB IEC61966-2-1, XMP-Metadaten |
 | UN/CEFACT CII | D16B | XML-Syntax beider Profile |

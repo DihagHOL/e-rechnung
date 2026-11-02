@@ -42,6 +42,13 @@ const _eAdr = s => (!s ? '' : s.includes('@') ? s : `E-Adresse: ${s}`);
 /* IBAN in Vierergruppen, egal wie sie in der XML formatiert ist */
 const _fmtIban = s => String(s || '').replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim();
 
+/* Zahlungsarten nach UNTDID 4461 (BT-81), die auf der Rechnung benannt werden */
+const _ZAHLUNGSARTEN = {
+  '1': 'nicht festgelegt', '10': 'Barzahlung', '20': 'Scheck', '30': 'Überweisung', '31': 'Überweisung',
+  '42': 'Überweisung', '48': 'Kartenzahlung', '49': 'Lastschrift', '57': 'Dauerauftrag',
+  '58': 'SEPA-Überweisung', '59': 'SEPA-Lastschrift', '97': 'Ausgleich durch Verrechnung', 'ZZZ': 'gesondert vereinbart',
+};
+
 /**
  * Haupteinstieg: Datenobjekt → PDF-Bytes.
  * @param   {object} data  Ergebnis von parseInvoiceXML()
@@ -288,6 +295,10 @@ async function buildInvoicePdf(data) {
     // Lieferschein) in kleiner Schrift über die volle Breite, mit Seitenumbruch
     const zusatzBreite = W - M - cols.besch.x;
     const zusatz = [];
+    // Leistungszeitraum der Position (BT-134/135), ein Tag, wenn von und bis gleich sind
+    const lVon = p.leistungVon || '', lBis = p.leistungBis || '';
+    if (lVon || lBis) zusatz.push('Leistung: ' + (lVon && lBis && lVon !== lBis
+      ? `${fmtDate(lVon)} bis ${fmtDate(lBis)}` : fmtDate(lVon || lBis)));
     if (p.details) wrap(p.details, zusatzBreite, 8).forEach(l => zusatz.push(l));
     const hinweis = p.positionsnotiz || p.note;
     if (hinweis) wrap(hinweis, zusatzBreite, 8).forEach(l => zusatz.push(l));
@@ -347,13 +358,26 @@ async function buildInvoicePdf(data) {
   }
 
   /* ── Zahlung / Notiz ── */
-  if (data.iban || data.bic || data.kontoinhaber || data.faelligkeitsdatum || data.zahlungsbedingungen || data.zahlungsreferenz) {
+  // Zahlungsart (BT-81): Überweisung wie bisher ohne eigene Zeile, sonst benannt;
+  // bei Lastschrift und Verrechnung gehört das Konto des Verkäufers nicht auf die Rechnung
+  const zArt = String(data.zahlungsart || '');
+  const zArtName = _ZAHLUNGSARTEN[zArt] || (zArt ? `Code ${zArt}` : '');
+  const zArtZeile = zArt && !['58', '30', '31', '42'].includes(zArt);
+  const ohneEigenesKonto = zArt === '59' || zArt === '97' || zArt === '49';
+  if (data.iban || data.bic || data.kontoinhaber || data.faelligkeitsdatum || data.zahlungsbedingungen || data.zahlungsreferenz || zArtZeile) {
     if (y < M + 80) newPage();
     text('ZAHLUNGSINFORMATIONEN', M, y, { size: 7.5, bold: true, color: gray });
     y -= 13;
-    if (data.kontoinhaber)      { for (const l of wrap(`Kontoinhaber: ${data.kontoinhaber}`, W - 2 * M)) { text(l, M, y, { size: 9 }); y -= 12; } }
-    if (data.iban) { text(`IBAN: ${_fmtIban(data.iban)}`, M, y, { size: 9 }); y -= 13; }
-    if (data.bic)  { text(`BIC: ${data.bic}`, M, y, { size: 9 }); y -= 13; }
+    if (zArtZeile) { text(`Zahlungsart: ${zArtName}`, M, y, { size: 9 }); y -= 13; }
+    if (ohneEigenesKonto) {
+      if (data.kundeIban)       { text(`Einzug von IBAN: ${_fmtIban(data.kundeIban)}`, M, y, { size: 9 }); y -= 13; }
+      if (data.mandatsreferenz) { text(`Mandatsreferenz: ${data.mandatsreferenz}`, M, y, { size: 9 }); y -= 13; }
+      if (data.glaeubigerId)    { text(`Gläubiger-ID: ${data.glaeubigerId}`, M, y, { size: 9 }); y -= 13; }
+    } else {
+      if (data.kontoinhaber)      { for (const l of wrap(`Kontoinhaber: ${data.kontoinhaber}`, W - 2 * M)) { text(l, M, y, { size: 9 }); y -= 12; } }
+      if (data.iban) { text(`IBAN: ${_fmtIban(data.iban)}`, M, y, { size: 9 }); y -= 13; }
+      if (data.bic)  { text(`BIC: ${data.bic}`, M, y, { size: 9 }); y -= 13; }
+    }
     if (data.zahlungsbedingungen) {
       for (const l of wrap(`Zahlungsbedingungen: ${data.zahlungsbedingungen}`, W - 2 * M)) {
         if (y < M + 30) newPage();

@@ -111,6 +111,17 @@ d = V.vlVorlageLoeschen(d, 'hol-a');
 gleich(V.vlVorlagenFuer(d, 'HOL').map(x => x.id), ['hol-umlage'], 'gelöscht');
 gleich(V.vlNeueId('HOL', 'Umlage März').startsWith('hol-umlage-ma-rz-'), true, 'id aus Werk und Name');
 
+// Nummernvorschlag aus Zähler und den Nummern in AR_<Werk>
+const kreisEis = { muster: '{n}/{jj}', letzte: { 2026: 134 } };
+gleich(V.vlHoechsteNummer('{n}/{jj}', ['133/26', '136/26', '9000123', '140/25', ''], '2026'), 136, 'höchste im Jahr, fremde Formate zählen nicht');
+gleich(V.vlNaechsteNummer(kreisEis, '2026', ['133/26', '136/26']), '137/26', 'AR liegt vor dem Zähler');
+gleich(V.vlNaechsteNummer(kreisEis, '2026', ['120/26']), '135/26', 'Zähler liegt vor AR');
+gleich(V.vlNaechsteNummer(kreisEis, '2026', null), '135/26', 'ohne AR wie bisher');
+gleich(V.vlNaechsteNummer(kreisEis, '2027', ['136/26']), '1/27', 'neues Jahr');
+gleich(V.vlAnwenden(null, { heute: '2026-11-02', kreis: kreisEis, vergeben: ['138/26'] }).felder.rechnungsnummer, '139/26', 'Übernehmen nutzt AR');
+gleich(V.vlAnwenden(null, { heute: '2026-11-02' }).felder.zahlungsart, '58', 'Zahlungsart Vorgabe Überweisung');
+gleich(V.vlAnwenden({ daten: { zahlungsart: '97' } }, { heute: '2026-11-02' }).felder.zahlungsart, '97', 'Zahlungsart aus der Vorlage');
+
 // Speichern in die gesperrte Datei: _vlAendern mit nachgebildetem SharePoint
 const konflikt = () => Object.assign(new Error('geändert'), { code: 'KONFLIKT' });
 const sharepoint = (ladenFolge, speichern) => {

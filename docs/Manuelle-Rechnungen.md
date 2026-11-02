@@ -58,10 +58,12 @@ Neue Personen, etwa für EIS, bekommen „Mitwirken“ direkt an der Datei (Shar
 ## Nummernkreis
 
 Je Werk ein Muster mit `{n}` und `{jjjj}` (oder `{jj}`) und die letzte vergebene Nummer je Jahr.
-Der Reiter schlägt die nächste Nummer vor, nach dem Erzeugen merkt er sich die verwendete, wenn sie
-höher ist. Rechnungen, die weiter in Word oder einem anderen System entstehen, kennt der
-Nummernkreis nicht. Deshalb prüft der Reiter vor dem Erzeugen, ob die Nummer in `AR_<Werk>`
-schon vorkommt, und fragt dann nach.
+Der Reiter schlägt die Nummer nach der höchsten vor, die er im Zähler oder unter den Rechnungen in
+`AR_<Werk>` findet (Titel nach dem Muster im Jahr des Rechnungsdatums, andere Formate wie SAP-Nummern
+zählen nicht). Die Liste lädt er beim Wechsel des Werks und vor jedem „Übernehmen“ neu. Nach dem
+Erzeugen merkt er sich die verwendete Nummer, wenn sie höher ist. Rechnungen, die in Word entstehen
+und nicht im Monitoring liegen, kennt er nicht. Deshalb prüft der Reiter vor dem Erzeugen, ob die
+Nummer in `AR_<Werk>` schon vorkommt, und fragt dann nach.
 
 ## Neu im Konverter (gilt für beide Reiter)
 
@@ -71,15 +73,21 @@ schon vorkommt, und fragt dann nach.
 | Vertragsreferenz | BT-12 | z. B. „Garantievereinbarung vom …“ |
 | Steuerkategorie O | BT-118 = O, BT-121 = VATEX-EU-O | nicht steuerbar, z. B. Innenumsatz in der Organschaft |
 | Einheiten kWh, MWh | KWH, MWH | |
+| Zahlungsart | BT-81 | Überweisung (58, Standard), SEPA-Lastschrift (59) oder Verrechnung (97). Bei Lastschrift und Verrechnung steht das eigene Konto nicht in XML und PDF |
+| Lastschrift: IBAN des Kunden, Mandatsreferenz, Gläubiger-ID | BT-91, BT-89, BT-90 | nur bei Lastschrift sichtbar und dann Pflicht (BR-DE-25, BR-DE-30, BR-DE-31) |
+| Leistung am / von, bis je Position | BG-26 (BT-134, BT-135) | in den Details der Position, z. B. das Entnahmedatum. Nur „von“ ergibt einen Leistungstag |
 
 Bei Kategorie O lässt das XML die USt-IdNr. von Verkäufer und Käufer weg (BR-O-02) und die
 Positionen tragen keinen Steuersatz (BR-O-05). Positionen mit Umsatzsteuer sind daneben nicht
 erlaubt, das Formular meldet das. Geprüft mit KoSIT (XRechnung grün) und veraPDF (PDF/A-3b), siehe
 die Fälle `hol_innenumsatz_O` und `hol_abschlag_19_mwh` in `validation/generate-samples.js`.
 
-Ein ZUGFeRD aus dem Konverter trägt das Profil EN 16931, nicht XRechnung. KoSIT meldet dazu zwei
-Hinweise (Business process, BR-DE-21). Die Rechnung ist trotzdem gültig. Verlangt ein Empfänger
-XRechnung, „XRechnung“ erzeugen.
+Seit 02.11.2026 trägt ein ZUGFeRD für Kunden im Inland das ZUGFeRD-Profil XRECHNUNG (Anhang
+`xrechnung.xml`, XMP `ConformanceLevel` XRECHNUNG). KoSIT und unser Eingang bewerten es damit grün.
+Für Kunden im Ausland bleibt es beim Profil EN 16931 (`factur-x.xml`), weil Factur-X-Leser dort das
+deutsche Profil nicht kennen müssen. KoSIT meldet dazu zwei Hinweise (Business process, BR-DE-21),
+die Rechnung ist trotzdem gültig. `js/zugferd.js` liest das Profil aus dem XML, PDF und XML passen
+also immer zusammen. Geprüft mit `zahlung_lastschrift_59` und `zahlung_verrechnung_97`.
 
 ## Werke
 

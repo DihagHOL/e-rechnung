@@ -405,6 +405,7 @@ body {
 }
 
 .form-grid .full-width { grid-column: 1 / -1; }
+.form-group[hidden] { display: none; }
 .form-grid .w-third { grid-column: span 1; }
 
 .form-group {
@@ -1382,3 +1383,4 @@ body.auth-guard { visibility: hidden; }
 .pos-details-grid textarea, .pos-details-grid input { font: inherit; font-size: 12px; font-weight: 400; padding: 6px 8px;
   border: 1px solid var(--gray-300, #cbd5e1); border-radius: 6px; resize: vertical; }
 @media (max-width: 800px) { .pos-details-grid { grid-template-columns: 1fr; } }
+.pos-details-spalte { display: flex; flex-direction: column; gap: 6px; }

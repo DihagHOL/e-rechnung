@@ -5,7 +5,10 @@
  */
 
 function buildXML(data, profile = 'xrechnung') {
-  const guideline = profile === 'zugferd'
+  // ZUGFeRD für Kunden im Inland im ZUGFeRD-Profil XRECHNUNG, sonst EN 16931:
+  // Factur-X-Leser im Ausland kennen das deutsche Profil nicht. zugferd.js liest das Profil aus dem XML.
+  const zugferdEN = profile === 'zugferd' && String(data.kaeuferland || 'DE').toUpperCase() !== 'DE';
+  const guideline = zugferdEN
     ? 'urn:cen.eu:en16931:2017'
     : 'urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0';
 
@@ -109,6 +112,7 @@ function buildXML(data, profile = 'xrechnung') {
           <ram:CategoryCode>${catOf(rate)}</ram:CategoryCode>
           ${catOf(rate) === 'O' ? '' : `<ram:RateApplicablePercent>${fmt(rate)}</ram:RateApplicablePercent>`}
         </ram:ApplicableTradeTax>
+        ${_positionsZeitraumXML(p, fmtDate)}
         <ram:SpecifiedTradeSettlementLineMonetarySummation>
           <ram:LineTotalAmount>${fmt(net)}</ram:LineTotalAmount>
         </ram:SpecifiedTradeSettlementLineMonetarySummation>
@@ -184,24 +188,43 @@ function buildXML(data, profile = 'xrechnung') {
   // Skonto maschinenlesbar nach XRechnung (#SKONTO#TAGE=…#PROZENT=…#, eigene Zeile vor dem Text)
   const skonto = _skontoZeile(zahlungstext, data.rechnungsdatum);
   const zahlungsbeschreibung = skonto ? skonto + '\n' + zahlungstext : zahlungstext;
-  const dueDateXML = (data.faelligkeitsdatum || zahlungstext)
+  const lastschrift = String(data.zahlungsart || '') === '59';
+  const dueDateXML = (data.faelligkeitsdatum || zahlungstext || (lastschrift && data.mandatsreferenz))
     ? `<ram:SpecifiedTradePaymentTerms>
         ${zahlungsbeschreibung ? `<ram:Description>${esc(zahlungsbeschreibung)}</ram:Description>` : ''}
         ${data.faelligkeitsdatum ? `<ram:DueDateDateTime>
           <udt:DateTimeString format="102">${fmtDate(data.faelligkeitsdatum)}</udt:DateTimeString>
         </ram:DueDateDateTime>` : ''}
+        ${lastschrift && data.mandatsreferenz ? `<ram:DirectDebitMandateID>${esc(data.mandatsreferenz)}</ram:DirectDebitMandateID>` : ''}
       </ram:SpecifiedTradePaymentTerms>`
     : '';
 
-  const ibanXML = data.iban
-    ? `<ram:SpecifiedTradeSettlementPaymentMeans>
+  // Zahlungsart (BT-81): 58 SEPA-Überweisung (Standard), 59 SEPA-Lastschrift, 97 Verrechnung
+  const zahlungsart = String(data.zahlungsart || '58');
+  const ohneLeer = s => String(s || '').replace(/\s/g, '');
+  let ibanXML = '';
+  if (zahlungsart === '59') {
+    // BR-DE-25: Lastschrift mit Konto des Kunden (BT-91), Mandat (BT-89) und Gläubiger-ID (BT-90)
+    ibanXML = `<ram:SpecifiedTradeSettlementPaymentMeans>
+        <ram:TypeCode>59</ram:TypeCode>
+        <ram:PayerPartyDebtorFinancialAccount>
+          <ram:IBANID>${esc(ohneLeer(data.kundeIban))}</ram:IBANID>
+        </ram:PayerPartyDebtorFinancialAccount>
+      </ram:SpecifiedTradeSettlementPaymentMeans>`;
+  } else if (zahlungsart === '97') {
+    ibanXML = `<ram:SpecifiedTradeSettlementPaymentMeans>
+        <ram:TypeCode>97</ram:TypeCode>
+        <ram:Information>Verrechnung</ram:Information>
+      </ram:SpecifiedTradeSettlementPaymentMeans>`;
+  } else if (data.iban) {
+    ibanXML = `<ram:SpecifiedTradeSettlementPaymentMeans>
         <ram:TypeCode>58</ram:TypeCode>
         <ram:PayeePartyCreditorFinancialAccount>
-          <ram:IBANID>${esc(data.iban.replace(/\s/g, ''))}</ram:IBANID>
+          <ram:IBANID>${esc(ohneLeer(data.iban))}</ram:IBANID>
         </ram:PayeePartyCreditorFinancialAccount>
         ${data.bic ? `<ram:PayeeSpecifiedCreditorFinancialInstitution><ram:BICID>${esc(data.bic)}</ram:BICID></ram:PayeeSpecifiedCreditorFinancialInstitution>` : ''}
-      </ram:SpecifiedTradeSettlementPaymentMeans>`
-    : '';
+      </ram:SpecifiedTradeSettlementPaymentMeans>`;
+  }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rsm:CrossIndustryInvoice
@@ -212,7 +235,7 @@ function buildXML(data, profile = 'xrechnung') {
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
   <rsm:ExchangedDocumentContext>
-    ${profile !== 'zugferd' ? `<ram:BusinessProcessSpecifiedDocumentContextParameter>
+    ${!zugferdEN ? `<ram:BusinessProcessSpecifiedDocumentContextParameter>
       <ram:ID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</ram:ID>
     </ram:BusinessProcessSpecifiedDocumentContextParameter>` : ''}
     <ram:GuidelineSpecifiedDocumentContextParameter>
@@ -313,6 +336,7 @@ function buildXML(data, profile = 'xrechnung') {
     </ram:ApplicableHeaderTradeDelivery>
 
     <ram:ApplicableHeaderTradeSettlement>
+      ${zahlungsart === '59' && data.glaeubigerId ? `<ram:CreditorReferenceID>${esc(ohneLeer(data.glaeubigerId))}</ram:CreditorReferenceID>` : ''}
       <ram:PaymentReference>${esc(data.zahlungsreferenz || data.rechnungsnummer)}</ram:PaymentReference>
       <ram:InvoiceCurrencyCode>${esc(waehrung)}</ram:InvoiceCurrencyCode>
       ${ibanXML}
@@ -346,6 +370,17 @@ function buildXML(data, profile = 'xrechnung') {
  * hängt sie als Datei am PDF (js/app.js), das XML nennt sie nur.
  * anlagen: [{ name, mime, base64, beschreibung }]
  */
+/** Leistungszeitraum einer Position (BG-26: BT-134, BT-135). Nur „von“ = ein Leistungstag. */
+function _positionsZeitraumXML(p, fmtDate) {
+  const von = p.leistungVon || '';
+  const bis = p.leistungBis || (p.leistungVon ? p.leistungVon : '');
+  if (!von && !bis) return '';
+  return `<ram:BillingSpecifiedPeriod>
+          ${von ? `<ram:StartDateTime><udt:DateTimeString format="102">${fmtDate(von)}</udt:DateTimeString></ram:StartDateTime>` : ''}
+          ${bis ? `<ram:EndDateTime><udt:DateTimeString format="102">${fmtDate(bis)}</udt:DateTimeString></ram:EndDateTime>` : ''}
+        </ram:BillingSpecifiedPeriod>`;
+}
+
 function _anlagenXML(anlagen, profile) {
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   return (anlagen || []).filter(a => a && a.name).map(a => `<ram:AdditionalReferencedDocument>

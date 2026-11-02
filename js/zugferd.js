@@ -90,10 +90,12 @@ async function embedXMLIntoPDF(pdfBytes, xmlString, profile, extraAttachments) {
   const xmlBytes = new TextEncoder().encode(xmlString);
 
   const isZugferd = profile === 'zugferd';
-  const filename    = isZugferd ? 'factur-x.xml' : 'xrechnung.xml';
-  const description = isZugferd
-    ? 'ZUGFeRD/Factur-X Rechnung (EN 16931)'
-    : 'XRechnung 3.0';
+  // Profil aus dem XML: mit XRechnung-Kennung ZUGFeRD-Profil XRECHNUNG, die Datei heißt dann xrechnung.xml
+  const xrProfil    = /xeinkauf[.]de:kosit:xrechnung/.test(xmlString);
+  const filename    = isZugferd && !xrProfil ? 'factur-x.xml' : 'xrechnung.xml';
+  const conformance = xrProfil ? 'XRECHNUNG' : 'EN 16931';
+  const description = !isZugferd ? 'XRechnung 3.0'
+    : xrProfil ? 'ZUGFeRD-Rechnung (Profil XRECHNUNG)' : 'ZUGFeRD/Factur-X Rechnung (EN 16931)';
 
   // Embed XML as attachment (afRelationship=Alternative required by ZUGFeRD/Factur-X)
   await pdfDoc.attach(xmlBytes, filename, {
@@ -123,7 +125,7 @@ async function embedXMLIntoPDF(pdfBytes, xmlString, profile, extraAttachments) {
     _addOutputIntent(pdfDoc);
 
     // 2. Replace XMP metadata with PDF/A-3b + Factur-X conformant block
-    _setZUGFeRDXMP(pdfDoc, filename);
+    _setZUGFeRDXMP(pdfDoc, filename, conformance);
 
     // 3. DefaultRGB / DefaultGray on page Resources (belt-and-suspenders for content streams)
     _pdfaColorSpaceFix(pdfDoc);
@@ -194,8 +196,8 @@ function _addOutputIntent(pdfDoc) {
 
 /* ── XMP ─────────────────────────────────────────────────────────────── */
 
-function _setZUGFeRDXMP(pdfDoc, filename) {
-  const xmpBytes = new TextEncoder().encode(_buildZUGFeRDXMP(filename));
+function _setZUGFeRDXMP(pdfDoc, filename, conformance) {
+  const xmpBytes = new TextEncoder().encode(_buildZUGFeRDXMP(filename, conformance));
   // Type/Subtype are required by PDF/A-3 for the Metadata stream
   const stream = pdfDoc.context.stream(xmpBytes, {
     Type:    PDFLib.PDFName.of('Metadata'),
@@ -216,7 +218,7 @@ function _setZUGFeRDXMP(pdfDoc, filename) {
  * GuidelineID in the embedded XML: urn:cen.eu:en16931:2017
  * (as defined in Mustang Profiles.java for ZUGFeRD 2.4 / Factur-X 1.08)
  */
-function _buildZUGFeRDXMP(filename) {
+function _buildZUGFeRDXMP(filename, conformance = 'EN 16931') {
   const now = new Date().toISOString();
   return `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core">
@@ -246,7 +248,7 @@ function _buildZUGFeRDXMP(filename) {
       <fx:DocumentFileName>${filename}</fx:DocumentFileName>
       <fx:DocumentType>INVOICE</fx:DocumentType>
       <fx:Version>1.0</fx:Version>
-      <fx:ConformanceLevel>EN 16931</fx:ConformanceLevel>
+      <fx:ConformanceLevel>${conformance}</fx:ConformanceLevel>
 
       <!-- PDF/A extension schema: declares the fx: namespace to avoid
            "XMP property not predefined" errors in veraPDF / EU-Rechnung -->

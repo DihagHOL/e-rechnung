@@ -175,6 +175,10 @@ function _parseCII(root) {
     r.bic               = _t(settle, 'SpecifiedTradeSettlementPaymentMeans', 'PayeeSpecifiedCreditorFinancialInstitution', 'BICID');
     r.faelligkeitsdatum = _xmlDate(_t(settle, 'SpecifiedTradePaymentTerms', 'DueDateDateTime', 'DateTimeString'));
     r.kontoinhaber        = _t(settle, 'SpecifiedTradeSettlementPaymentMeans', 'PayeePartyCreditorFinancialAccount', 'AccountName');   // BT-85
+    r.zahlungsart         = _t(settle, 'SpecifiedTradeSettlementPaymentMeans', 'TypeCode');                       // BT-81
+    r.kundeIban           = _t(settle, 'SpecifiedTradeSettlementPaymentMeans', 'PayerPartyDebtorFinancialAccount', 'IBANID');   // BT-91
+    r.mandatsreferenz     = _t(settle, 'SpecifiedTradePaymentTerms', 'DirectDebitMandateID');                   // BT-89
+    r.glaeubigerId        = _t(settle, 'CreditorReferenceID');                                                   // BT-90
     r.zahlungsbedingungen = _t(settle, 'SpecifiedTradePaymentTerms', 'Description')    // BT-20
       .replace(/^#SKONTO#[^\n]*\n?/gm, '').trim();                                          // Skonto-Zeile nur für Maschinen
     r.waehrung            = _t(settle, 'InvoiceCurrencyCode') || 'EUR';                    // BT-5
@@ -215,6 +219,8 @@ function _parseCII(root) {
       einzelpreis:  parseFloat(_t(li, 'SpecifiedLineTradeAgreement', 'NetPriceProductTradePrice', 'ChargeAmount')) || 0,
       mwst:         parseFloat(_t(li, 'SpecifiedLineTradeSettlement', 'ApplicableTradeTax', 'RateApplicablePercent')) || 0,
       gesamt:       parseFloat(_t(li, 'SpecifiedLineTradeSettlement', 'SpecifiedTradeSettlementLineMonetarySummation', 'LineTotalAmount')) || 0,
+      leistungVon:  _xmlDate(_t(li, 'SpecifiedLineTradeSettlement', 'BillingSpecifiedPeriod', 'StartDateTime', 'DateTimeString')),   // BT-134
+      leistungBis:  _xmlDate(_t(li, 'SpecifiedLineTradeSettlement', 'BillingSpecifiedPeriod', 'EndDateTime', 'DateTimeString')),     // BT-135
     });
   }
 
@@ -296,7 +302,14 @@ function _parseUBL(root) {
     r.iban             = _t(pm, 'PayeeFinancialAccount', 'ID');
     r.bic              = _t(pm, 'PayeeFinancialAccount', 'FinancialInstitutionBranch', 'ID');
     r.kontoinhaber     = _t(pm, 'PayeeFinancialAccount', 'Name');   // BT-85
+    r.zahlungsart      = _t(pm, 'PaymentMeansCode');                    // BT-81
+    r.mandatsreferenz  = _t(pm, 'PaymentMandate', 'ID');                // BT-89
+    r.kundeIban        = _t(pm, 'PaymentMandate', 'PayerFinancialAccount', 'ID');   // BT-91
   }
+  // Gläubiger-ID (BT-90): Kennung mit schemeID SEPA beim Verkäufer oder Zahlungsempfänger
+  const sepaId = _all(root, 'PartyIdentification').map(pi => _q(pi, 'ID'))
+    .find(id => id && id.getAttribute('schemeID') === 'SEPA');
+  if (sepaId) r.glaeubigerId = sepaId.textContent.trim();
 
   // Summen
   const lmt = _q(root, 'LegalMonetaryTotal');
@@ -332,6 +345,8 @@ function _parseUBL(root) {
       einzelpreis:  parseFloat(_t(li, 'Price', 'PriceAmount')) || 0,
       mwst:         parseFloat(_t(li, 'Item', 'ClassifiedTaxCategory', 'Percent')) || 0,
       gesamt:       parseFloat(_t(li, 'LineExtensionAmount')) || 0,
+      leistungVon:  _xmlDate(_t(li, 'InvoicePeriod', 'StartDate')),   // BT-134
+      leistungBis:  _xmlDate(_t(li, 'InvoicePeriod', 'EndDate')),     // BT-135
     });
   }
 

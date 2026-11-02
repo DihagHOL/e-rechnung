@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupRequiredFieldToggles();
   setupAnlagen();
   setupKontaktMail();
+  setupZahlungsart();
   document.getElementById('gezahlt').addEventListener('input', updateTotals);
   document.getElementById('waehrung').addEventListener('change', updateTotals);
   document.getElementById('btn-add-row').addEventListener('click', addPositionRow);
@@ -288,6 +289,10 @@ function fillFormFromExtracted(data) {
     'lieferdatum':         data.lieferdatum,
     'faelligkeitsdatum':   data.faelligkeitsdatum,
     'zahlungsreferenz':    data.zahlungsreferenz || data.rechnungsnummer,
+    'zahlungsart':         ['58', '59', '97'].includes(data.zahlungsart) ? data.zahlungsart : '',
+    'mandatsreferenz':     data.mandatsreferenz,
+    'glaeubiger-id':       data.glaeubigerId,
+    'kunde-iban':          data.kundeIban,
     'notiz':               data.notiz,
     'bestellnummer':       data.bestellnummer,
     'lieferscheinnummer':  data.lieferscheinnummer,
@@ -337,6 +342,7 @@ function fillFormFromExtracted(data) {
   }
   renumberRows();
 
+  zahlungsartAnzeigen();
   updateTotals();
   lockSellerMaster();   // #1: Verkäufer-Stammdaten gegen versehentliche/böswillige Änderung sperren
   return count;
@@ -371,6 +377,18 @@ function _umfang(werk, land) {
  * folgt die Mail dem Schema vorname.nachname@dihag-gienanth.com. Eine von Hand
  * geänderte Mail bleibt stehen.
  */
+/** Lastschrift-Felder nur bei Zahlungsart SEPA-Lastschrift zeigen. */
+function zahlungsartAnzeigen() {
+  const felder = document.getElementById('lastschrift-felder');
+  if (felder) felder.hidden = v('zahlungsart') !== '59';
+}
+
+function setupZahlungsart() {
+  const sel = document.getElementById('zahlungsart');
+  if (sel) sel.addEventListener('change', zahlungsartAnzeigen);
+  zahlungsartAnzeigen();
+}
+
 function setupKontaktMail() {
   const kontakt = document.getElementById('verkaeufer-kontakt');
   const mail = document.getElementById('verkaeufer-email');
@@ -729,12 +747,16 @@ function addPositionRow(data = {}) {
   det.innerHTML = `<td></td><td colspan="8"><div class="pos-details-grid">
       <label>Positionsbeschreibung (BT-154)<textarea class="pos-details" rows="3" placeholder="z. B. Zeichnung, Guss-Nr., Arbeitsgang">${escHTML(data.details || '')}</textarea></label>
       <label>Positionshinweis (BT-127)<textarea class="pos-notiz" rows="3" placeholder="z. B. Bestellung vom …, Komm., Lieferschein">${escHTML(data.positionsnotiz || '')}</textarea></label>
-      <label>Bestellposition (BT-132)<input type="text" class="pos-bestellpos" value="${escHTML(data.bestellposition || '')}" placeholder="z. B. 20"></label>
+      <div class="pos-details-spalte">
+        <label>Bestellposition (BT-132)<input type="text" class="pos-bestellpos" value="${escHTML(data.bestellposition || '')}" placeholder="z. B. 20"></label>
+        <label>Leistung am / von (BT-134)<input type="date" class="pos-von" value="${escHTML(data.leistungVon || '')}"></label>
+        <label>Leistung bis (BT-135)<input type="date" class="pos-bis" value="${escHTML(data.leistungBis || '')}"></label>
+      </div>
     </div></td>`;
   tbody.appendChild(det);
   const knopf = tr.querySelector('.pos-details-toggle');
   const knopfText = () => {
-    const voll = ['.pos-details', '.pos-notiz', '.pos-bestellpos'].some(c => det.querySelector(c).value.trim());
+    const voll = ['.pos-details', '.pos-notiz', '.pos-bestellpos', '.pos-von', '.pos-bis'].some(c => det.querySelector(c).value.trim());
     knopf.textContent = (det.hidden ? '▸ ' : '▾ ') + 'Details' + (voll ? ' ✓' : '');
   };
   knopf.addEventListener('click', () => { det.hidden = !det.hidden; knopfText(); });
@@ -776,6 +798,8 @@ function collectPositionen() {
     details: (tr.nextElementSibling && tr.nextElementSibling.querySelector('.pos-details') || { value: '' }).value.trim(),
     positionsnotiz: (tr.nextElementSibling && tr.nextElementSibling.querySelector('.pos-notiz') || { value: '' }).value.trim(),
     bestellposition: (tr.nextElementSibling && tr.nextElementSibling.querySelector('.pos-bestellpos') || { value: '' }).value.trim(),
+    leistungVon: (tr.nextElementSibling && tr.nextElementSibling.querySelector('.pos-von') || { value: '' }).value,   // BT-134
+    leistungBis: (tr.nextElementSibling && tr.nextElementSibling.querySelector('.pos-bis') || { value: '' }).value,   // BT-135
     menge: parseFloat(tr.querySelector('.pos-menge').value) || 0,
     einheit: tr.querySelector('.pos-einheit').value,
     einzelpreis: parseFloat(tr.querySelector('.pos-einzelpreis').value) || 0,
@@ -874,6 +898,10 @@ function collectFormData() {
     lieferdatum:       v('lieferdatum'),
     faelligkeitsdatum: v('faelligkeitsdatum'),
     zahlungsreferenz:  v('zahlungsreferenz'),
+    zahlungsart:       v('zahlungsart'),         // BT-81: 58 Überweisung, 59 Lastschrift, 97 Verrechnung
+    mandatsreferenz:   v('mandatsreferenz'),     // BT-89
+    glaeubigerId:      v('glaeubiger-id'),       // BT-90
+    kundeIban:         v('kunde-iban'),          // BT-91
     notiz:             v('notiz'),
     bestellnummer:     v('bestellnummer'),       // BT-13
     lieferscheinnummer: v('lieferscheinnummer'), // BT-16
@@ -950,6 +978,17 @@ function validateForm(data) {
     errors.push('Nicht steuerbar (O): alle Positionen mit 0 % MwSt.');
   if (data.abrZeitraumStart && data.abrZeitraumEnde && data.abrZeitraumEnde < data.abrZeitraumStart)
     errors.push('Leistungszeitraum: „bis“ liegt vor „von“');
+  data.positionen.forEach((p, i) => {
+    if (p.leistungVon && p.leistungBis && p.leistungBis < p.leistungVon)
+      errors.push(`Position ${p.posnr || i + 1}: Leistung „bis“ liegt vor „von“`);
+  });
+
+  // SEPA-Lastschrift: Konto des Kunden, Mandat und Gläubiger-ID (BR-DE-25, BR-DE-30, BR-DE-31)
+  if (data.zahlungsart === '59') {
+    if (!data.kundeIban)       errors.push('Lastschrift: IBAN des Kunden');
+    if (!data.mandatsreferenz) errors.push('Lastschrift: Mandatsreferenz');
+    if (!data.glaeubigerId)    errors.push('Lastschrift: Gläubiger-ID');
+  }
 
   // Innergemeinschaftliche Lieferung (K): EN-16931-Pflichten BR-IC-2/3/11
   const hasZeroRate = data.positionen.some(p => parseFloat(p.mwst) === 0);
@@ -1361,6 +1400,9 @@ function _preflightChecks(data, totals) {
   if (data.iban && typeof ibanChecksumValid === 'function' && !ibanChecksumValid(data.iban)) {
     hard.push('IBAN ungültig (Prüfziffer stimmt nicht): ' + data.iban);
   }
+  if (data.zahlungsart === '59' && data.kundeIban && typeof ibanChecksumValid === 'function' && !ibanChecksumValid(data.kundeIban)) {
+    hard.push('IBAN des Kunden ungültig (Prüfziffer stimmt nicht): ' + data.kundeIban);
+  }
   if (!Number.isFinite(totals.grossTotal) || totals.grossTotal <= 0) {
     hard.push('Gesamtbetrag nicht plausibel (0 € oder nicht berechenbar)');
   }
@@ -1415,7 +1457,9 @@ function _verifyEmbeddedXml(xml, data, totals) {
   const norm = s => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, '');
   const diffs = [];
   if (data.rechnungsnummer && norm(back.rechnungsnummer) !== norm(data.rechnungsnummer)) diffs.push('Rechnungsnummer');
-  if (data.iban && norm(back.iban) !== norm(data.iban)) diffs.push('IBAN');
+  const ueberweisung = !['59', '97'].includes(data.zahlungsart);
+  if (ueberweisung && data.iban && norm(back.iban) !== norm(data.iban)) diffs.push('IBAN');
+  if (data.zahlungsart === '59' && norm(back.kundeIban) !== norm(data.kundeIban)) diffs.push('IBAN des Kunden');
   if (data.kaeufervat && !hasZeroRateO(data) && norm(back.kaeufervat) !== norm(data.kaeufervat)) diffs.push('USt-IdNr. Empfänger');
   if (totals && Math.abs((back.grossTotal || 0) - (totals.grossTotal || 0)) > 0.01) diffs.push('Gesamtbetrag');
   return diffs;

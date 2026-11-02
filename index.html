@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>E-Rechnung Konverter | DIHAG</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧾</text></svg>">
-  <link rel="stylesheet" href="css/style.css?v=cfe01454ab">
+  <link rel="stylesheet" href="css/style.css?v=82add16281">
   <style>
     /* Risikominimierung: gesperrte Stammdaten + Render-Option */
     input.locked { background: var(--gray-100, #f1f5f9); color: var(--gray-500, #64748b); cursor: not-allowed; }
@@ -412,6 +412,31 @@
               <input type="text" id="zahlungsreferenz" placeholder="Wird automatisch mit Rechnungsnummer befüllt">
             </div>
             <div class="form-group">
+              <label>Zahlungsart (BT-81)</label>
+              <select id="zahlungsart">
+                <option value="58" selected>Überweisung (SEPA)</option>
+                <option value="59">SEPA-Lastschrift</option>
+                <option value="97">Verrechnung</option>
+              </select>
+              <span class="hint">Bei Lastschrift und Verrechnung steht das eigene Konto nicht auf der Rechnung.</span>
+            </div>
+            <div class="form-group full-width" id="lastschrift-felder" hidden>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>IBAN des Kunden (BT-91) <span class="required">*</span></label>
+                  <input type="text" id="kunde-iban" placeholder="DE00 0000 0000 0000 0000 00">
+                </div>
+                <div class="form-group">
+                  <label>Mandatsreferenz (BT-89) <span class="required">*</span></label>
+                  <input type="text" id="mandatsreferenz" placeholder="z. B. M-100123">
+                </div>
+                <div class="form-group">
+                  <label>Gläubiger-ID (BT-90) <span class="required">*</span></label>
+                  <input type="text" id="glaeubiger-id" placeholder="DE98ZZZ09999999999">
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
               <label>Bestellnummer des Kunden (BT-13)</label>
               <input type="text" id="bestellnummer" placeholder="z. B. 4500012345">
             </div>
@@ -629,20 +654,20 @@
 <!-- App Scripts -->
 <script src="js/auth.js?v=f9b68426ba"></script>
 <script src="js/access.js?v=a73def34c6"></script>
-<script src="js/xrechnung.js?v=422e1241cd"></script>
-<script src="js/zugferd.js?v=9542bd13dc"></script>
+<script src="js/xrechnung.js?v=37855b85da"></script>
+<script src="js/zugferd.js?v=d223abffd3"></script>
 <script src="js/history.js?v=872bb9b271"></script>
 <script src="js/parser.js?v=dd6ac95ade"></script>
 <script src="js/ocr.js?v=ca1f1ec809"></script>
-<script src="js/sharepoint.js?v=ff0db74c35"></script>
+<script src="js/sharepoint.js?v=c4d007f75f"></script>
 <script src="js/kundenmail.js?v=d006e7d8d6"></script>
 <script src="js/validate.js?v=18587ebe9f"></script>
-<script src="js/xmlinvoice.js?v=cbbb2a525b"></script>
+<script src="js/xmlinvoice.js?v=25ed4a2e93"></script>
 <script src="js/vendor/fontkit.umd.min.js?v=d8df561b9f"></script>
 <script src="js/vendor/font-embed.js?v=5b0f5e05c5"></script>
-<script src="js/xml2pdf.js?v=95569b4376"></script>
-<script src="js/app.js?v=19e4da708f"></script>
-<script src="js/vorlagen.js?v=94db2ac81d"></script>
+<script src="js/xml2pdf.js?v=9550d4f0d5"></script>
+<script src="js/app.js?v=08308d0803"></script>
+<script src="js/vorlagen.js?v=dee6c1c879"></script>
 <script src="js/vat.js?v=36ca39013b"></script>
 <script>authInit();</script>
 <script>

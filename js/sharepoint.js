@@ -381,6 +381,28 @@ async function spRechnungsnummerVergeben(werk, nummer) {
   return ((await resp.json()).value || []).map(it => ({ name: (it.fields || {}).FileLeafRef || '', url: it.webUrl || '' }));
 }
 
+/**
+ * Alle Rechnungsnummern (Titel) in AR_<Werk>, für den Nummernvorschlag im Reiter „Manuelle Rechnung“.
+ * @returns {Promise<string[]|null>} null, wenn die Bibliothek nicht lesbar ist
+ */
+async function spRechnungsnummernAR(werk) {
+  const token = await acquireToken(SP.scopes);
+  if (!token) return null;
+  try { await _monInit(token); } catch (e) { return null; }
+  const listId = _mon.lists[`AR_${String(werk || '').toUpperCase()}`];
+  if (!listId) return null;
+  const nummern = [];
+  let url = `${SP.graphBase}/sites/${_mon.siteId}/lists/${listId}/items?$expand=fields($select=Title)&$top=999`;
+  for (let seite = 0; url && seite < 20; seite++) {
+    const resp = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!resp.ok) return null;
+    const j = await resp.json();
+    for (const it of j.value || []) if (it.fields && it.fields.Title) nummern.push(it.fields.Title);
+    url = j['@odata.nextLink'] || '';
+  }
+  return nummern;
+}
+
 async function _monCols(token, listId, key) {
   if (_mon.cols[key]) return _mon.cols[key];
   const set = new Set(['Title']);
