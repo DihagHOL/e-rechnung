@@ -140,7 +140,7 @@ function _showAuthError(err) {
         <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
         <h2 style="color:#1f2937;margin-bottom:8px;">Anmeldefehler</h2>
         <p id="auth-fehlertext" style="color:#6b7280;font-size:14px;margin-bottom:20px;"></p>
-        <button onclick="location.reload()"
+        <button id="auth-neu-laden"
           style="padding:10px 24px;background:#1a56a0;color:#fff;border:none;
                  border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">
           Erneut versuchen
@@ -149,4 +149,16 @@ function _showAuthError(err) {
     </div>`;
   // Fehlertext nur als Text einsetzen
   document.getElementById('auth-fehlertext').textContent = (err && err.message) || String(err);
+  document.getElementById('auth-neu-laden').addEventListener('click', () => location.reload());
 }
+
+// Klicks, die früher als onclick im HTML standen (die Content-Security-Policy erlaubt keine
+// Inline-Handler): Abmelden auf allen Seiten, Hinweisbanner schließen (data-schliessen="<id>").
+document.addEventListener('click', e => {
+  if (e.target.closest('.btn-auth-logout')) { authLogout(); return; }
+  const schliessen = e.target.closest('[data-schliessen]');
+  if (schliessen) {
+    const ziel = document.getElementById(schliessen.dataset.schliessen);
+    if (ziel) ziel.style.display = 'none';
+  }
+});

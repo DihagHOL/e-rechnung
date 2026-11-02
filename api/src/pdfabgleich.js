@@ -9,7 +9,7 @@
  * die Belegidentitaet veraendern — nicht bei Rundungs-/Darstellungsdifferenzen
  * (vgl. UStAE 14c.1 Abs. 4a).
  *
- * Wir extrahieren den PDF-Text (src/pdftext.js: pdf.js 3, pdf-parse als Rueckfall),
+ * Wir extrahieren den PDF-Text (src/pdftext.js: pdf.js 6),
  * lesen die dort gedruckten Betraege
  * und vergleichen sie mit den XML-Werten (Steuerbetrag, Bruttobetrag) mit einer
  * Rundungstoleranz. Konservativ: ohne verlaesslich lesbaren Text/Betrag -> Status

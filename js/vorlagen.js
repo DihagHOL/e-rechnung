@@ -548,7 +548,7 @@ async function _vlVorschauZeichnen() {
     const bytes = await buildInvoicePdf(_pdfDaten(data, totals));
     const seite = currentPage;
     const zoom = zoomFactor;
-    pdfDocument = await pdfjsLib.getDocument({ data: bytes, isEvalSupported: false }).promise;
+    pdfDocument = await pdfjsLib.getDocument({ data: bytes }).promise;
     totalPages = pdfDocument.numPages;
     currentPage = Math.min(seite || 1, totalPages);
     zoomFactor = zoom || 1;

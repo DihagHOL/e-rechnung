@@ -19,9 +19,6 @@ const _SELLER_MASTER_IDS = [
   'verkaeufer-handelsregister', 'verkaeufer-registernr', 'verkaeufer-gf',
 ];
 
-/* ── PDF.js setup ── */
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'js/vendor/pdf.worker.min.js';
-
 /* ── Init ── */
 document.addEventListener('DOMContentLoaded', () => {
   setupUploadZone();
@@ -562,8 +559,7 @@ function formatFileSize(bytes) {
 /* ── PDF Viewer ── */
 async function renderPDF(pdfBytes) {
   try {
-    // isEvalSupported: false schließt CVE-2024-4367 (Code aus präparierten Schriften)
-    const loadingTask = pdfjsLib.getDocument({ data: pdfBytes, isEvalSupported: false });
+    const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
     pdfDocument = await loadingTask.promise;
     totalPages = pdfDocument.numPages;
     currentPage = 1;

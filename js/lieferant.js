@@ -284,8 +284,7 @@
   async function textAusPdf(daten, optionen) {
     const lib = global.pdfjsLib;
     if (!lib) throw new Error('pdf.js nicht geladen');
-    // isEvalSupported immer aus (CVE-2024-4367), auch wenn optionen etwas anderes sagen
-    const doc = await lib.getDocument(Object.assign({ data: new Uint8Array(daten) }, optionen || {}, { isEvalSupported: false })).promise;
+    const doc = await lib.getDocument(Object.assign({ data: new Uint8Array(daten) }, optionen || {})).promise;
     const zeilen = [];
     for (let p = 1; p <= Math.min(doc.numPages, 4); p++) {
       const inhalt = await (await doc.getPage(p)).getTextContent();

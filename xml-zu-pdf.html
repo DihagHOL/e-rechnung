@@ -2,6 +2,8 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
+  <!-- Nur eigene Skripte, keine Inline-Skripte und -Handler, Verbindungen nur zu Microsoft-Anmeldung, Graph, SharePoint und der eigenen Function -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://login.microsoftonline.com https://graph.microsoft.com https://*.sharepoint.com https://*.azurewebsites.net; frame-src https://login.microsoftonline.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>XML zu PDF | E-Rechnung Konverter | DIHAG</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧾</text></svg>">
@@ -26,7 +28,7 @@
       <span class="auth-user-name" id="auth-name"></span>
       <span class="auth-user-email" id="auth-email"></span>
     </div>
-    <button class="btn-auth-logout" onclick="authLogout()">Abmelden</button>
+    <button class="btn-auth-logout">Abmelden</button>
   </div>
 </header>
 
@@ -130,11 +132,11 @@
 
 <!-- Libraries (lokal, kein CDN) -->
 <script src="js/vendor/msal-browser.min.js?v=c933092555"></script>
-<script src="js/vendor/pdf.min.js?v=5b5799e6f8"></script>
+<script type="module" src="js/pdfjs-laden.mjs?v=47a74e334d"></script>
 <script src="js/vendor/pdf-lib.min.js?v=0f9a5cad07"></script>
 
 <!-- App Scripts -->
-<script src="js/auth.js?v=5f1fd70b6b"></script>
+<script src="js/auth.js?v=2a257e1023"></script>
 <script src="js/access.js?v=a0ad989f17"></script>
 <script src="js/xmlinvoice.js?v=25ed4a2e93"></script>
 <script src="js/vendor/fontkit.umd.min.js?v=d8df561b9f"></script>
@@ -142,179 +144,8 @@
 <script src="js/xml2pdf.js?v=9550d4f0d5"></script>
 <script src="js/zugferd.js?v=d223abffd3"></script>
 
-<script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'js/vendor/pdf.worker.min.js';
+<script src="js/seite-xml-zu-pdf.js?v=99bf783c59"></script>
 
-/* ── Zustand ── */
-let _pdfBytes = null;
-let _pdfDoc   = null;
-let _pageNum  = 1;
-let _fileBase = 'rechnung';
-
-/* ── Upload-Zone ── */
-document.addEventListener('DOMContentLoaded', () => {
-  const zone  = document.getElementById('upload-zone');
-  const input = document.getElementById('xml-input');
-
-  zone.addEventListener('click', e => {
-    if (e.target.id !== 'btn-change-file') input.click();
-  });
-  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('dragover'); });
-  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-  zone.addEventListener('drop', e => {
-    e.preventDefault();
-    zone.classList.remove('dragover');
-    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-  });
-  input.addEventListener('change', () => { if (input.files[0]) handleFile(input.files[0]); });
-
-  document.getElementById('btn-change-file').addEventListener('click', e => {
-    e.stopPropagation();
-    input.click();
-  });
-
-  document.getElementById('btn-download-pdf').addEventListener('click', downloadPdf);
-  document.getElementById('btn-prev-page').addEventListener('click', () => gotoPage(_pageNum - 1));
-  document.getElementById('btn-next-page').addEventListener('click', () => gotoPage(_pageNum + 1));
-});
-
-/* ── Datei verarbeiten ── */
-async function handleFile(file) {
-  if (!/\.xml$/i.test(file.name)) {
-    showToast('Bitte eine XML-Datei auswählen.', 'error');
-    return;
-  }
-  _fileBase = file.name.replace(/\.xml$/i, '');
-
-  showLoading(true, 'XML wird gelesen…');
-  try {
-    const xmlText = await file.text();
-    const data = parseInvoiceXML(xmlText);
-
-    showLoading(true, 'PDF wird erzeugt…');
-    _pdfBytes = await buildInvoicePdf(data);
-    // PDF/A-3b finalisieren (OutputIntent + XMP + Trailer-ID), Schrift ist eingebettet
-    if (typeof makeReadablePdfA3 === 'function') {
-      try { _pdfBytes = await makeReadablePdfA3(_pdfBytes); } catch (e) { console.warn('PDF/A übersprungen:', e); }
-    }
-
-    // Datei-Info anzeigen
-    document.getElementById('upload-zone').classList.add('has-file');
-    document.getElementById('file-name-display').textContent = file.name;
-    document.getElementById('file-size-display').textContent =
-      (file.size / 1024).toFixed(1) + ' KB · ' + data.syntax + '-Syntax';
-
-    renderSummary(data);
-    await renderPreview();
-
-    document.getElementById('result-area').style.display = 'block';
-    showLoading(false);
-    showToast('E-Rechnung erfolgreich konvertiert.', 'success');
-  } catch (err) {
-    showLoading(false);
-    console.error(err);
-    showToast('Konvertierung fehlgeschlagen: ' + err.message, 'error');
-  }
-}
-
-/* ── Zusammenfassung ── */
-function renderSummary(d) {
-  const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const eur = n => (n || 0).toLocaleString('de-DE', { minimumFractionDigits: 2 }) + ' €';
-  const dt  = s => s ? s.split('-').reverse().join('.') : '–';
-  const rows = [
-    ['Rechnungsnummer', esc(d.rechnungsnummer) || '–'],
-    ['Rechnungsdatum',  dt(d.rechnungsdatum)],
-    ['Aussteller',      esc(d.verkaeufer) || '–'],
-    ['Empfänger',       esc(d.kaeufer) || '–'],
-    ['Positionen',      d.positionen.length],
-    ['Nettobetrag',     eur(d.netTotal)],
-    ['MwSt.',           eur(d.vatTotal)],
-    ['Gesamtbetrag',    `<strong>${eur(d.grossTotal)}</strong>`],
-    ['Fällig am',       dt(d.faelligkeitsdatum)],
-    ['Syntax',          d.syntax],
-  ];
-  document.getElementById('xml-summary').innerHTML =
-    rows.map(([k, v]) => `<tr><td class="xs-label">${k}</td><td class="xs-value">${v}</td></tr>`).join('');
-}
-
-/* ── PDF-Vorschau (pdf.js) ── */
-async function renderPreview() {
-  _pdfDoc  = await pdfjsLib.getDocument({ data: _pdfBytes.slice(0) }).promise;
-  _pageNum = 1;
-  await renderPage();
-}
-
-async function renderPage() {
-  const page    = await _pdfDoc.getPage(_pageNum);
-  const wrapper = document.getElementById('pdf-canvas-wrapper');
-  const canvas  = document.getElementById('pdf-canvas');
-  const ctx     = canvas.getContext('2d');
-
-  const dpr = Math.min(window.devicePixelRatio || 1, 3);
-  const raw = page.getViewport({ scale: 1 });
-  const cssScale = (wrapper.clientWidth - 32) / raw.width;
-  const vp  = page.getViewport({ scale: cssScale * dpr });
-
-  canvas.width  = vp.width;
-  canvas.height = vp.height;
-  canvas.style.width  = (vp.width  / dpr) + 'px';
-  canvas.style.height = (vp.height / dpr) + 'px';
-  await page.render({ canvasContext: ctx, viewport: vp }).promise;
-
-  document.getElementById('page-info').textContent = `Seite ${_pageNum} / ${_pdfDoc.numPages}`;
-  document.getElementById('btn-prev-page').disabled = _pageNum <= 1;
-  document.getElementById('btn-next-page').disabled = _pageNum >= _pdfDoc.numPages;
-}
-
-async function gotoPage(n) {
-  if (!_pdfDoc || n < 1 || n > _pdfDoc.numPages) return;
-  _pageNum = n;
-  await renderPage();
-}
-
-/* ── Download ── */
-function downloadPdf() {
-  if (!_pdfBytes) return;
-  const blob = new Blob([_pdfBytes], { type: 'application/pdf' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = _fileBase + '.pdf';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('PDF heruntergeladen.', 'success');
-}
-
-/* ── UI-Helfer ── */
-function showLoading(visible, msg = 'Verarbeitung…') {
-  const overlay = document.getElementById('loading-overlay');
-  const t = document.getElementById('loading-text');
-  if (t) t.textContent = msg;
-  overlay.style.display = visible ? 'flex' : 'none';
-}
-
-function showToast(message, type = 'info') {
-  const container = document.getElementById('toast-container');
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
-  // Meldungen enthalten oft Fehlertexte von außen: nur als Text einsetzen
-  const icon = document.createElement('span'); icon.className = 'toast-icon'; icon.textContent = icons[type] || 'ℹ️';
-  const text = document.createElement('span'); text.textContent = message;
-  toast.append(icon, text);
-  container.appendChild(toast);
-  setTimeout(() => {
-    toast.classList.add('fade-out');
-    toast.addEventListener('animationend', () => toast.remove());
-  }, 4000);
-}
-</script>
-
-<script>onAuthReady(() => initAdminNav());</script>
-<script>authInit();</script>
 
 </body>
 </html>

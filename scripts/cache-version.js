@@ -19,7 +19,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const WURZEL = path.join(__dirname, '..');
-const EINBINDUNG = /(src|href)="((?:js|css)\/[^"?#]+\.(?:js|css))(?:\?v=[0-9a-f]*)?"/g;
+const EINBINDUNG = /(src|href)="((?:js|css)\/[^"?#]+\.(?:js|mjs|css))(?:\?v=[0-9a-f]*)?"/g;
 
 function pruefsumme(datei) {
   const inhalt = fs.readFileSync(datei, 'utf8').replace(/\r\n/g, '\n');
