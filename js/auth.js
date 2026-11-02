@@ -6,7 +6,9 @@
 const _AUTH = {
   clientId:    '50389599-4d5d-4267-8fef-38ff29080669',
   tenantId:    'fdb70646-023a-403b-a4b9-1f474a935123',
-  redirectUri: 'https://dfedorov12.github.io/e-rechnung/',
+  // Eigene Domain, nicht github.io: Das Repo liegt seit 02.11.2026 bei DihagHOL, die alte
+  // github.io-Adresse gibt 404. Muss in Entra (App-Registrierung, SPA) eingetragen sein.
+  redirectUri: 'https://e-rechnung.dihag-extern.com/',
 };
 
 let _msal = null;

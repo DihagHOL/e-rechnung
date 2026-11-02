@@ -14,8 +14,8 @@
 | Zuletzt geändert | 22.05.2026 |
 | Autor | Denis Fedorov, DIHAG |
 | Klassifizierung | Intern |
-| Repository | https://github.com/dfedorov12/e-rechnung |
-| Produktiv-URL | https://dfedorov12.github.io/e-rechnung/ |
+| Repository | https://github.com/DihagHOL/e-rechnung |
+| Produktiv-URL | https://e-rechnung.dihag-extern.com/ |
 
 ### Revisionshistorie
 
@@ -431,7 +431,7 @@ Entwicklung (lokal)
   GitHub Pages Build (automatisch, ~2 Minuten)
        │
        ▼
-  https://dfedorov12.github.io/e-rechnung/
+  https://e-rechnung.dihag-extern.com/
 ```
 
 Es sind keine Datenbankmigrationen, Rollouts oder Serverneustarts erforderlich. Deployments sind jederzeit möglich.
