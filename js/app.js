@@ -703,7 +703,7 @@ function addPositionRow(data = {}) {
     <td style="width:80px;"><input type="number" class="pos-menge" placeholder="1" min="0" step="0.001" value="${data.menge || 1}"></td>
     <td style="width:90px;">
       <select class="pos-einheit">
-        ${['Stk','h','Tag','Monat','m','m²','m³','kg','l','km','Pausch.'].map(u =>
+        ${['Stk','h','Tag','Monat','m','m²','m³','kg','l','km','kWh','MWh','Pausch.'].map(u =>
           `<option value="${u}" ${u === (data.einheit || 'Stk') ? 'selected' : ''}>${u}</option>`
         ).join('')}
       </select>
@@ -881,6 +881,9 @@ function collectFormData() {
     lieferantennummer: v('lieferantennummer'),   // BT-29
     vorrechnungsnummer: v('vorrechnungsnummer'), // BT-25
     vorrechnungsdatum: v('vorrechnungsdatum'),   // BT-26
+    abrZeitraumStart:  v('abr-start'),           // BG-14 Leistungszeitraum (BT-73)
+    abrZeitraumEnde:   v('abr-ende'),            // BT-74
+    vertragsnummer:    v('vertragsnummer'),      // BT-12
     steuerbetrag:      v('steuerbetrag-original'),   // MwSt laut Original (BT-110)
     gezahlt:           parseFloat(v('gezahlt')) || 0,  // BT-113
     waehrung:          v('waehrung') || 'EUR',         // BT-5
@@ -893,6 +896,11 @@ function collectFormData() {
     // Positionen
     positionen:        collectPositionen(),
   };
+}
+
+/** Kategorie O mit mindestens einer 0-%-Position: USt-IdNr. bleiben dann aus dem XML (BR-O-02). */
+function hasZeroRateO(data) {
+  return data.steuerkategorie === 'O' && (data.positionen || []).some(p => !(parseFloat(p.mwst) > 0));
 }
 
 function v(id) {
@@ -934,6 +942,12 @@ function validateForm(data) {
   if (data.positionen.length === 0) errors.push('Mindestens eine Position');
   if (data.positionen.some(p => !p.beschreibung)) errors.push('Beschreibung für alle Positionen');
 
+  // Nicht steuerbar (O) schließt Positionen mit Umsatzsteuer aus (BR-O-11 bis BR-O-14)
+  if (hasZeroRateO(data) && data.positionen.some(p => parseFloat(p.mwst) > 0))
+    errors.push('Nicht steuerbar (O): alle Positionen mit 0 % MwSt.');
+  if (data.abrZeitraumStart && data.abrZeitraumEnde && data.abrZeitraumEnde < data.abrZeitraumStart)
+    errors.push('Leistungszeitraum: „bis“ liegt vor „von“');
+
   // Innergemeinschaftliche Lieferung (K): EN-16931-Pflichten BR-IC-2/3/11
   const hasZeroRate = data.positionen.some(p => parseFloat(p.mwst) === 0);
   if (hasZeroRate && data.steuerkategorie === 'K') {
@@ -957,6 +971,8 @@ async function exportInvoice(format) {
   }
 
   if (!_ausgangRueckfragen(data)) return;
+  // Manuelle Rechnung: Rechnungsnummer schon im Monitoring vergeben? (js/vorlagen.js)
+  if (typeof vorlagenVorExport === 'function' && !(await vorlagenVorExport(data))) return;
 
   // (Punkt 7 der UStAE/GoBD-Einordnung: Auslandskreditor ohne Leitweg als XRechnung
   //  ist zulässig — konkludente Zustimmung, keine Rückfrage nötig. Daher KEIN
@@ -1059,6 +1075,10 @@ async function _imMonitoringAblegen(data, totals, xml, pdfBytes, format, ust) {
   const safeNr = sanitizeFilename(data.rechnungsnummer);
   const fassung = format + '|' + xml;
   if (fassung === _zuletztAbgelegt) return true;
+  // Manuelle Rechnung: Nummernkreis fortschreiben (js/vorlagen.js), Fehler nur melden
+  if (typeof vorlagenNummerVerbraucht === 'function') {
+    vorlagenNummerVerbraucht(data).catch(e => console.warn('Nummernkreis nicht gespeichert:', e));
+  }
   // Für reine XRechnung zusätzlich ein lesbares PDF rendern → wird im Monitoring
   // als "_lesbar.pdf" mit abgelegt und verlinkt. Bei ZUGFeRD ist das PDF selbst
   // bereits lesbar (kein zusätzliches nötig).
@@ -1142,6 +1162,7 @@ async function createInvoiceMail() {
   // #2/#3/#4: gleiche Prüfungen wie beim Export
   const totals = calcTotals(data.positionen, data.steuerbetrag);
   if (!_preflightChecks(data, totals)) return;
+  if (typeof vorlagenVorExport === 'function' && !(await vorlagenVorExport(data))) return;
 
   showLoading(true, useZugferd ? 'ZUGFeRD wird erstellt …' : 'XRechnung wird erstellt …');
 
@@ -1392,7 +1413,7 @@ function _verifyEmbeddedXml(xml, data, totals) {
   const diffs = [];
   if (data.rechnungsnummer && norm(back.rechnungsnummer) !== norm(data.rechnungsnummer)) diffs.push('Rechnungsnummer');
   if (data.iban && norm(back.iban) !== norm(data.iban)) diffs.push('IBAN');
-  if (data.kaeufervat && norm(back.kaeufervat) !== norm(data.kaeufervat)) diffs.push('USt-IdNr. Empfänger');
+  if (data.kaeufervat && !hasZeroRateO(data) && norm(back.kaeufervat) !== norm(data.kaeufervat)) diffs.push('USt-IdNr. Empfänger');
   if (totals && Math.abs((back.grossTotal || 0) - (totals.grossTotal || 0)) > 0.01) diffs.push('Gesamtbetrag');
   return diffs;
 }
@@ -1407,15 +1428,7 @@ async function _buildZugferdPdf(data, totals, xml, ust) {
   let basePdf;
   if (renderFromData) {
     if (typeof buildInvoicePdf !== 'function') throw new Error('PDF-Renderer nicht geladen (xml2pdf.js).');
-    const pdfData = {
-      ...data,
-      netTotal: totals.netTotal, vatTotal: totals.vatTotal, grossTotal: totals.grossTotal,
-      positionen: (data.positionen || []).map(p => ({
-        ...p,
-        gesamt: (parseFloat(p.menge) || 0) * (parseFloat(p.einzelpreis) || 0) * (1 - (parseFloat(p.rabatt) || 0) / 100),
-      })),
-    };
-    basePdf = await buildInvoicePdf(pdfData);
+    basePdf = await buildInvoicePdf(_pdfDaten(data, totals));
   } else {
     if (!uploadedPdfBytes) throw new Error('NO_PDF');
     basePdf = uploadedPdfBytes;
@@ -1437,21 +1450,27 @@ async function _buildZugferdPdf(data, totals, xml, ust) {
   return await embedXMLIntoPDF(basePdf, xml, 'zugferd', extras);
 }
 
+/** Daten für den PDF-Renderer (js/xml2pdf.js): Summen und Zeilenbeträge dazu. */
+function _pdfDaten(data, totals) {
+  return {
+    ...data,
+    netTotal: totals.netTotal, vatTotal: totals.vatTotal, grossTotal: totals.grossTotal,
+    // Manuelle Rechnung (js/vorlagen.js): eigene Fußzeile statt „Konvertiert aus …“
+    fusszeile: (typeof vorlagenFusszeile === 'function' && vorlagenFusszeile()) || data.fusszeile || '',
+    positionen: (data.positionen || []).map(p => ({
+      ...p,
+      gesamt: (parseFloat(p.menge) || 0) * (parseFloat(p.einzelpreis) || 0) * (1 - (parseFloat(p.rabatt) || 0) / 100),
+    })),
+  };
+}
+
 /**
  * Lesbares PDF/A aus den Rechnungsdaten rendern (ohne eingebettetes XML) –
  * für die XRechnung-Ablage im Monitoring, damit dort auch eine PDF verlinkt ist.
  */
 async function _renderReadablePdf(data, totals) {
   if (typeof buildInvoicePdf !== 'function') return null;
-  const pdfData = {
-    ...data,
-    netTotal: totals.netTotal, vatTotal: totals.vatTotal, grossTotal: totals.grossTotal,
-    positionen: (data.positionen || []).map(p => ({
-      ...p,
-      gesamt: (parseFloat(p.menge) || 0) * (parseFloat(p.einzelpreis) || 0) * (1 - (parseFloat(p.rabatt) || 0) / 100),
-    })),
-  };
-  let pdf = await buildInvoicePdf(pdfData);
+  let pdf = await buildInvoicePdf(_pdfDaten(data, totals));
   if (typeof makeReadablePdfA3 === 'function') {
     try { pdf = await makeReadablePdfA3(pdf); } catch (e) { console.warn('PDF/A-Finalisierung übersprungen:', e.message); }
   }

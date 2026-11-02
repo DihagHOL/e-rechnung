@@ -48,6 +48,16 @@ const WGC = {
   handelsregister: 'Amtsgericht Dresden', registernr: 'HRB 312', geschaeftsfuehrung: 'Viktor Babushchak',
   gesellschaft: 'WGC',
 };
+// Musterdaten einer Holding (keine echten Stammdaten, das Repo ist öffentlich)
+const HOL = {
+  verkaeufer: 'Muster Holding GmbH', verkaeufstrasse: 'Musterallee 1',
+  verkaeufplz: '40489', verkaeufstadt: 'Duesseldorf', verkaeufland: 'DE',
+  verkaeufervat: 'DE111111125', verkaeufkontakt: 'Erika Mustermann',
+  verkaeuftel: '+49 211 000 0', verkaeuferemail: 'buchhaltung@muster-holding.de',
+  iban: 'DE02120300000000202051', bic: 'BYLADEM1001',
+  handelsregister: 'Amtsgericht Duesseldorf', registernr: 'HRB 99999', geschaeftsfuehrung: 'Erika Mustermann',
+  gesellschaft: 'HOL',
+};
 const SHB = {
   verkaeufer: 'Stahl- und Hartgusswerk Boesdorf GmbH', verkaeufstrasse: 'Werkstrasse 1',
   verkaeufplz: '04720', verkaeufstadt: 'Boesdorf', verkaeufland: 'DE',
@@ -231,6 +241,43 @@ const SAMPLES = [
       notiz: 'Kaufmaennische Gutschrift (Reklamation).', steuerkategorie: 'S', befreiungsgrund: '',
       positionen: [
         { posnr: '1', beschreibung: 'Gutschrift Reklamation Walze', menge: 1, einheit: 'Stk', einzelpreis: 400, rabatt: 0, mwst: 19 },
+      ],
+    },
+  },
+  {
+    // Manuelle Rechnung aus Vorlage: Umlage in der Organschaft, nicht steuerbar (O),
+    // Leistungszeitraum (BG-14) und Vertragsbezug (BT-12)
+    name: 'hol_innenumsatz_O',
+    data: {
+      ...HOL,
+      kaeufer: 'Muster Tochter GmbH', kaeuferstrasse: 'Werkweg 3',
+      kaeuferplz: '12345', kaeuferstadt: 'Musterstadt', kaeuferland: 'DE',
+      kaeufermail: 'rechnung@muster-tochter.de', kaeufervat: 'DE999999999',
+      rechnungsnummer: '113/2026', rechnungsdatum: '2026-10-02',
+      abrZeitraumStart: '2026-10-01', abrZeitraumEnde: '2026-10-31',
+      faelligkeitsdatum: '2026-10-02', vertragsnummer: 'Umlagevereinbarung 2026',
+      notiz: 'Managementumlage fuer Oktober 2026.\nZahlungsbedingung: Zahlbar sofort nach Erhalt',
+      steuerkategorie: 'O', befreiungsgrund: 'Nicht steuerbarer Innenumsatz (umsatzsteuerliche Organschaft)',
+      positionen: [
+        { posnr: '1', beschreibung: 'Managementumlage Oktober 2026', menge: 1, einheit: 'Monat', einzelpreis: 75000, rabatt: 0, mwst: 0 },
+      ],
+    },
+  },
+  {
+    // Abschlag nach Menge (MWh) mit 19 %, Leistungszeitraum und Vertragsbezug
+    name: 'hol_abschlag_19_mwh',
+    data: {
+      ...HOL,
+      kaeufer: 'Muster Energie GmbH', kaeuferzusatz: 'Gesellschaft fuer Energiehandel',
+      kaeuferstrasse: 'Hafenstrasse 8', kaeuferplz: '20457', kaeuferstadt: 'Hamburg', kaeuferland: 'DE',
+      kaeufermail: 'rechnung@muster-energie.de', kaeufervat: 'DE123456789',
+      rechnungsnummer: '120/2026', rechnungsdatum: '2026-10-29',
+      abrZeitraumStart: '2026-10-01', abrZeitraumEnde: '2026-10-31',
+      vertragsnummer: 'Garantievereinbarung vom 01.01.2025',
+      notiz: 'Abschlag gemaess Garantievereinbarung.\nZahlungsbedingung: Zahlbar sofort nach Erhalt',
+      steuerkategorie: 'S', befreiungsgrund: '',
+      positionen: [
+        { posnr: '1', beschreibung: 'Verguetung fuer Garantieleistung Oktober 2026', menge: 14000, einheit: 'MWh', einzelpreis: 20, rabatt: 0, mwst: 19 },
       ],
     },
   },

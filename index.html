@@ -16,6 +16,21 @@
                            color: #fff; line-height: 1.35; }
     #opt-render-pdf-wrap strong { color: #fff; }
     #opt-render-pdf-wrap input { margin-top: 2px; }
+    /* Reiter „Manuelle Rechnung“ (js/vorlagen.js): kein Upload, PDF immer aus den Daten */
+    body.modus-manuell #upload-zone, body.modus-manuell #autofill-banner,
+    body.modus-manuell #opt-render-pdf-wrap { display: none !important; }
+    .vl-knoepfe { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .vl-knopf { font-size: 12.5px; padding: 7px 14px; border: 1px solid var(--gray-300, #cbd5e1); border-radius: 6px;
+                background: #fff; color: var(--gray-700, #334155); cursor: pointer; }
+    .vl-knopf:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .vl-knopf:disabled { opacity: .5; cursor: not-allowed; }
+    .vl-knopf.vl-haupt { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .vl-knopf.vl-haupt:hover { background: var(--primary-dark); color: #fff; }
+    #btn-vorschau { padding: 4px 10px; font-size: 11.5px; }
+    body.modus-manuell .pdf-viewer-panel .panel-header { flex-wrap: wrap; gap: 8px; }
+    .vl-status { margin-top: 10px; font-size: 12px; color: var(--gray-500, #64748b); line-height: 1.4; }
+    .vl-status.vl-ok { color: #15803d; }
+    .vl-status.vl-fehler { color: #b42318; }
   </style>
 </head>
 <body class="auth-guard">
@@ -24,6 +39,7 @@
   <div class="site-logo">DIHAG <span>E-Rechnung</span></div>
   <nav class="site-nav">
     <a href="index.html" class="active">Konverter</a>
+    <a href="index.html?modus=manuell" id="nav-manuell">Manuelle Rechnung</a>
     <a href="prozess.html">Prozess</a>
     <a href="xml-zu-pdf.html">XML → PDF</a>
     <a href="mc-converter.html">MC-Converter</a>
@@ -100,6 +116,7 @@
             <button id="btn-zoom-in"  disabled title="Vergrößern (Strg++)">+</button>
             <button id="btn-zoom-fit" disabled title="Breite anpassen" class="btn-zoom-fit">⊞</button>
           </div>
+          <button type="button" id="btn-vorschau" class="vl-knopf" hidden title="Vorschau aus den Formulardaten neu erzeugen">↻ Vorschau</button>
           <div class="pdf-nav">
             <button id="btn-prev-page" disabled title="Vorherige Seite">‹</button>
             <span id="page-info">–</span>
@@ -118,6 +135,37 @@
 
     <!-- Formular -->
     <div class="form-panel">
+
+      <!-- Vorlage (nur Reiter „Manuelle Rechnung“, js/vorlagen.js) -->
+      <div class="card" id="vorlagen-panel" hidden>
+        <div class="card-header">
+          <span class="card-icon">🗂</span>
+          <h3>Vorlage</h3>
+        </div>
+        <div class="card-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="vl-werk">Werk</label>
+              <select id="vl-werk"></select>
+            </div>
+            <div class="form-group">
+              <label for="vl-monat">Leistungsmonat</label>
+              <input type="month" id="vl-monat">
+            </div>
+            <div class="form-group full-width">
+              <label for="vl-vorlage">Vorlage</label>
+              <select id="vl-vorlage"></select>
+              <span class="hint">„Übernehmen“ füllt das Formular. Danach lässt sich jede Angabe ändern, die Vorlage selbst bleibt, bis Sie sie neu speichern. {monat} in Texten wird zum Leistungsmonat.</span>
+            </div>
+          </div>
+          <div class="vl-knoepfe">
+            <button type="button" class="vl-knopf vl-haupt" id="vl-uebernehmen">Übernehmen</button>
+            <button type="button" class="vl-knopf" id="vl-speichern">Als Vorlage speichern</button>
+            <button type="button" class="vl-knopf" id="vl-loeschen" disabled>Vorlage löschen</button>
+          </div>
+          <p class="vl-status" id="vl-status" role="status"></p>
+        </div>
+      </div>
 
       <!-- Rechnungssteller -->
       <div class="card">
@@ -264,7 +312,7 @@
                 #vat-check-result.vat-bad { border-color: #dc2626; background: #fef2f2; }
                 #vat-check-result.vat-neutral { border-color: var(--lichtblau, #99B7CD); background: #f5f9fc; }
                 #vat-check-result.vat-err { border-color: var(--orange, #F08300); background: #fff7ed; }
-                #vat-check-result .vat-head { font-weight: 700; margin-bottom: 6px; color: var(--navy, #1A2644); }
+                #vat-check-result .vat-head { font-weight: 700; margin-bottom: 6px; color: var(--primary-dark); }
                 #vat-check-result .vat-table { width: 100%; border-collapse: collapse; }
                 #vat-check-result .vat-table td { padding: 2px 6px; vertical-align: top; }
                 #vat-check-result .vat-table td:first-child { color: #64748b; white-space: nowrap; width: 42%; }
@@ -346,6 +394,19 @@
               <label>Fälligkeitsdatum</label>
               <input type="date" id="faelligkeitsdatum">
             </div>
+            <div class="form-group">
+              <label>Leistungszeitraum von (BT-73)</label>
+              <input type="date" id="abr-start">
+            </div>
+            <div class="form-group">
+              <label>Leistungszeitraum bis (BT-74)</label>
+              <input type="date" id="abr-ende">
+              <span class="hint">Für Leistungen über einen Zeitraum, z. B. einen Monat. Ersetzt dann das Leistungsdatum.</span>
+            </div>
+            <div class="form-group full-width">
+              <label>Vertragsreferenz (BT-12)</label>
+              <input type="text" id="vertragsnummer" placeholder="z. B. Garantievereinbarung vom 14.11.2024">
+            </div>
             <div class="form-group full-width">
               <label>Zahlungsreferenz / Verwendungszweck</label>
               <input type="text" id="zahlungsreferenz" placeholder="Wird automatisch mit Rechnungsnummer befüllt">
@@ -385,6 +446,7 @@
                 <option value="AE">AE — Reverse Charge (§ 13b UStG)</option>
                 <option value="G">G — Ausfuhr Drittland</option>
                 <option value="E">E — Steuerbefreit (sonstige)</option>
+                <option value="O">O — Nicht steuerbar (z. B. Innenumsatz Organschaft)</option>
               </select>
               <span class="hint">UNTDID-5305-Code für Positionen mit 0 % MwSt. — wird codiert in die XML übernommen (BT-118/BT-121). Bei 19 %/7 % ohne Wirkung.</span>
             </div>
@@ -565,21 +627,22 @@
 <script src="js/vendor/tesseract/tesseract.min.js?v=000c27d9cd"></script>
 
 <!-- App Scripts -->
-<script src="js/auth.js?v=175c69f129"></script>
-<script src="js/access.js?v=13ff8408f6"></script>
-<script src="js/xrechnung.js?v=921351df15"></script>
+<script src="js/auth.js?v=f9b68426ba"></script>
+<script src="js/access.js?v=a73def34c6"></script>
+<script src="js/xrechnung.js?v=63e00a6ad6"></script>
 <script src="js/zugferd.js?v=9542bd13dc"></script>
 <script src="js/history.js?v=872bb9b271"></script>
-<script src="js/parser.js?v=a68aac90cf"></script>
+<script src="js/parser.js?v=ca91513d9c"></script>
 <script src="js/ocr.js?v=ca1f1ec809"></script>
-<script src="js/sharepoint.js?v=71a456f9a8"></script>
+<script src="js/sharepoint.js?v=ff0db74c35"></script>
 <script src="js/kundenmail.js?v=d006e7d8d6"></script>
 <script src="js/validate.js?v=18587ebe9f"></script>
 <script src="js/xmlinvoice.js?v=cbbb2a525b"></script>
 <script src="js/vendor/fontkit.umd.min.js?v=d8df561b9f"></script>
 <script src="js/vendor/font-embed.js?v=5b0f5e05c5"></script>
-<script src="js/xml2pdf.js?v=a286ecc5b7"></script>
-<script src="js/app.js?v=b1f36ba028"></script>
+<script src="js/xml2pdf.js?v=e6c66d56a4"></script>
+<script src="js/app.js?v=d15c900ce6"></script>
+<script src="js/vorlagen.js?v=1f52f3dd42"></script>
 <script src="js/vat.js?v=36ca39013b"></script>
 <script>authInit();</script>
 <script>

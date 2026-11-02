@@ -175,7 +175,26 @@ const _COMPANY_REGISTRY = {
     _versandPostfach: 'invoicing@ewa-guss.de',   // Outlook-Entwurf mit diesem Absender (Vertrieb hat Zugriff)
     _aktiv: true,
   },
-  HOL: _werkGeruest('HOL'),
+  // ── HOL · DIHAG Holding (manuelle Rechnungen aus Vorlagen, js/vorlagen.js) ──
+  // Stammdaten laut Rechnungsfuß. Sitz Düsseldorf (Handelsregister), nicht Coswig.
+  HOL: {
+    verkaeufer:         'DIHAG Holding GmbH',
+    verkaeufstrasse:    'Arnheimer Straße 142',
+    verkaeufplz:        '40489',
+    verkaeufstadt:      'Düsseldorf',
+    verkaeufland:       'DE',
+    verkaeuftel:        '+49 3523 95 400',
+    verkaeuferemail:    'info@dihag.com',
+    verkaeufervat:      'DE281233945',
+    verkaeufersteuernr: '',
+    iban:               'DE93820700000620170100',   // Deutsche Bank
+    bic:                'DEUTDE8EXXX',
+    handelsregister:    'Amtsgericht Düsseldorf',
+    registernr:         'HRB 111213',
+    geschaeftsfuehrung: 'Dr. Alex Lissitsa, Viktor Babushchak',
+    _detect: /HRB[-\s]*(?:Nr\.?\s*)?111213/i,
+    _aktiv: true,
+  },
   MEG: _werkGeruest('MEG'),
   SCH: _werkGeruest('SCH'),
 

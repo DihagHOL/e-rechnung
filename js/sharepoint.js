@@ -162,6 +162,7 @@ function _detectGesellschaft(verkaeufer) {
   if (v.includes('coswig')  || v.includes('walzen')  ||
       /\bwgc\b/.test(v))                             return 'WGC';
   if (v.includes('zaigler') || /\bzai\b/.test(v))    return 'ZAI';
+  if (v.includes('dihag holding'))                   return 'HOL';
   return '';
 }
 
@@ -267,6 +268,53 @@ async function spSaveKundenMails(daten) {
 }
 
 /**
+ * Vorlagen für manuelle Rechnungen (Reiter „Manuelle Rechnung“, js/vorlagen.js).
+ * Datei: Dokumente/E-Rechnung/rechnungsvorlagen.json, nicht im Code (Kundendaten, Seite öffentlich).
+ * @returns {{daten: object|null, etag: string}}  daten null = Datei gibt es noch nicht
+ */
+async function spLoadVorlagen() {
+  const token = await acquireToken(SP.scopes);
+  if (!token) throw new Error('Nicht angemeldet');
+  await _spInit(token);
+  if (!_sp.driveId) throw new Error('Keine Dokument-Bibliothek gefunden.');
+  const pfad = `${SP.graphBase}/drives/${_sp.driveId}/root:/${SP.folder}/rechnungsvorlagen.json`;
+  const meta = await fetch(`${pfad}?$select=id,eTag`, { headers: { 'Authorization': `Bearer ${token}` } });
+  if (meta.status === 404) return { daten: null, etag: '' };
+  if (meta.status === 401 || meta.status === 403) throw new Error(`Kein Zugriff auf ${SP.folder}/rechnungsvorlagen.json (sites/IT).`);
+  if (!meta.ok) throw new Error(`Vorlagen nicht lesbar (${meta.status})`);
+  const { eTag } = await meta.json();
+  // Erst eTag, dann Inhalt: ändert sich die Datei dazwischen, scheitert das Speichern am If-Match
+  const inhalt = await fetch(`${pfad}:/content`, { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' } });
+  if (!inhalt.ok) throw new Error(`Vorlagen nicht lesbar (${inhalt.status})`);
+  return { daten: await inhalt.json(), etag: eTag || '' };
+}
+
+/**
+ * Vorlagen speichern. Mit etag nur, wenn die Datei seitdem niemand geändert hat, ohne etag
+ * nur, wenn es sie noch nicht gibt. Sonst Fehler mit code 'KONFLIKT'.
+ * @returns {Promise<string>} neuer eTag
+ */
+async function spSaveVorlagen(daten, etag) {
+  const token = await acquireToken(SP.scopes);
+  if (!token) throw new Error('Nicht angemeldet');
+  await _spInit(token);
+  if (!_sp.driveId) throw new Error('Keine Dokument-Bibliothek gefunden.');
+  const url = `${SP.graphBase}/drives/${_sp.driveId}/root:/${SP.folder}/rechnungsvorlagen.json:/content`
+    + (etag ? '' : '?@microsoft.graph.conflictBehavior=fail');
+  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+  if (etag) headers['If-Match'] = etag;
+  const resp = await fetch(url, { method: 'PUT', headers, body: new TextEncoder().encode(JSON.stringify(daten, null, 2)) });
+  if (resp.status === 409 || resp.status === 412) {
+    const e = new Error('Die Vorlagen wurden inzwischen geändert.');
+    e.code = 'KONFLIKT';
+    throw e;
+  }
+  if (resp.status === 401 || resp.status === 403) throw new Error(`Keine Schreibrechte auf ${SP.folder}/rechnungsvorlagen.json (sites/IT).`);
+  if (!resp.ok) throw new Error(`Vorlagen nicht gespeichert (${resp.status}): ${(await resp.text()).slice(0, 200)}`);
+  return (await resp.json()).eTag || '';
+}
+
+/**
  * Eintrag aus der SharePoint-Liste löschen.
  */
 async function spDeleteItem(itemId) {
@@ -312,6 +360,25 @@ async function _monInit(token) {
   const drives = await _get(`${SP.graphBase}/sites/${_mon.siteId}/drives?$top=200`, token);
   _mon.drives = {};
   (drives.value || []).forEach(d => { if (d.name) _mon.drives[d.name.toUpperCase()] = d.id; });
+}
+
+/**
+ * Rechnungen mit dieser Nummer in AR_<Werk> (manuelle Rechnungen prüfen vor dem Export).
+ * @returns {Promise<{name:string, url:string}[]|null>}  null = nicht prüfbar (keine Bibliothek, kein Zugriff)
+ */
+async function spRechnungsnummerVergeben(werk, nummer) {
+  const token = await acquireToken(SP.scopes);
+  if (!token || !nummer) return null;
+  try { await _monInit(token); } catch (e) { return null; }
+  const listId = _mon.lists[`AR_${String(werk || '').toUpperCase()}`];
+  if (!listId) return null;
+  const filter = encodeURIComponent(`fields/Title eq '${String(nummer).replace(/'/g, "''")}'`);
+  const resp = await fetch(`${SP.graphBase}/sites/${_mon.siteId}/lists/${listId}/items`
+    + `?$expand=fields($select=Title,FileLeafRef)&$filter=${filter}&$top=20`, {
+    headers: { 'Authorization': `Bearer ${token}`, 'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly' },
+  });
+  if (!resp.ok) return null;
+  return ((await resp.json()).value || []).map(it => ({ name: (it.fields || {}).FileLeafRef || '', url: it.webUrl || '' }));
 }
 
 async function _monCols(token, listId, key) {

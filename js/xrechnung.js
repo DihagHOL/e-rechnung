@@ -21,11 +21,14 @@ function buildXML(data, profile = 'xrechnung') {
     return s.replace(/\D/g, '').slice(0, 8);
   };
 
-  // Steuerkategorie für 0%-Positionen (UNTDID 5305): Z, K, AE, G, E
+  // Steuerkategorie für 0%-Positionen (UNTDID 5305): Z, K, AE, G, E, O
   // 19 %/7 % sind immer Kategorie S.
-  const zeroCat = ['Z', 'K', 'AE', 'G', 'E'].includes(data.steuerkategorie)
+  const zeroCat = ['Z', 'K', 'AE', 'G', 'E', 'O'].includes(data.steuerkategorie)
     ? data.steuerkategorie : 'Z';
   const catOf = rate => rate > 0 ? 'S' : zeroCat;
+  // O = nicht steuerbar (z. B. Innenumsatz in der Organschaft): keine USt-IdNr. von
+  // Verkäufer und Käufer (BR-O-02) und kein Steuersatz an der Position (BR-O-05)
+  const nichtSteuerbar = zeroCat === 'O' && (data.positionen || []).some(p => !(parseFloat(p.mwst) > 0));
 
   // Befreiungsgrund (BT-120 Text / BT-121 Code) je Kategorie
   const EXEMPT_DEFAULTS = {
@@ -33,6 +36,7 @@ function buildXML(data, profile = 'xrechnung') {
     AE: { code: 'VATEX-EU-AE', text: 'Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge, § 13b UStG)' },
     G:  { code: 'VATEX-EU-G',  text: 'Steuerfreie Ausfuhrlieferung in ein Drittland (§ 4 Nr. 1a UStG)' },
     E:  { code: '',            text: 'Steuerbefreite Leistung' },
+    O:  { code: 'VATEX-EU-O',  text: 'Nicht steuerbar' },
   };
 
   // Compute line totals and VAT summaries
@@ -98,7 +102,7 @@ function buildXML(data, profile = 'xrechnung') {
         <ram:ApplicableTradeTax>
           <ram:TypeCode>VAT</ram:TypeCode>
           <ram:CategoryCode>${catOf(rate)}</ram:CategoryCode>
-          <ram:RateApplicablePercent>${fmt(rate)}</ram:RateApplicablePercent>
+          ${catOf(rate) === 'O' ? '' : `<ram:RateApplicablePercent>${fmt(rate)}</ram:RateApplicablePercent>`}
         </ram:ApplicableTradeTax>
         <ram:SpecifiedTradeSettlementLineMonetarySummation>
           <ram:LineTotalAmount>${fmt(net)}</ram:LineTotalAmount>
@@ -126,7 +130,7 @@ function buildXML(data, profile = 'xrechnung') {
 
   // EN 16931 allows multiple SpecifiedTaxRegistration entries (VA + FC)
   const sellerVat = [
-    data.verkaeufervat
+    data.verkaeufervat && !nichtSteuerbar
       ? `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${esc(data.verkaeufervat)}</ram:ID></ram:SpecifiedTaxRegistration>`
       : '',
     data.verkaeufersteuernr
@@ -259,11 +263,14 @@ function buildXML(data, profile = 'xrechnung') {
         </ram:URIUniversalCommunication>` : (data.kaeufermail ? `<ram:URIUniversalCommunication>
           <ram:URIID schemeID="EM">${esc(data.kaeufermail)}</ram:URIID>
         </ram:URIUniversalCommunication>` : '')}
-        ${data.kaeufervat ? `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${esc(data.kaeufervat)}</ram:ID></ram:SpecifiedTaxRegistration>` : ''}
+        ${data.kaeufervat && !nichtSteuerbar ? `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${esc(data.kaeufervat)}</ram:ID></ram:SpecifiedTaxRegistration>` : ''}
       </ram:BuyerTradeParty>
       ${data.bestellnummer ? `<ram:BuyerOrderReferencedDocument>
         <ram:IssuerAssignedID>${esc(data.bestellnummer)}</ram:IssuerAssignedID>
       </ram:BuyerOrderReferencedDocument>` : ''}
+      ${data.vertragsnummer ? `<ram:ContractReferencedDocument>
+        <ram:IssuerAssignedID>${esc(data.vertragsnummer)}</ram:IssuerAssignedID>
+      </ram:ContractReferencedDocument>` : ''}
       ${_anlagenXML(data.anlagen, profile)}
     </ram:ApplicableHeaderTradeAgreement>
 
@@ -305,6 +312,10 @@ function buildXML(data, profile = 'xrechnung') {
       <ram:InvoiceCurrencyCode>${esc(waehrung)}</ram:InvoiceCurrencyCode>
       ${ibanXML}
       ${vatXML}
+      ${(data.abrZeitraumStart || data.abrZeitraumEnde) ? `<ram:BillingSpecifiedPeriod>
+        ${data.abrZeitraumStart ? `<ram:StartDateTime><udt:DateTimeString format="102">${fmtDate(data.abrZeitraumStart)}</udt:DateTimeString></ram:StartDateTime>` : ''}
+        ${data.abrZeitraumEnde ? `<ram:EndDateTime><udt:DateTimeString format="102">${fmtDate(data.abrZeitraumEnde)}</udt:DateTimeString></ram:EndDateTime>` : ''}
+      </ram:BillingSpecifiedPeriod>` : ''}
       ${dueDateXML}
       <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
         <ram:LineTotalAmount>${fmt(netTotal)}</ram:LineTotalAmount>
@@ -367,6 +378,7 @@ function mapUnit(einheit) {
     'Tag': 'DAY', 'Tage': 'DAY',
     'Monat': 'MON',
     'km': 'KMT',
+    'kWh': 'KWH', 'MWh': 'MWH',
     'Pausch.': 'LS', 'Pauschal': 'LS',
   };
   return map[einheit] || 'C62';

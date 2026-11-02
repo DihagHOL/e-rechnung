@@ -333,7 +333,7 @@ async function buildInvoicePdf(data) {
 
   /* ── Steuerbefreiung (BT-118/BT-120) ── */
   if (data.befreiungsgrund || (data.steuerkategorie && !['S', 'Z'].includes(data.steuerkategorie))) {
-    text('STEUERBEFREIUNG', M, y, { size: 7.5, bold: true, color: gray });
+    text(data.steuerkategorie === 'O' ? 'UMSATZSTEUER' : 'STEUERBEFREIUNG', M, y, { size: 7.5, bold: true, color: gray });
     y -= 13;
     const katName = {
       K: 'Innergemeinschaftliche Lieferung', AE: 'Reverse Charge',
@@ -426,7 +426,7 @@ async function buildInvoicePdf(data) {
   const pages = doc.getPages();
   pages.forEach((pg, i) => {
     pg.drawLine({ start: { x: M, y: M - 14 }, end: { x: W - M, y: M - 14 }, thickness: 0.5, color: light });
-    pg.drawText(enc(`Konvertiert aus ${data.syntax || 'XML'}-E-Rechnung (EN 16931) · DIHAG E-Rechnung Konverter`), {
+    pg.drawText(enc(data.fusszeile || `Konvertiert aus ${data.syntax || 'XML'}-E-Rechnung (EN 16931) · DIHAG E-Rechnung Konverter`), {
       x: M, y: M - 26, size: 7, font, color: gray,
     });
     const pn = enc(`Seite ${i + 1} / ${pages.length}`);

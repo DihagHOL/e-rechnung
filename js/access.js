@@ -50,6 +50,8 @@ function _activeConfig() {
   return _runtimeConfig || ACCESS_CONFIG_DEFAULT;
 }
 
+let _runtimeConfigLaden = null;   // laufender Ladevorgang, mehrere Aufrufer teilen ihn
+
 /**
  * Laufzeit-Config aus SharePoint laden.
  * Wird einmalig nach Login aufgerufen; bei Fehler greift der Default.
@@ -57,6 +59,11 @@ function _activeConfig() {
  */
 async function loadRuntimeAccessConfig() {
   if (_runtimeConfig) return; // bereits geladen
+  if (!_runtimeConfigLaden) _runtimeConfigLaden = _runtimeConfigHolen();
+  return _runtimeConfigLaden;
+}
+
+async function _runtimeConfigHolen() {
   try {
     const cfg = await spLoadAccessConfig();
     if (cfg && typeof cfg === 'object') {

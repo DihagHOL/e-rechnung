@@ -11,10 +11,14 @@ const _AUTH = {
 
 let _msal = null;
 let _account = null;
-let _postAuthCb = null;
+let _postAuthCbs = [];
+let _authFertig = false;
 
-/** Callback registrieren, der nach erfolgreichem Login aufgerufen wird. */
-function onAuthReady(cb) { _postAuthCb = cb; }
+/** Callback registrieren, der nach erfolgreichem Login aufgerufen wird (mehrere möglich). */
+function onAuthReady(cb) {
+  _postAuthCbs.push(cb);
+  if (_authFertig) cb(_account);   // Login schon durch: gleich aufrufen
+}
 
 async function authInit() {
   _msal = new msal.PublicClientApplication({
@@ -59,8 +63,9 @@ async function authInit() {
   // User-Info in Header rendern
   _renderUser(_account);
 
-  // Post-Auth-Callback aufrufen (z.B. SharePoint-Daten laden)
-  if (_postAuthCb) _postAuthCb(_account);
+  // Post-Auth-Callbacks aufrufen (z.B. SharePoint-Daten laden)
+  _authFertig = true;
+  for (const cb of _postAuthCbs) cb(_account);
 }
 
 function _renderUser(account) {
