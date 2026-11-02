@@ -12,13 +12,23 @@
  * authLevel "anonymous": wird direkt aus dem Browser-Tool (index.html) aufgerufen.
  * Enthält KEINE Geheimnisse; BZSt/VIES sind selbst ohne Auth erreichbar. Ergebnis
  * wird kurz gecacht (Rate-Limits der BZSt schonen).
+ *
+ * Damit der Dienst kein offener BZSt-Proxy ist: anfragende USt-IdNr. nur eine der
+ * eigenen Gesellschaften, Textfelder höchstens 100 Zeichen, Cache höchstens 1.000 Einträge.
  */
 const { app } = require('@azure/functions');
 const { pruefeBzst } = require('../bzst');
 const { pruefeVies } = require('../vies');
 
-const _cache = new Map();          // key -> { t, res }
+const _cache = new Map();          // key -> { t, res }, Reihenfolge = zuletzt benutzt hinten
 const TTL_MS = 12 * 3600 * 1000;   // 12 h
+const CACHE_MAX = 1000;
+const FELD_MAX = 100;
+
+// USt-IdNr. der eigenen Gesellschaften (Registry in js/parser.js, verkaeufervat).
+// tests/vat-api.test.js prüft, dass die Liste zur Registry passt.
+const EIGENE_UST_IDS = ['DE140598967', 'DE812264517', 'DE368990137', 'DE368676368',
+  'DE811154479', 'DE812737567', 'DE281233945', 'DE150528912'];
 
 app.http('vat', {
   methods: ['GET', 'POST'],
@@ -52,18 +62,22 @@ app.http('vat', {
              + 'Inlandsrechnungen brauchen keine qualifizierte Bestätigung.',
       } };
     }
-    if (!vatIdOwn.startsWith('DE')) {
-      return problem(400, 'Anfragende USt-IdNr ("vatIdOwn") muss deutsch sein (DE…).');
+    if (!EIGENE_UST_IDS.includes(vatIdOwn)) {
+      return problem(400, 'Anfragende USt-IdNr ("vatIdOwn") muss die einer DIHAG-Gesellschaft sein.');
     }
 
     const params = {
       vatIdOwn, vatId,
       company: str(p.company), city: str(p.city), zip: str(p.zip), street: str(p.street),
     };
+    for (const k of ['company', 'city', 'zip', 'street']) {
+      if (params[k].length > FELD_MAX) return problem(400, `Feld "${k}" ist länger als ${FELD_MAX} Zeichen.`);
+    }
 
     const key = JSON.stringify(params);
     const hit = _cache.get(key);
     if (hit && Date.now() - hit.t < TTL_MS) {
+      _cache.delete(key); _cache.set(key, hit);   // zuletzt benutzt nach hinten
       return { status: 200, jsonBody: { ...hit.res, cached: true } };
     }
 
@@ -81,7 +95,9 @@ app.http('vat', {
     }
 
     res.bericht = baueBericht(res);
+    _cache.delete(key);
     _cache.set(key, { t: Date.now(), res });
+    while (_cache.size > CACHE_MAX) _cache.delete(_cache.keys().next().value);   // ältesten raus
     return { status: 200, jsonBody: res };
   },
 });
@@ -116,3 +132,5 @@ function str(v) { return v == null ? '' : String(v).trim(); }
 function problem(status, message) {
   return { status, headers: { 'Content-Type': 'application/json; charset=utf-8' }, jsonBody: { error: message } };
 }
+
+module.exports = { EIGENE_UST_IDS, CACHE_MAX, _cache };

@@ -37,13 +37,13 @@ die API `werkMismatch = true` → im Flow als Prüf-Hinweis kennzeichnen.
    ```powershell
    .\provision-rechnungsmonitoring.ps1 `
        -SiteUrl https://dihag.sharepoint.com/sites/Rechnungsmonitoring `
-       -ClientId df9691fc-bed8-4134-820e-99654640eb0e
+       -ClientId <ClientId der PnP-App>
    # ohne den zentralen Auffangkorb:  ... -OhneEingangsstufe
    ```
 
 2. **API neu deployen**, damit `/api/intake` live ist:
    ```bash
-   cd api && npm run sync && func azure functionapp publish erechnung-xml2pdf
+   cd api && npm run sync && func azure functionapp publish <function-app>
    ```
    App-Einstellungen `KOSIT_DAEMON_URL` und `VERAPDF_URL` sind bereits gesetzt.
 
@@ -87,7 +87,7 @@ fehlt es, wird das Werk aus dem Empfänger abgeleitet). Antwort = JSON:
 
 Schneller Test (PowerShell):
 ```powershell
-curl.exe -s -X POST "https://erechnung-xml2pdf.azurewebsites.net/api/intake?code=<KEY>&werk=WGC" `
+curl.exe -s -X POST "https://<function-app>.azurewebsites.net/api/intake?code=<KEY>&werk=WGC" `
   --data-binary "@C:\pfad\zur\rechnung.pdf" | ConvertFrom-Json |
   Format-List klassifizierung,werk,werkErkannt,werkMismatch,konform
 ```
@@ -105,7 +105,7 @@ aus der Empfänger-Adresse ableitet. Ablauf:
 2. **Für jede Anlage** (`Apply to each` über `Anlagen`):
 
    a. **HTTP – POST an `/api/intake`**
-      - URI `https://erechnung-xml2pdf.azurewebsites.net/api/intake?code=<KEY>&werk=WGC`
+      - URI `https://<function-app>.azurewebsites.net/api/intake?code=<KEY>&werk=WGC`
         (`WGC` = das Werk dieses Postfachs; bei einem gemeinsamen Flow dynamisch aus
         der Empfängeradresse)
       - Header `Content-Type: application/octet-stream`
@@ -214,9 +214,9 @@ unterschiedlich an die Buchhaltung:
 | | WGC | ZAI, HOL, LEG, EWA |
 |---|---|---|
 | Flow | `E-R-Rechnung_WGC` | `E-R-Rechnung_ZAI`, `_HOL`, `_LEG`, `_EWA` |
-| Postfach | `rechnung@walze-coswig.de` | ZAI `er-zaigler@dihag.com`, HOL `ER@dihag.com`, LEG `rechnung@lintorfereg.de`, EWA `er@ewa-guss.de` |
+| Postfach | Rechnungspostfach WGC | je Werk ein eigenes Rechnungspostfach (Adressen nicht im Repo, siehe Flow) |
 | Schleifenschutz am Anfang | nicht nötig | Betreff enthält „[ARCHIV]“ = eigene Archiv-Mail: nur in den Ordner `ArchiviertUndGeprueft` (Posteingang) verschieben, nicht verarbeiten |
-| Übergabe | Eintrag in der Eingangsrechnungsliste auf `gruppe_wgc`, Original und lesbares PDF als Anlage (bei grün oder gelb), Eintrag danach mit dem Prüfergebnis aktualisiert | Archiv-Mail aus dem eigenen Postfach an sich selbst. HOL, LEG, EWA: **je E-Rechnung eine**, normale PDFs der Eingangsmail als Anlagen dabei, ohne E-Rechnung eine für die ganze Mail. Betreff „[ARCHIV] Rechnung <Nr> — <Lieferant> (N Dateien)“. ZAI: noch je Anhang, von `administrator@dihag.com` |
+| Übergabe | Eintrag in der Eingangsrechnungsliste auf `gruppe_wgc`, Original und lesbares PDF als Anlage (bei grün oder gelb), Eintrag danach mit dem Prüfergebnis aktualisiert | Archiv-Mail aus dem eigenen Postfach an sich selbst. HOL, LEG, EWA: **je E-Rechnung eine**, normale PDFs der Eingangsmail als Anlagen dabei, ohne E-Rechnung eine für die ganze Mail. Betreff „[ARCHIV] Rechnung <Nr> — <Lieferant> (N Dateien)“. ZAI: noch je Anhang, vom Admin-Konto |
 | Buchhaltung arbeitet in | der Liste auf `gruppe_wgc` | dem Postfachordner `ArchiviertUndGeprueft` (WebVerify: eine Archiv-Mail = ein Vorgang) |
 
 Aufbau in ZAI, HOL, LEG und EWA: oben `Archiv_pruefen` (bei ZAI `Bedingung_4`) mit dem

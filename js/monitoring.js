@@ -1309,24 +1309,46 @@ async function _monVersionenZeigen(knopf) {
   knopf.disabled = false;
 }
 
-/** Datei so öffnen, wie sie in einer Version war (neueste: aktuelle Datei). */
+/**
+ * Datei so öffnen, wie sie in einer Version war (neueste: aktuelle Datei).
+ * Die Dateien kommen von Lieferanten. Eine blob:-URL gehört zum Origin der App, deshalb
+ * nie mit aktivem Typ öffnen: XML als Text (ein XHTML-script in der XML liefe sonst mit),
+ * PDF im PDF-Betrachter, alles andere nur als Download. Das neue Fenster bekommt keinen
+ * Zugriff auf die App (opener = null).
+ */
 async function _monVersionDateiOeffnen(datei, versionId, neueste) {
-  const fenster = window.open('', '_blank');
+  const typ = _monSichererTyp(datei.ext);
+  const fenster = typ ? window.open('', '_blank') : null;
+  if (fenster) fenster.opener = null;
   try {
     const token = await acquireToken(SP.scopes);
     const basis = `${SP.graphBase}/sites/${_monSiteId}/lists/${datei.listId}/items/${datei.itemId}/driveItem`;
     const resp = await fetch(neueste ? `${basis}/content` : `${basis}/versions/${encodeURIComponent(versionId)}/content`,
       { headers: { 'Authorization': `Bearer ${token}` } });
     if (!resp.ok) throw new Error(`Datei (${resp.status})`);
-    const typ = { xml: 'text/xml', pdf: 'application/pdf' }[datei.ext] || '';
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(typ ? new Blob([blob], { type: typ }) : blob);
-    if (fenster) fenster.location = url; else window.open(url, '_blank');
+    const blob = new Blob([await resp.blob()], { type: typ || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    if (typ) {
+      if (fenster) fenster.location = url; else window.open(url, '_blank', 'noopener');
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (datei.label || 'datei').replace(/[\\/:*?"<>|]+/g, '_') + (datei.ext ? '.' + datei.ext : '');
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch (e) {
     if (fenster) fenster.close();
     window.alert(`Version ${versionId} ließ sich nicht öffnen: ${e.message || e}`);
   }
+}
+
+/** Anzeigetyp für fremde Dateien im eigenen Origin: nur Typen ohne Skripte, sonst '' = Download. */
+function _monSichererTyp(ext) {
+  return { xml: 'text/plain;charset=utf-8', pdf: 'application/pdf' }[String(ext || '').toLowerCase()] || '';
 }
 
 function _monZeileUmschalten(tr) {

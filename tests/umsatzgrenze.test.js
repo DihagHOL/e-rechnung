@@ -116,7 +116,7 @@ for (const art of ['ueber-ruecksendung', 'bis-akzeptanz', 'ueber-ankuendigen', '
   ok(ug.ugLieferantName(r({ baseKey: 'Scan_9', steller: 'Beisp1el A6' })) === 'Beispiel AG', 'bestätigter Name vor dem PDF-Text');
   ok(ug.ugLieferantName(r({ steller: 'Neu GmbH', ext: 'xml' })) === 'Neu GmbH', 'Name aus der XML');
 
-  const user = { username: 'kb@dihag.com', name: 'Kreditoren Buchhaltung' };
+  const user = { username: 'kreditoren-test@dihag.com', name: 'Kreditoren Buchhaltung' };
   const e = ug.ugLieferantMerken({ name: 'Beispiel AG', vermutung: 'ueber', mail: 'r@beispiel.de' }, 'Beispiel AG',
     { steller: 'Beisp1el A6', ustid: 'DE555555555' }, user, '2026-10-29T10:00:00Z', { bestaetigen: true });
   ok(e.vermutung === 'ueber' && e.mail === 'r@beispiel.de', 'Einschätzung und Mail bleiben');

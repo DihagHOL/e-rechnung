@@ -76,10 +76,10 @@
 <script src="js/vendor/pdf-lib.min.js?v=0f9a5cad07"></script>
 
 <!-- App Scripts -->
-<script src="js/auth.js?v=f9b68426ba"></script>
-<script src="js/access.js?v=ab7649b49a"></script>
+<script src="js/auth.js?v=5f1fd70b6b"></script>
+<script src="js/access.js?v=a0ad989f17"></script>
 <script src="js/zugferd.js?v=d223abffd3"></script>
-<script src="js/history.js?v=872bb9b271"></script>
+<script src="js/history.js?v=fe3f8462a5"></script>
 <script src="js/sharepoint.js?v=c4d007f75f"></script>
 
 <script>
@@ -391,7 +391,10 @@ function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   const icons = { success: '✅', error: '❌', info: 'ℹ️' };
-  toast.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><span>${message}</span>`;
+  // Meldungen enthalten oft Fehlertexte von außen: nur als Text einsetzen
+  const icon = document.createElement('span'); icon.className = 'toast-icon'; icon.textContent = icons[type] || 'ℹ️';
+  const text = document.createElement('span'); text.textContent = message;
+  toast.append(icon, text);
   container.appendChild(toast);
   setTimeout(() => {
     toast.classList.add('fade-out');

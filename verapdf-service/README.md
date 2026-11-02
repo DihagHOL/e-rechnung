@@ -28,7 +28,7 @@ az container create \
   --registry-password "$(az acr credential show -n dihagerechnungacr --query 'passwords[0].value' -o tsv)" \
   --os-type Linux --ports 8080 --cpu 1 --memory 2 \
   --dns-name-label erechnung-verapdf
-# -> http://erechnung-verapdf.<region>.azurecontainer.io:8080/
+# -> <veraPDF-URL>
 ```
 
 > Wie beim KoSIT-Dienst: **keine eigene Auth** — nur intern erreichbar halten.
@@ -36,10 +36,10 @@ az container create \
 ## 2) Function verbinden
 
 ```bash
-az functionapp config appsettings set -g rg-erechnung-api -n erechnung-xml2pdf \
-  --settings VERAPDF_URL="http://erechnung-verapdf.<region>.azurecontainer.io:8080/"
+az functionapp config appsettings set -g rg-erechnung-api -n <function-app> \
+  --settings VERAPDF_URL="<veraPDF-URL>"
 
-cd ../api && npm run sync && func azure functionapp publish erechnung-xml2pdf
+cd ../api && npm run sync && func azure functionapp publish <function-app>
 ```
 
 Ist `VERAPDF_URL` **nicht** gesetzt, überspringt `/api/validate` den PDF/A-Check

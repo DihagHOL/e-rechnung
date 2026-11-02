@@ -28,7 +28,7 @@ param(
   [string]$ResourceGroup   = 'rg-erechnung-api',
   [string]$Location        = 'germanywestcentral',
   [string]$Acr             = 'dihagerechnungacr',
-  [string]$FunctionApp     = 'erechnung-xml2pdf',
+  [Parameter(Mandatory)][string]$FunctionApp,   # Name der Function-App (nicht im Repo)
   [string]$EnvName         = 'erechnung-cae',   # Container Apps Environment
   [int]   $MaxReplicas     = 5,
   [int]   $HttpConcurrency = 10,
@@ -135,8 +135,3 @@ Write-Host ''
 Write-Host 'Wenn alles laeuft, die alten ACIs abschalten (spart die ~90 EUR/Monat):' -ForegroundColor Cyan
 Write-Host "  az container delete -g $ResourceGroup -n erechnung-kosit --yes"
 Write-Host "  az container delete -g $ResourceGroup -n erechnung-verapdf --yes"
-Write-Host ''
-Write-Host 'Rollback (falls noetig): App-Einstellungen zurueck auf die ACI-URLs:' -ForegroundColor DarkGray
-Write-Host "  az functionapp config appsettings set -g $ResourceGroup -n $FunctionApp --settings ``"
-Write-Host "    KOSIT_DAEMON_URL=http://erechnung-kosit.$Location.azurecontainer.io:8080/ ``"
-Write-Host "    VERAPDF_URL=http://erechnung-verapdf.$Location.azurecontainer.io:8080/"

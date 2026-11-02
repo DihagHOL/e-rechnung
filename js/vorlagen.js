@@ -361,8 +361,8 @@ async function _vlAendern(aendern) {
 function _vlWerkeFuellen() {
   const sel = _vlEl('vl-werk');
   const alle = typeof activeWerke === 'function' ? activeWerke() : [];
-  const erlaubt = typeof erlaubteWerke === 'function' ? erlaubteWerke(alle) : alle;
-  const werke = erlaubt.length ? erlaubt : alle;
+  // ohne zugewiesenes Werk keine Auswahl (Admins sehen alle)
+  const werke = typeof erlaubteWerke === 'function' ? erlaubteWerke(alle) : alle;
   const mitVorlagen = werke.filter(w => vlVorlagenFuer(_vl.daten, w).length);
   const vorher = sel.value;
   sel.innerHTML = werke.map(w => `<option value="${w}">${w} · ${escHTML(_vlStamm(w).verkaeufer || w)}</option>`).join('');
@@ -548,7 +548,7 @@ async function _vlVorschauZeichnen() {
     const bytes = await buildInvoicePdf(_pdfDaten(data, totals));
     const seite = currentPage;
     const zoom = zoomFactor;
-    pdfDocument = await pdfjsLib.getDocument({ data: bytes }).promise;
+    pdfDocument = await pdfjsLib.getDocument({ data: bytes, isEvalSupported: false }).promise;
     totalPages = pdfDocument.numPages;
     currentPage = Math.min(seite || 1, totalPages);
     zoomFactor = zoom || 1;

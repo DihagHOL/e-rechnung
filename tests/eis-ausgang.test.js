@@ -180,7 +180,7 @@ gleich(r.verkaeuftel, '(0) 6351 408 262', 'Durchwahl aus zwei Zeilen');
 // Kontakt-Mail und Umfang
 gleich(ctx.mail('Müller Anna'), 'anna.mueller@dihag-gienanth.com', 'Umlaut');
 gleich(ctx.mail('Mustermann Jörg'), 'joerg.mustermann@dihag-gienanth.com', 'ö');
-gleich(ctx.mail('Weiß Hans Peter'), 'hans-peter.weiss@dihag-gienanth.com', 'ß und zwei Vornamen');
+gleich(ctx.mail('Weiß Max Peter'), 'max-peter.weiss@dihag-gienanth.com', 'ß und zwei Vornamen');
 gleich(ctx.mail('Einzelname'), '', 'ohne Vornamen keine Mail');
 gleich([ctx.nurInland('EIS'), ctx.nurInland('eis'), ctx.nurInland('ZAI')], [true, true, false], 'nur Inland bei EIS');
 

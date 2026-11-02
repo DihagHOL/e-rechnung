@@ -111,7 +111,7 @@ az functionapp create \
   --runtime-version 20 \
   --functions-version 4 \
   --os-type Linux \
-  --name erechnung-xml2pdf \
+  --name <function-app> \
   --storage-account sterechnungapi001
 ```
 
@@ -119,17 +119,17 @@ Deployen (aus dem Ordner `api/`):
 
 ```bash
 npm run sync          # vendor/ mit aktuellem Konverter füllen (WICHTIG vor jedem Deploy)
-func azure functionapp publish erechnung-xml2pdf
+func azure functionapp publish <function-app>
 ```
 
 Danach lautet der Endpunkt:
 
 ```
-https://erechnung-xml2pdf.azurewebsites.net/api/convert
+https://<function-app>.azurewebsites.net/api/convert
 ```
 
 > **Bei jeder Konverter-Änderung** (in `js/`): erneut `npm run sync` +
-> `func azure functionapp publish erechnung-xml2pdf`.
+> `func azure functionapp publish <function-app>`.
 
 ---
 
@@ -140,7 +140,7 @@ https://erechnung-xml2pdf.azurewebsites.net/api/convert
 | Feld           | Wert |
 |----------------|------|
 | Method         | `POST` |
-| URI            | `https://erechnung-xml2pdf.azurewebsites.net/api/convert` |
+| URI            | `https://<function-app>.azurewebsites.net/api/convert` |
 | Headers        | `Content-Type` : `application/xml` |
 | Body           | der XML-Inhalt (z. B. Dateiinhalt aus „SharePoint – Datei-Inhalt abrufen") |
 
@@ -162,7 +162,7 @@ Hilfreiche Antwort-Header:
 **GET zum Testen der Erreichbarkeit** (liefert eine kleine JSON-Info):
 
 ```
-GET https://erechnung-xml2pdf.azurewebsites.net/api/convert
+GET https://<function-app>.azurewebsites.net/api/convert
 ```
 
 ---
@@ -178,7 +178,7 @@ durch Dritte, ohne M365):
 
 1. In `src/functions/convert.js` `authLevel` von `'anonymous'` auf `'function'`
    ändern, neu deployen.
-2. Key holen: `az functionapp keys list -g rg-erechnung-api -n erechnung-xml2pdf`
+2. Key holen: `az functionapp keys list -g rg-erechnung-api -n <function-app>`
    (oder im Portal → Function → *App keys*).
 3. In Power Automate den Key als Query anhängen:
    `.../api/convert?code=<FUNCTION_KEY>`.

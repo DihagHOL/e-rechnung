@@ -771,7 +771,7 @@ async function _ugAusRechnungLesen(r) {
       a.lesen = 'ocr';
       a.ocrStand = '';
       _ugGelesenZeigen();
-      const doc = await pdfjsLib.getDocument({ data: new Uint8Array(puffer) }).promise;
+      const doc = await pdfjsLib.getDocument({ data: new Uint8Array(puffer), isEvalSupported: false }).promise;
       const items = await ocrCollectItems(doc, p => {
         if (_ugAktuell !== a) return;
         a.ocrStand = `Seite ${p.page} von ${p.total}${p.status === 'recognizing text' ? ', ' + Math.round(p.progress * 100) + ' %' : ''}`;

@@ -2461,7 +2461,7 @@ function extractSellerEnglish(footerText, fullText) {
   const bicM = src.match(/BIC(?:\s+code)?[:\s·•|]+([A-Z]{6}[A-Z0-9]{2,5})/i);
   if (bicM) r.bic = bicM[1];
 
-  // E-Mail (Operator-Zeile: "andreasbuchs@walze-coswig.de")
+  // E-Mail (Operator-Zeile mit der Adresse des Bearbeiters)
   const emailM = src.match(/([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/);
   if (emailM) r.verkaeuferemail = emailM[1];
 

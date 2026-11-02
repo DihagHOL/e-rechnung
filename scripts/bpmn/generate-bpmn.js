@@ -172,7 +172,7 @@ const EINGANG = {
         { id: 'N_err', of: 'A_errMail', lane: 'LA', c: 11, r: 2, w: 220, h: 62,
           text: 'Eigener Flow „Fehler melden“. Die Adresse je Werk steht unter Einstellungen.' },
         { id: 'N_zai', of: 'A_archSend', lane: 'LA', c: 13, r: 1, w: 320, h: 56,
-          text: 'ZAI: Die Buchhaltung arbeitet im Postfach er-zaigler@dihag.com, Ordner „Verarbeitet“.' },
+          text: 'ZAI: Die Buchhaltung arbeitet im Rechnungspostfach von ZAI, Ordner „Verarbeitet“.' },
         { id: 'N_wgc', of: 'W_item', lane: 'LC', c: 13, r: 1, w: 330, h: 62,
           text: 'WGC: Die Buchhaltung arbeitet in der Eingangsrechnungsliste auf gruppe_wgc. Anhänge nur bei grün oder gelb.' },
         { id: 'N_800', of: 'D_800', lane: 'LD', c: 19, r: 4, w: 300, h: 62,

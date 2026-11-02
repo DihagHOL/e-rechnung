@@ -407,28 +407,31 @@
 <dialog id="sp-dialog" aria-label="Spalten je Werk"></dialog>
 
 <script src="js/vendor/msal-browser.min.js?v=c933092555"></script>
-<script src="js/auth.js?v=f9b68426ba"></script>
-<script src="js/access.js?v=ab7649b49a"></script>
+<script src="js/auth.js?v=5f1fd70b6b"></script>
+<script src="js/access.js?v=a0ad989f17"></script>
 <script src="js/sharepoint.js?v=c4d007f75f"></script>
 <script src="js/vendor/pdf.min.js?v=5b5799e6f8"></script>
 <script>if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'js/vendor/pdf.worker.min.js';</script>
 <script src="js/vendor/tesseract/tesseract.min.js?v=000c27d9cd"></script>
 <script src="js/ocr.js?v=ca1f1ec809"></script>
-<script src="js/lieferant.js?v=12664375d9"></script>
-<script src="js/umsatzgrenze.js?v=feb8fc20b1"></script>
+<script src="js/lieferant.js?v=6e960f6aa4"></script>
+<script src="js/umsatzgrenze.js?v=f32f9f9828"></script>
 <script src="js/bearbeitung.js?v=cfcf125ff8"></script>
-<script src="js/monitoring.js?v=cad04868ab"></script>
+<script src="js/monitoring.js?v=c594081124"></script>
 
 <script>
 onAuthReady(async () => {
   initAdminNav();
   monInitFilterEvents();
   // Werkzuweisung aus den Einstellungen (einstellungen.html): Wer Werken zugewiesen
-  // ist, sieht nur diese. Admins und Benutzer ohne Zuweisung sehen alle Werke, die
-  // SharePoint sie lesen lässt.
-  try { await loadRuntimeAccessConfig(); } catch (e) { /* Standard greift */ }
+  // ist, sieht nur diese, Admins alle, die SharePoint sie lesen lässt. Ohne Zuweisung keins.
+  try { await loadRuntimeAccessConfig(); } catch (e) { /* ohne Config keine Zuweisung */ }
   // Das zugewiesene Werk ist beim Öffnen vorgewählt (bei mehreren das erste der Liste)
   const zugewiesen = getCurrentUserAccess();
+  if (!isCurrentUserAdmin() && !zugewiesen.length) {
+    return _monShowSetup('Kein Werk zugewiesen',
+      'Dir ist in den Einstellungen noch kein Werk zugeordnet. Bitte die IT, dich einem Werk zuzuordnen.');
+  }
   const standardWerk = (WERKE_ALLE.map(w => w[0]).find(c => zugewiesen.includes(c.toLowerCase()))
     || (zugewiesen[0] || '')).toUpperCase();
   loadMonitoring(isCurrentUserAdmin() ? [] : zugewiesen, { standardWerk });

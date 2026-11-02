@@ -35,10 +35,17 @@ gleich(/Mit freundlichen Grüßen\n/.test(kreditorMail({ richtung: 'Eingang', we
 enthaelt(rot.html, '#B42318', 'rote Akzentfarbe');
 enthaelt(kreditorMail({ richtung: 'Eingang', werk: 'HOL', daten, kreditorAktion: { art: 'abweichung' } }).text, 'Mit freundlichen Grüßen\nDIHAG Holding GmbH', 'Gruß HOL');
 
-// 1a) Empfänger: Adresse aus der E-Rechnung, sonst null (Flow nimmt den Absender der Rechnungsmail)
+// 1a) Empfänger: Adresse aus der E-Rechnung nur mit der Domain des Absenders der Rechnungsmail,
+// sonst null (Flow nimmt den Absender der Rechnungsmail)
 gleich([rot.an, rot.anQuelle], [null, ''], 'ohne Adresse in der Rechnung');
-const mitMail = d => kreditorMail({ richtung: 'Eingang', werk: 'WGC', daten: Object.assign({}, daten, d), kreditorAktion: { art: 'abweichung' } });
+const mitMail = (d, absender = 'buchhaltung@lieferant.de') => kreditorMail({ richtung: 'Eingang', werk: 'WGC',
+  daten: Object.assign({}, daten, d), kreditorAktion: { art: 'abweichung' } }, { absender });
 gleich([mitMail({ stellerMail: ' rechnung@lieferant.de ' }).an, mitMail({ stellerMail: 'rechnung@lieferant.de' }).anQuelle], ['rechnung@lieferant.de', 'rechnung'], 'Adresse aus der Rechnung');
+gleich(mitMail({ stellerMail: 'rechnung@lieferant.de' }, 'scan@mail.lieferant.de').an, 'rechnung@lieferant.de', 'Subdomain des Absenders');
+gleich(mitMail({ stellerMail: 'opfer@fremd.de' }).an, null, 'andere Domain als der Absender: nicht');
+gleich(mitMail({ stellerMail: 'rechnung@lieferant.de' }, '').an, null, 'ohne Absender: nicht');
+gleich(mitMail({ nummer: 'R-1 <a href=x>Jetzt zahlen</a> ' + 'x'.repeat(60) }).betreff,
+  'Hinweis zu Ihrer E-Rechnung R-1ahrefxJetztzahlen/a' + 'x'.repeat(18), 'Betreff: Nummer nur mit sicheren Zeichen, höchstens 40');
 gleich(mitMail({ stellerMail: 'noreply@lieferant.de' }).an, null, 'noreply aus der Rechnung nicht');
 gleich(mitMail({ stellerMail: 'faktura_no-reply@lieferant.de' }).an, null, 'no-reply mitten in der Adresse nicht');
 gleich([rot.anhang.name, rot.anhang.contentType], ['Pruefbericht_4711.html', 'text/html'], 'Anhang');
@@ -121,8 +128,8 @@ require(path.join(SRC, 'functions', 'intake.js'));
 const ausgang = fs.readFileSync(path.join(API, 'test', 'sample-cii.xml'), 'utf8');
 // Verkäufer und Käufer tauschen: Rechnung eines Lieferanten an WGC
 const eingang = ausgang.replace(/Walzengiesserei Coswig GmbH/g, '#WGC#').replace(/Muster Maschinenbau GmbH/g, 'Walzengiesserei Coswig GmbH').replace(/#WGC#/g, 'Muster Maschinenbau GmbH');
-const aufruf = async xml => (await handler.intake({
-  method: 'POST', query: new URLSearchParams('werk=WGC'), arrayBuffer: async () => Buffer.from(xml),
+const aufruf = async (xml, absender = 'buchhaltung@muster-maschinenbau.de') => (await handler.intake({
+  method: 'POST', query: new URLSearchParams({ werk: 'WGC', absender }), arrayBuffer: async () => Buffer.from(xml),
 }, { error() {}, log() {} })).jsonBody;
 
 (async () => {
@@ -146,8 +153,15 @@ const aufruf = async xml => (await handler.intake({
   r = await aufruf(mitKontakt('', ['0088', '4000001000005']));
   gleich([r.daten.stellerMail, r.kreditorAktion.mail.an], ['', null], 'GLN ist keine Mailadresse');
 
-  r = await aufruf(ausgang);
+  r = await aufruf(mitKontakt('mailto:opfer@fremd.de', null));
+  gleich([r.daten.stellerMail, r.kreditorAktion.mail.an], ['opfer@fremd.de', null], 'Adresse einer fremden Domain: kein an');
+
+  r = await aufruf(ausgang, 'buchhaltung@walze-coswig.de');
   gleich([r.richtung, r.kreditorAktion && r.kreditorAktion.art, !!(r.kreditorAktion && r.kreditorAktion.mail)], ['Ausgang', 'abweichung', false], 'Ausgang: keine Mail');
+  r = await aufruf(ausgang, 'angreifer@fremd.de');
+  gleich([r.richtung, /selbst, die Mail kam aber nicht von einer internen Adresse/.test(r.hinweis)], ['Eingang', true], 'eigenes Werk als Aussteller, extern: Eingang mit Hinweis');
+  r = await aufruf(ausgang, 'buchhaltung@walze-coswig.de.fremd.de');
+  gleich(r.richtung, 'Eingang', 'nachgemachte interne Domain zählt nicht');
 
   urteil = { konform: 'rot', konformLabel: 'Rot - Fehler', accepted: false, errorCount: 1, warningCount: 0,
     meldungen: [{ level: 'error', text: '[BR-CO-15] Summe' }], hinweis: 'Rechnerische Summen stimmen nicht zusammen.' };

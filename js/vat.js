@@ -12,13 +12,18 @@
 (function () {
   'use strict';
 
-  var VAT_API = 'https://erechnung-xml2pdf.azurewebsites.net/api/vat';
+  // Adresse der Azure Function aus der Config in SharePoint (js/access.js, _app.apiHost)
+  function vatApi() {
+    var host = typeof getAppConfig === 'function' ? getAppConfig().apiHost : '';
+    if (!host) throw new Error('Adresse des Prüfdienstes fehlt in der Konfiguration (access-config.json, _app.apiHost).');
+    return host + '/api/vat';
+  }
 
   function $(id) { return document.getElementById(id); }
   function val(id) { var e = $(id); return e ? String(e.value || '').trim() : ''; }
   function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
 
@@ -32,7 +37,7 @@
     var label = btn.textContent;
     btn.disabled = true; btn.textContent = 'Prüfe…';
     try {
-      var r = await fetch(VAT_API, {
+      var r = await fetch(vatApi(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

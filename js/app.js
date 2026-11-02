@@ -65,11 +65,15 @@ function setupGesellschaftSelector() {
   // landen im falschen AR_<Werk>).
   const alle = (typeof activeWerke === 'function' && activeWerke().length)
     ? activeWerke() : ['WGC', 'SHB'];
-  // Werkzuweisung aus den Einstellungen: zugewiesene Benutzer wählen nur ihre Werke.
-  // Admins und Benutzer ohne Zuweisung sehen alle. Passt keine Zuweisung zu einem
-  // aktiven Werk, bleiben alle stehen, damit niemand ohne Auswahl dasteht.
-  const erlaubt = typeof erlaubteWerke === 'function' ? erlaubteWerke(alle) : alle;
-  const werke = erlaubt.length ? erlaubt : alle;
+  // Werkzuweisung aus den Einstellungen: zugewiesene Benutzer wählen nur ihre Werke,
+  // Admins alle. Ohne Zuweisung gibt es kein Werk und damit keinen Export.
+  const werke = typeof erlaubteWerke === 'function' ? erlaubteWerke(alle) : alle;
+  if (!werke.length) {
+    sel.innerHTML = '<option value="">Kein Werk zugewiesen</option>';
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
   sel.innerHTML = werke.map(g => {
     const label = (typeof GESELLSCHAFT_LABELS !== 'undefined' && GESELLSCHAFT_LABELS[g.toLowerCase()]) || g;
     return `<option value="${g}">${label}</option>`;
@@ -558,7 +562,8 @@ function formatFileSize(bytes) {
 /* ── PDF Viewer ── */
 async function renderPDF(pdfBytes) {
   try {
-    const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
+    // isEvalSupported: false schließt CVE-2024-4367 (Code aus präparierten Schriften)
+    const loadingTask = pdfjsLib.getDocument({ data: pdfBytes, isEvalSupported: false });
     pdfDocument = await loadingTask.promise;
     totalPages = pdfDocument.numPages;
     currentPage = 1;
@@ -1003,6 +1008,7 @@ function validateForm(data) {
 
 /* ── Export ── */
 async function exportInvoice(format) {
+  if (!_werkZugewiesen()) return;
   const data = collectFormData();
   const errors = validateForm(data);
 
@@ -1024,6 +1030,14 @@ async function exportInvoice(format) {
   const totals = calcTotals(data.positionen, data.steuerbetrag);
   if (!_preflightChecks(data, totals)) return;
   return _exportErstellen(data, format, totals);
+}
+
+/** Ohne zugewiesenes Werk kein Export und keine Mail (sonst landete alles in AR_WGC). */
+function _werkZugewiesen() {
+  const sel = document.getElementById('gesellschaft');
+  if (sel && sel.value) return true;
+  showToast('Dir ist kein Werk zugewiesen. Bitte die IT, dich in den Einstellungen einem Werk zuzuordnen.', 'error');
+  return false;
 }
 
 /**
@@ -1179,6 +1193,7 @@ async function _imMonitoringAblegen(data, totals, xml, pdfBytes, format, ust) {
 
 /* ── Mail erstellen ── */
 async function createInvoiceMail() {
+  if (!_werkZugewiesen()) return;
   const data = collectFormData();
   const errors = validateForm(data);
   if (errors.length > 0) {
@@ -1580,7 +1595,10 @@ function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   const icons = { success: '✅', error: '❌', info: 'ℹ️' };
-  toast.innerHTML = `<span class="toast-icon">${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
+  // Meldungen enthalten oft Fehlertexte von außen: nur als Text einsetzen
+  const icon = document.createElement('span'); icon.className = 'toast-icon'; icon.textContent = icons[type] || 'ℹ️';
+  const text = document.createElement('span'); text.textContent = message;
+  toast.append(icon, text);
   container.appendChild(toast);
   setTimeout(() => {
     toast.classList.add('fade-out');
@@ -1593,5 +1611,6 @@ function formatDE(n) {
 }
 
 function escHTML(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }

@@ -49,7 +49,7 @@ Danach die **App-Einstellung `MUSTANG_URL`** der Function App setzen (analog
 `KOSIT_DAEMON_URL`):
 
 ```bash
-az functionapp config appsettings set -g rg-erechnung-api -n erechnung-xml2pdf \
+az functionapp config appsettings set -g rg-erechnung-api -n <function-app> \
   --settings "MUSTANG_URL=https://erechnung-mustang.<hash>.<region>.azurecontainerapps.io/"
 ```
 
@@ -57,7 +57,7 @@ az functionapp config appsettings set -g rg-erechnung-api -n erechnung-xml2pdf \
 ```bash
 curl -X POST --data-binary @rechnung.pdf https://erechnung-mustang.<...>/   # roher Report
 # ODER ueber die Function:
-curl -X POST "https://erechnung-xml2pdf.azurewebsites.net/api/validate?code=<KEY>" \
+curl -X POST "https://<function-app>.azurewebsites.net/api/validate?code=<KEY>" \
   -H "Content-Type: application/octet-stream" --data-binary @zugferd.pdf
 # -> { konform, pruefwerkzeug: "Mustang (ZUGFeRD-Profil)", ... }
 ```

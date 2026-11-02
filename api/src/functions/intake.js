@@ -5,6 +5,8 @@
  *   GET  /api/intake              -> JSON-Info (Health)
  *   POST /api/intake?werk=<Kuerzel> -> Body = ZUGFeRD-PDF | XRechnung-XML | normales PDF
  *                                    Antwort = JSON-Umschlag (siehe unten)
+ *        &absender=<Mailadresse>     optional: Absender der Rechnungsmail (Reply-To, sonst From).
+ *                                    Ohne ihn ist alles Eingang und mail.an bleibt null.
  *
  * ZWECK: Eingangsstufe. Eine Datei rein, ein JSON raus, das Power Automate alles
  * liefert, um die Rechnung geprueft in ERAR_<Werk> abzulegen. Das Werk ist bei
@@ -18,7 +20,8 @@
  *     werk:            Ablage-Werk (Ausgang: aus Verkaeufer; Eingang: ?werk=/Empfaenger),
  *     werkErkannt:     aus dem RechnungsEMPFÄNGER abgeleitet (Eingang-Gegenprobe),
  *     werkAusVerkaeufer: aus dem AUSSTELLER abgeleitet (Ausgang-Erkennung),
- *     richtung:        'Eingang' | 'Ausgang' (DIHAG-Gesellschaft = Aussteller -> Ausgang),
+ *     richtung:        'Eingang' | 'Ausgang' (Ausgang nur: Werk des Postfachs = Aussteller und
+ *                      ?absender= ist eine interne Adresse),
  *     zielbibliothek:  'ERAR_<Werk>' (Eingang) | 'AR_<Werk>' (Ausgang) — fertig fuer den Flow,
  *     werkMismatch:    true, wenn Eingang und ?werk= != werkErkannt (moegliche Fehlleitung),
  *     konform:         'gruen'|'gelb'|'rot'|'ungeprueft',
@@ -55,7 +58,7 @@ const { validateMustang } = require('../mustang');
 const { extractInvoiceXml } = require('../pdfxml');
 const { validatePdfA } = require('../verapdf');
 const { convertXmlToPdf, parseInvoiceData } = require('../converter');
-const { detectWerkFromBuyer, detectWerkFromSeller } = require('../werk');
+const { detectWerkFromBuyer, detectWerkFromSeller, istInterneAdresse } = require('../werk');
 const { normalizeBody } = require('../httpbody');
 const { pdfXmlAbgleich } = require('../pdfabgleich');
 const { kopfdatenAusPdf } = require('../kopfdaten');
@@ -118,6 +121,9 @@ app.http('intake', {
     // Empfaenger abgeleitet.
     const werkHinweis = String(request.query.get('werk') || request.query.get('gesellschaft') || '')
       .toUpperCase().trim();
+    // Absender der Rechnungsmail (vom Flow, optional): entscheidet mit, ob eine Rechnung
+    // eines DIHAG-Werks Ausgang ist, und an wen die Lieferanten-Mail gehen darf.
+    const absender = String(request.query.get('absender') || '').trim().toLowerCase().slice(0, 200);
 
     const res = {
       klassifizierung: null,
@@ -290,10 +296,16 @@ app.http('intake', {
       res.werkErkannt = detectWerkFromBuyer(res.daten);         // kaeuferbasiert (Eingang)
       res.werkAusVerkaeufer = detectWerkFromSeller(res.daten);  // ausstellerbasiert (Ausgang)
 
-      // Richtung: ist eine DIHAG-Gesellschaft der VERKAEUFER -> Ausgangsrechnung,
-      // sonst Eingang. So landet eine WGC-Ausgangsrechnung, die im Eingangs-
-      // Postfach ankommt, nicht mehr faelschlich in ERAR_<Werk>.
-      res.richtung = res.werkAusVerkaeufer ? 'Ausgang' : 'Eingang';
+      // Richtung: Ausgang nur, wenn das Werk des Postfachs selbst der VERKAEUFER ist (eigene
+      // Rechnung als Kopie im Eingang) UND die Mail von einer internen Adresse kam. Den
+      // Verkaeufer kann jeder in seine Rechnung schreiben; extern eingegangen bleibt es
+      // Eingang mit Hinweis. Rechnungen anderer DIHAG-Werke (Konzernrechnungen) sind Eingang.
+      const eigenesWerk = !!res.werkAusVerkaeufer && (!werkHinweis || res.werkAusVerkaeufer === werkHinweis);
+      res.richtung = eigenesWerk && istInterneAdresse(absender) ? 'Ausgang' : 'Eingang';
+      if (eigenesWerk && res.richtung === 'Eingang') {
+        res.hinweis = [res.hinweis, `Aussteller ist ${res.werkAusVerkaeufer} selbst, die Mail kam aber nicht von einer internen Adresse. Bitte pruefen.`]
+          .filter(Boolean).join(' | ');
+      }
 
       // Ablage-Werk + fertige Zielbibliothek (AR_<Werk> = Ausgang | ERAR_<Werk> =
       // Eingang) — der Flow schreibt damit ohne eigene Logik in die richtige Bibliothek.
@@ -367,7 +379,7 @@ app.http('intake', {
 
     // Fertige Mail an den Lieferanten (Zurückweisung, Abweichungen), erst hier: Richtung und Daten stehen fest
     if (res.kreditorAktion) {
-      const mail = kreditorMail(res);
+      const mail = kreditorMail(res, { absender });
       if (mail) res.kreditorAktion.mail = mail;
     }
 

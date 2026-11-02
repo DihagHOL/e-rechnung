@@ -50,14 +50,8 @@ az container delete -g rg-erechnung-api -n erechnung-kosit --yes
 az container delete -g rg-erechnung-api -n erechnung-verapdf --yes
 ```
 
-**Rollback** (falls die neue Kette klemmt): Function-Einstellungen zurück auf die
-ACI-URLs setzen – die ACIs laufen ja noch, solange sie nicht gelöscht sind:
-
-```powershell
-az functionapp config appsettings set -g rg-erechnung-api -n erechnung-xml2pdf --settings `
-  KOSIT_DAEMON_URL=http://erechnung-kosit.germanywestcentral.azurecontainer.io:8080/ `
-  VERAPDF_URL=http://erechnung-verapdf.germanywestcentral.azurecontainer.io:8080/
-```
+**Rollback:** Die alten ACIs sind seit 09.09.2026 gelöscht, ein Rückweg dorthin besteht
+nicht mehr.
 
 ---
 

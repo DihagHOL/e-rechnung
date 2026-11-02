@@ -26,7 +26,7 @@ dazu die Liste **KreditorMails**, in die das Monitoring die Mailaufträge schrei
    PnP.PowerShell muss installiert sein (siehe Kopf des Skripts).
 2. Zuerst einen Testlauf machen, der nichts ändert:
    ```powershell
-   .\provision-rechnungsmonitoring.ps1 -SiteUrl https://dihag.sharepoint.com/sites/Rechnungsmonitoring -ClientId df9691fc-bed8-4134-820e-99654640eb0e -WhatIfOnly
+   .\provision-rechnungsmonitoring.ps1 -SiteUrl https://dihag.sharepoint.com/sites/Rechnungsmonitoring -ClientId <ClientId der PnP-App> -WhatIfOnly
    ```
 3. Die Ausgabe ansehen. Ohne `-Werke` nimmt das Skript alle zehn Werke. Steht bei
    Bibliotheken „(wuerde angelegt) [WhatIf]“, die es noch nicht geben soll, den Lauf mit `-Werke` auf
@@ -79,7 +79,7 @@ auf jedem Werks-Postfach das Recht „Senden als“. Am einfachsten ist das Kont
 die Eingangs-Flows laufen.
 
 1. Exchange Admin Center öffnen: https://admin.exchange.microsoft.com
-2. „Empfänger“, „Postfächer“, das Postfach **er-zaigler@dihag.com** anklicken.
+2. „Empfänger“, „Postfächer“, das Rechnungspostfach von ZAI anklicken.
 3. Reiter „Delegierung“, bei „Senden als“ auf „Bearbeiten“, „Mitglieder hinzufügen“, das
    Flow-Konto auswählen, speichern.
 4. Dasselbe für das Rechnungspostfach WGC.
@@ -136,7 +136,7 @@ Postfach des Werks und setzt den Status.
 3. Darunter **„+“**, Aktion **„Verfassen“** (Datenvorgang). Über „…“ umbenennen in
    `Postfach`. Bei „Eingaben“ über „fx“ diesen Ausdruck eintragen:
    ```
-   if(equals(triggerOutputs()?['body/Werk'],'ZAI'),'er-zaigler@dihag.com',if(equals(triggerOutputs()?['body/Werk'],'WGC'),'<Rechnungspostfach WGC>',''))
+   if(equals(triggerOutputs()?['body/Werk'],'ZAI'),'<Rechnungspostfach ZAI>',if(equals(triggerOutputs()?['body/Werk'],'WGC'),'<Rechnungspostfach WGC>',''))
    ```
    `<Rechnungspostfach WGC>` durch die echte Adresse ersetzen. Kommt ein Werk dazu, hier eine
    weitere Stufe einbauen.

@@ -139,7 +139,7 @@ function _showAuthError(err) {
                   box-shadow:0 4px 24px rgba(0,0,0,.12);text-align:center;">
         <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
         <h2 style="color:#1f2937;margin-bottom:8px;">Anmeldefehler</h2>
-        <p style="color:#6b7280;font-size:14px;margin-bottom:20px;">${err.message || err}</p>
+        <p id="auth-fehlertext" style="color:#6b7280;font-size:14px;margin-bottom:20px;"></p>
         <button onclick="location.reload()"
           style="padding:10px 24px;background:#1a56a0;color:#fff;border:none;
                  border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">
@@ -147,4 +147,6 @@ function _showAuthError(err) {
         </button>
       </div>
     </div>`;
+  // Fehlertext nur als Text einsetzen
+  document.getElementById('auth-fehlertext').textContent = (err && err.message) || String(err);
 }

@@ -36,7 +36,7 @@ Das Provisionierungsskript legt beides an (idempotent, bestehende Bibliotheken b
 
 ```powershell
 cd scripts
-.\provision-rechnungsmonitoring.ps1 -SiteUrl https://dihag.sharepoint.com/sites/Rechnungsmonitoring -ClientId df9691fc-bed8-4134-820e-99654640eb0e
+.\provision-rechnungsmonitoring.ps1 -SiteUrl https://dihag.sharepoint.com/sites/Rechnungsmonitoring -ClientId <ClientId der PnP-App>
 ```
 
 - Neue Spalte **AbsenderMail** („Absender der Rechnungsmail“) in allen `ERAR_<Werk>`,
@@ -90,7 +90,7 @@ Automatisierter Cloud-Flow, ein Flow für alle Werke.
 
 2. **Verfassen**, umbenennen in `Postfach`, Ausdruck:
    ```
-   if(equals(triggerOutputs()?['body/Werk'],'ZAI'),'er-zaigler@dihag.com',if(equals(triggerOutputs()?['body/Werk'],'WGC'),'<Rechnungspostfach WGC>',''))
+   if(equals(triggerOutputs()?['body/Werk'],'ZAI'),'<Rechnungspostfach ZAI>',if(equals(triggerOutputs()?['body/Werk'],'WGC'),'<Rechnungspostfach WGC>',''))
    ```
    `<Rechnungspostfach WGC>` durch die echte Adresse ersetzen. Kommt ein Werk dazu, hier
    eine Stufe ergänzen.

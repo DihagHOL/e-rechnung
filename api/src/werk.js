@@ -66,4 +66,14 @@ function detectWerkFromSeller(daten) {
   ].filter(Boolean).join(' '));
 }
 
-module.exports = { detectWerkFromBuyer, detectWerkFromSeller, WERK_MUSTER };
+/**
+ * Mailadresse einer DIHAG-Gesellschaft? Streng an der Domain (ganze Labels), damit
+ * dihag.beispiel.de oder evil-dihag.com nicht durchgehen.
+ */
+function istInterneAdresse(mail) {
+  const s = String(mail || '').trim().toLowerCase();
+  const domain = /^[^\s@]+@([a-z0-9.-]+)$/.exec(s);
+  return !!domain && /(^|\.)(dihag|dihag-[a-z]+|walze-coswig|shb-guss|lintorfereg|ewa-guss|meuselwitz-guss)\.(com|de|at)$/.test(domain[1]);
+}
+
+module.exports = { detectWerkFromBuyer, detectWerkFromSeller, istInterneAdresse, WERK_MUSTER };

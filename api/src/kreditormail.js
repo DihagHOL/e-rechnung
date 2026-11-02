@@ -19,8 +19,11 @@
  * aus der Rechnung: Der steht bei fehlerhaften Rechnungen oft falsch oder gar nicht drin.
  *
  * Empfänger: mail.an ist die Mailadresse, die der Lieferant in der E-Rechnung als
- * Kommunikationsweg angibt (BT-43 Ansprechpartner, sonst BT-34 elektronische Adresse).
- * Fehlt sie, ist mail.an null und der Flow schreibt an den Absender der Rechnungsmail.
+ * Kommunikationsweg angibt (BT-43 Ansprechpartner, sonst BT-34 elektronische Adresse),
+ * aber nur, wenn sie zur Domain des Absenders der Rechnungsmail passt (?absender= vom
+ * Flow). Die Adresse in der Rechnung kann jeder frei wählen. Ohne passende Domain ist
+ * mail.an null und der Flow schreibt an den Absender der Rechnungsmail.
+ * Die Rechnungsnummer im Betreff ist auf unverfängliche Zeichen gekürzt.
  */
 
 const { DOMParser } = require('@xmldom/xmldom');
@@ -82,6 +85,24 @@ function mailOk(m) {
   const s = String(m || '').trim().toLowerCase();
   return /^[^\s@,;]+@[^\s@,;]+\.[a-z]{2,}$/.test(s)
     && !/(^|[._-])(no-?reply|do-?not-?reply)([._-]|@)|^(mailer-daemon|postmaster)@/.test(s);
+}
+
+/** Domain einer Mailadresse, kleingeschrieben. */
+function _domain(m) {
+  const s = String(m || '').trim().toLowerCase();
+  const i = s.lastIndexOf('@');
+  return i > 0 ? s.slice(i + 1) : '';
+}
+
+/** Gleiche Domain oder Subdomain (rechnung.lieferant.de passt zu lieferant.de). */
+function gleicheDomain(a, b) {
+  const x = _domain(a), y = _domain(b);
+  return !!x && !!y && (x === y || x.endsWith('.' + y) || y.endsWith('.' + x));
+}
+
+/** Rechnungsnummer für den Betreff: nur Buchstaben, Ziffern und / . _ -, höchstens 40 Zeichen. */
+function _betreffNummer(n) {
+  return String(n || '').replace(/[^A-Za-z0-9/._-]+/g, '').slice(0, 40);
 }
 
 function _esc(s) {
@@ -226,11 +247,13 @@ function _mailHtml(v, angaben, firma) {
 
 /**
  * @param {object} res  Antwort von /api/intake (vor feldGrenzen), mit kreditorAktion
+ * @param {object} [opt]
+ * @param {string} [opt.absender]  Absender der Rechnungsmail (Reply-To, sonst From)
  * @returns {{art:string, betreff:string, html:string, text:string,
  *            anhang:{name:string, contentType:string, base64:string}}|null}
  *          art = Wert für die Spalte Art in KreditorMails
  */
-function kreditorMail(res) {
+function kreditorMail(res, opt) {
   const aktion = res && res.kreditorAktion;
   const v = aktion && VORLAGEN[aktion.art];
   if (!v || res.richtung === 'Ausgang') return null;
@@ -244,10 +267,12 @@ function kreditorMail(res) {
     [v.titel, ...angaben.map(([k, w]) => `${k}: ${w}`)].join('\n'),
     ...v.schluss, [GRUSS, firma].filter(Boolean).join('\n')].join('\n\n');
 
-  // Empfänger aus der E-Rechnung (Kommunikationsweg des Lieferanten), sonst entscheidet der Flow
-  const an = mailOk(d.stellerMail) ? String(d.stellerMail).trim() : null;
-  return { art: v.art, betreff: v.betreff + (d.nummer ? ' ' + d.nummer : ''), html: _mailHtml(v, angaben, firma), text, anhang,
+  // Empfänger aus der E-Rechnung nur mit der Domain des Absenders, sonst entscheidet der Flow
+  const kandidat = mailOk(d.stellerMail) ? String(d.stellerMail).trim() : '';
+  const an = kandidat && gleicheDomain(kandidat, opt && opt.absender) ? kandidat : null;
+  const nr = _betreffNummer(d.nummer);
+  return { art: v.art, betreff: v.betreff + (nr ? ' ' + nr : ''), html: _mailHtml(v, angaben, firma), text, anhang,
     an, anQuelle: an ? 'rechnung' : '' };
 }
 
-module.exports = { kreditorMail, mailOk, VORLAGEN };
+module.exports = { kreditorMail, mailOk, gleicheDomain, VORLAGEN };

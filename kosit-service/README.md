@@ -44,7 +44,7 @@ az container create \
   --registry-password "$(az acr credential show -n dihagerechnungacr --query 'passwords[0].value' -o tsv)" \
   --ports 8080 --cpu 1 --memory 1.5 \
   --dns-name-label erechnung-kosit
-# -> http://erechnung-kosit.<region>.azurecontainer.io:8080/
+# -> <KoSIT-URL>
 ```
 
 Namen (`dihagerechnungacr`, `rg-erechnung-api`) an eure Umgebung anpassen.
@@ -71,20 +71,20 @@ Der Daemon:
 In der Function-App eine App-Einstellung setzen:
 
 ```bash
-az functionapp config appsettings set -g rg-erechnung-api -n erechnung-xml2pdf \
-  --settings KOSIT_DAEMON_URL="http://erechnung-kosit.<region>.azurecontainer.io:8080/"
+az functionapp config appsettings set -g rg-erechnung-api -n <function-app> \
+  --settings KOSIT_DAEMON_URL="<KoSIT-URL>"
 ```
 
 Danach die API neu deployen (bringt die neue Function `validate` mit):
 
 ```bash
-cd ../api && npm run sync && func azure functionapp publish erechnung-xml2pdf
+cd ../api && npm run sync && func azure functionapp publish <function-app>
 ```
 
 Test:
 
 ```bash
-curl "https://erechnung-xml2pdf.azurewebsites.net/api/validate?code=<KEY>" \
+curl "https://<function-app>.azurewebsites.net/api/validate?code=<KEY>" \
   -H "Content-Type: application/xml" --data-binary @rechnung.xml
 # -> { "konform": "gruen", "konformLabel": "Gruen - KoSIT ok", "accepted": true, ... }
 ```
@@ -96,7 +96,7 @@ curl "https://erechnung-xml2pdf.azurewebsites.net/api/validate?code=<KEY>" \
 | Trigger | SharePoint · **Wenn eine Datei erstellt wird** | Bibliothek `ERAR_<Werk>` bzw. `AR_<Werk>` |
 | 1 | SharePoint · **Dateiinhalt abrufen** | Datei-ID aus Trigger |
 | 2 | (Bedingung) Dateiname endet mit `.xml` | XRechnung/CII/UBL |
-| 3 | **HTTP** | `POST https://erechnung-xml2pdf.azurewebsites.net/api/validate?code=<KEY>`, Header `Content-Type: application/xml`, Body = Dateiinhalt |
+| 3 | **HTTP** | `POST https://<function-app>.azurewebsites.net/api/validate?code=<KEY>`, Header `Content-Type: application/xml`, Body = Dateiinhalt |
 | 4 | **JSON analysieren** | Schema aus einer Beispielantwort |
 | 5 | SharePoint · **Dateieigenschaften aktualisieren** | `Konformitaet` = `konformLabel`, `ValidierungsMeldung` = erste Meldungen, `Verarbeitungsstatus` = `Validiert` (bzw. `Fehler`, wenn `konform` = `rot`) |
 

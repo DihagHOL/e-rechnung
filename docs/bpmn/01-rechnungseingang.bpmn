@@ -82,7 +82,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:association id="Assoc_N_arch" associationDirection="None" sourceRef="A_move" targetRef="N_arch" />
       <bpmn:textAnnotation id="N_err"><bpmn:text>Eigener Flow „Fehler melden“. Die Adresse je Werk steht unter Einstellungen.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_err" associationDirection="None" sourceRef="A_errMail" targetRef="N_err" />
-      <bpmn:textAnnotation id="N_zai"><bpmn:text>ZAI: Die Buchhaltung arbeitet im Postfach er-zaigler@dihag.com, Ordner „Verarbeitet“.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="N_zai"><bpmn:text>ZAI: Die Buchhaltung arbeitet im Rechnungspostfach von ZAI, Ordner „Verarbeitet“.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_zai" associationDirection="None" sourceRef="A_archSend" targetRef="N_zai" />
       <bpmn:textAnnotation id="N_wgc"><bpmn:text>WGC: Die Buchhaltung arbeitet in der Eingangsrechnungsliste auf gruppe_wgc. Anhänge nur bei grün oder gelb.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_wgc" associationDirection="None" sourceRef="W_item" targetRef="N_wgc" />

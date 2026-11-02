@@ -60,7 +60,7 @@ lesbare PDF. Diese Datei bekommt der Genehmiger als Anhang.
 
 ```powershell
 cd scripts
-.\provision-rechnungsmonitoring.ps1 -SiteUrl https://dihag.sharepoint.com/sites/Rechnungsmonitoring -ClientId df9691fc-bed8-4134-820e-99654640eb0e -Werke WGC,SHB,ZAI -WhatIfOnly
+.\provision-rechnungsmonitoring.ps1 -SiteUrl https://dihag.sharepoint.com/sites/Rechnungsmonitoring -ClientId <ClientId der PnP-App> -Werke WGC,SHB,ZAI -WhatIfOnly
 ```
 
 Ausgabe prüfen, dann ohne `-WhatIfOnly` ausführen. Unter „Bearbeitung (Buchhaltung)“ kommen je
@@ -255,7 +255,7 @@ Einmal für alle freigeben (Admin):
 ## Spalten und Bearbeiten je Werk
 
 Der Knopf **„Spalten“** neben „Zurücksetzen“ ist nur für Admins sichtbar
-(`administrator@dihag.com`, js/access.js). Dort wird je Werk festgelegt:
+(Liste `_app.admins` in `access-config.json`, js/access.js). Dort wird je Werk festgelegt:
 - **Bearbeiten-Funktion** an oder aus. Aus heißt kein „Bearbeiten“-Knopf, keine Spalten
   Varialnummer, Kontierung, Bearbeitung, Genehmigung und Notiz. Das passt für Werke, die über
   SAP buchen und nie mit der Eingangsrechnungsliste gearbeitet haben, zum Beispiel ZAI.
