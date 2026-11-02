@@ -216,14 +216,40 @@ unterschiedlich an die Buchhaltung:
 | Flow | `E-R-Rechnung_WGC` | `E-R-Rechnung_ZAI`, `_HOL`, `_LEG`, `_EWA` |
 | Postfach | `rechnung@walze-coswig.de` | ZAI `er-zaigler@dihag.com`, HOL `ER@dihag.com`, LEG `rechnung@lintorfereg.de`, EWA `er@ewa-guss.de` |
 | Schleifenschutz am Anfang | nicht nötig | Betreff enthält „[ARCHIV]“ = eigene Archiv-Mail: nur in den Ordner `ArchiviertUndGeprueft` (Posteingang) verschieben, nicht verarbeiten |
-| Übergabe | Eintrag in der Eingangsrechnungsliste auf `gruppe_wgc`, Original und lesbares PDF als Anlage (bei grün oder gelb), Eintrag danach mit dem Prüfergebnis aktualisiert | je Rechnung eine Archiv-Mail aus dem eigenen Postfach an sich selbst (ZAI noch von `administrator@dihag.com`): Betreff „[ARCHIV] Rechnung <Nr> — <Lieferant>“, Anhang `<basis>_lesbar.pdf` (lesbares PDF, sonst das Original) |
-| Buchhaltung arbeitet in | der Liste auf `gruppe_wgc` | dem Postfachordner `ArchiviertUndGeprueft` |
+| Übergabe | Eintrag in der Eingangsrechnungsliste auf `gruppe_wgc`, Original und lesbares PDF als Anlage (bei grün oder gelb), Eintrag danach mit dem Prüfergebnis aktualisiert | Archiv-Mail aus dem eigenen Postfach an sich selbst. HOL, LEG, EWA: **eine je Eingangsmail** mit allen PDF- und XML-Anhängen, Betreff „[ARCHIV] Rechnung <Nr> — <Lieferant> (N Dateien)“. ZAI: noch je Anhang, von `administrator@dihag.com` |
+| Buchhaltung arbeitet in | der Liste auf `gruppe_wgc` | dem Postfachordner `ArchiviertUndGeprueft` (WebVerify: eine Mail = ein Vorgang) |
 
 Aufbau in ZAI, HOL, LEG und EWA: oben `Archiv_pruefen` (bei ZAI `Bedingung_4`) mit dem
 Verschieben im Ja-Zweig und der Schleife über die Anlagen im Nein-Zweig. Die Archiv-Mail
-(`Archiv_Mail_senden`) läuft nach `Bedingung_1`, also nach Ablage, Eigenschaften und
-Sidecars. Sie geht auch bei roten Rechnungen raus, die Originalmail bleibt im Posteingang.
-Die Ordner-Id von `ArchiviertUndGeprueft` ist je Postfach eine andere.
+geht auch bei roten Rechnungen raus, die Originalmail bleibt im Posteingang. Die Ordner-Id
+von `ArchiviertUndGeprueft` ist je Postfach eine andere.
+
+**Eine Mail = ein Vorgang (HOL, LEG, EWA, seit 02.11.2026).** Bis dahin schickte die
+Schleife je Anhang eine eigene Archiv-Mail. WebVerify machte daraus je PDF einen eigenen
+Vorgang, eine Reisekostenabrechnung mit elf Belegen also elf Vorgänge. Jetzt:
+
+1. Oben zwei Variablen: `ArchivAnhaenge` (Array) und `ArchivTitel` (Array).
+2. `Auf_alle_anwenden_2` läuft **nacheinander** (Parallelität 1). So bleibt die Reihenfolge
+   der Mail erhalten, und zwei Anhänge mit gleichem Namen kommen sich bei
+   `Vorhandene_Datei` nicht in die Quere.
+3. In der Schleife, nach `Bedingung_1`: `Archiv_Anhang_merken` hängt das lesbare PDF an
+   (Name `<basis>_lesbar.pdf`, ohne lesbares PDF das Original als `<basis>.<endung>`),
+   `Archiv_Titel_merken` merkt „<Nr> — <Lieferant>“, wenn der Prüfdienst eine Nummer fand.
+4. `Dateieigenschaften_aktualisieren` schreibt zusätzlich `MailVorgang` =
+   `workflow()?['run']?['name']`. Damit fasst das Monitoring die Anhänge zu einem Vorgang
+   zusammen (siehe [Rechnungsmonitoring.md](Rechnungsmonitoring.md)).
+5. Nach der Schleife (auch wenn ein Anhang gescheitert ist): `Archiv_Titel_filtern` nimmt
+   die Titel mit Nummer, `Archiv_Mail_pruefen` schickt **eine** `Archiv_Mail_senden` mit
+   allen gemerkten Dateien. Betreff mit der ersten gefundenen Nummer, ohne Nummer
+   „ohne Nr — <Betreff der Eingangsmail>“, bei mehreren Dateien „(N Dateien)“ dahinter.
+6. Scheitert diese Mail (zum Beispiel zu groß für Exchange), schickt `Archiv_Mail_einzeln`
+   je Datei eine Mail wie früher. Lieber getrennte Vorgänge als keine.
+7. `Anhang_gescheitert`: War ein Anhang nicht zu verarbeiten, endet der Lauf mit
+   `Terminate` als Fehler, nachdem die übrigen archiviert sind. Der Fehler bleibt also im
+   Verlauf sichtbar.
+
+Die Spalte `MailVorgang` muss in `ERAR_<Werk>` vorhanden sein, bevor der Flow sie
+schreibt (Provisioning legt sie an).
 
 Die Liste auf `gruppe_wgc` wird durch das Monitoring abgelöst: Varialnummer, Kontierung und
 Genehmigung pflegt die Buchhaltung dann an der Rechnung in `ERAR_WGC`, siehe

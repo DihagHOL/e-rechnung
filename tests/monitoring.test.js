@@ -97,4 +97,39 @@ gleich(M._monMitNeuenSpalten({ spalten: ['links', 'nummer'] }), ['links', 'erste
 gleich(M._monMitNeuenSpalten({ spalten: ['links', 'datum'], spaltenAm: '2026-10-30T08:00:00Z' }), ['links', 'datum'], 'neu gespeichert: Auswahl gilt');
 gleich(M._monMitNeuenSpalten({ spalten: ['erstellt', 'links'] }), ['erstellt', 'links'], 'schon dabei');
 
+// 8) Eine Eingangsmail = ein Vorgang (Spalte MailVorgang vom Eingangs-Flow)
+const mv = (name, f, zeit, lauf) => datei(name, Object.assign({ MailVorgang: lauf || 'LAUF1', OriginalPdfName: name }, f), { createdDateTime: zeit });
+let vg = M._monGroup([
+  mv('2026-10631_DE195168953.pdf', { Title: '2026-10631', Rechnungssteller: 'Muster Software GmbH', RechnungsstellerUStID: 'DE195168953',
+    Format: 'ZUGFeRD', Bruttobetrag: 119 }, '2026-11-02T11:51:30Z'),
+  mv('2026-10631_DE195168953_lesbar.pdf', {}, '2026-11-02T11:51:32Z'),
+  mv('Leistungsnachweis Hotline.pdf', { Format: 'PDF' }, '2026-11-02T11:51:20Z'),
+]);
+gleich(vg.length, 1, 'Rechnung mit Leistungsnachweis = eine Zeile');
+gleich([vg[0].nummer, vg[0].anlagen, vg[0].brutto, vg[0].erstellt], ['2026-10631', ['Leistungsnachweis Hotline.pdf'], 119, '2026-11-02T11:51:20Z'],
+  'Rechnung führt, Nachweis als Anlage, erste Datei der Mail');
+gleich(vg[0].dateien.map(d => [d.label, !!d.anlage]), [['Lesbares PDF', false], ['Anlage: Leistungsnachweis Hotline.pdf', true]], 'Anlage verlinkt');
+gleich(M._monMatchBase(vg[0], Object.assign({}, f, { from: '', q: 'hotline' }), 'hotline'), true, 'Suche findet den Namen der Anlage');
+
+vg = M._monGroup(['reisekosten.pdf', 'beleg1.pdf', 'beleg2.pdf'].map((x, i) => mv(x, { Format: 'PDF' }, '2026-11-02T11:40:0' + i + 'Z')));
+gleich([vg.length, vg[0].file, vg[0].anlagen], [1, 'reisekosten.pdf', ['beleg1.pdf', 'beleg2.pdf']], 'ohne Rechnungsnummer führt der erste Anhang');
+
+vg = M._monGroup([
+  mv('4711_DE111111111.xml', { Title: '4711_DE111111111.xml', Format: 'XRechnung', RechnungsstellerUStID: 'DE111111111' }, '2026-11-02T10:00:01Z'),
+  mv('4712_DE111111111.xml', { Title: '4712_DE111111111.xml', Format: 'XRechnung', RechnungsstellerUStID: 'DE111111111' }, '2026-11-02T10:00:02Z'),
+  mv('LS 99.pdf', { Format: 'PDF' }, '2026-11-02T10:00:03Z'),
+]);
+gleich(vg.map(r => [r.nummer, r.anlagen || [], r.mailRechnungen]), [['4711', ['LS 99.pdf'], ['4712']], ['4712', [], ['4711']]],
+  'zwei Rechnungen in einer Mail bleiben zwei Zeilen, Lieferschein an der ersten');
+
+vg = M._monGroup([
+  mv('RE1_DE296887298.pdf', { Title: 'RE1', Format: 'ZUGFeRD', RechnungsstellerUStID: 'DE296887298' }, '2026-10-30T12:27:00Z'),
+  mv('RE1_DE296887298_20261030122710.xml', { Title: 'RE1_DE296887298_20261030122710.xml', Format: 'XRechnung', RechnungsstellerUStID: 'DE296887298' }, '2026-10-30T12:27:10Z'),
+]);
+gleich([vg.length, vg[0].nummer, vg[0].dateien.map(d => d.label)], [1, 'RE1', ['XML']], 'PDF und XML derselben Rechnung = eine Zeile ohne Dublette');
+
+vg = M._monGroup([mv('a.pdf', { Format: 'PDF' }, '2026-11-02T09:00:00Z'), mv('b.pdf', { Format: 'PDF' }, '2026-11-02T09:00:05Z', 'LAUF2'),
+  datei('c.pdf', { Format: 'PDF' }), datei('d.pdf', { Format: 'PDF' })]);
+gleich(vg.length, 4, 'andere Mail oder ohne Kennung: eigene Zeilen');
+
 console.log(`monitoring: ${n} Prüfungen grün`);

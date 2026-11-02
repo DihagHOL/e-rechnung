@@ -270,6 +270,8 @@ function _monMap(it, f, lib) {
     absenderMail: (f.AbsenderMail || '').toString().trim(),
     // Name des Anhangs, bevor der Flow die Datei nach Rechnungsnummer umbenannt hat
     originalName: (f.OriginalPdfName || '').toString().trim(),
+    // Kennung der Eingangsmail (Flow-Lauf): alle Anhänge einer Mail tragen dieselbe
+    mailVorgang: (f.MailVorgang || '').toString().trim(),
     art:      (f.Rechnungsart || '').toString(),
     steller:  (f.Rechnungssteller || '').toString(),
     empf:     (f.Rechnungsempfaenger || '').toString(),
@@ -386,7 +388,7 @@ function _monGroup(recs) {
     primary.manuellePruefung = arr.some(r => r.manuellePruefung);
     primary.rueckfrage       = arr.some(r => r.rueckfrage);
     primary.konvertiert      = arr.some(r => r.konvertiert);
-    for (const k of ['buchung', 'manuellePruefungGrund', 'kreditorAktion', 'ustid', 'absenderMail']) {
+    for (const k of ['buchung', 'manuellePruefungGrund', 'kreditorAktion', 'ustid', 'absenderMail', 'mailVorgang', 'originalName']) {
       if (!primary[k]) { const s = arr.find(r => r[k]); if (s) primary[k] = s[k]; }
     }
     // Ausgangsrechnungen erzeugt der geprüfte Konverter selbst (EN16931-konform,
@@ -423,7 +425,61 @@ function _monGroup(recs) {
     primary.erstellt = arr.map(r => r.erstellt).filter(Boolean).sort()[0] || '';
     out.push(primary);
   }
+  return _monMailVorgaenge(out);
+}
+
+/* ── Eine Eingangsmail = ein Vorgang ──────────────────────────────────
+   Der Eingangs-Flow legt jeden Anhang einzeln ab und schreibt die Kennung der Mail in
+   MailVorgang. Anhänge ohne eigene Rechnungsnummer (Leistungsnachweis, Lieferschein,
+   Belege) kommen als Anlagen an die erste Rechnung der Mail, ohne Rechnung an den ersten
+   Anhang. Anhänge mit eigener Nummer bleiben eigene Zeilen, dieselbe Nummer vom selben
+   Lieferanten (PDF und XML einer Rechnung) zählt einmal. */
+function _monMailVorgaenge(gruppen) {
+  const jeMail = new Map();
+  const out = [];
+  for (const g of gruppen) {
+    if (!g.mailVorgang) { out.push(g); continue; }
+    const key = [g.werk, g.richtung, g.mailVorgang].join('|');
+    if (!jeMail.has(key)) jeMail.set(key, []);
+    jeMail.get(key).push(g);
+  }
+  for (const arr of jeMail.values()) out.push(..._monMailZusammen(arr));
   return out;
+}
+
+function _monMailZusammen(arr) {
+  if (arr.length < 2) return arr;
+  // Reihenfolge der Anhänge: der Flow legt sie nacheinander ab
+  const sortiert = arr.slice().sort((a, b) => String(a.erstellt).localeCompare(String(b.erstellt))
+    || String(a.file).localeCompare(String(b.file)));
+  const lieferant = r => r.ustid || String(r.steller || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  // Rechnung = Nummer vom Prüfdienst (Title) oder E-Rechnung. Bei XML setzt SharePoint den
+  // Title selbst auf den Dateinamen, die Nummer steht dann nur im Dateinamen.
+  const istRechnung = g => !!g.nummer && (!g.nummerAusDatei || /^(xrechnung|zugferd)/i.test(g.format || ''));
+  const rechnungen = [], anlagen = [];
+  for (const g of sortiert) {
+    if (!istRechnung(g)) { anlagen.push(g); continue; }
+    const gleich = rechnungen.find(x => x.nummer.toLowerCase() === g.nummer.toLowerCase() && lieferant(x) === lieferant(g));
+    if (!gleich) { rechnungen.push(g); continue; }
+    // zweite Datei derselben Rechnung
+    if (g.url) gleich.dateien.push({ label: g.ext ? g.ext.toUpperCase() : 'Datei', url: g.url, listId: g.listId, itemId: g.itemId, ext: g.ext });
+    gleich.dateien.push(...g.dateien);
+    for (const k of ['steller', 'empf', 'format', 'konform', 'faelligkeit', 'bestellnr', 'ustid']) if (!gleich[k] && g[k]) gleich[k] = g[k];
+    if (gleich.brutto == null) gleich.brutto = g.brutto;
+    if (gleich.netto == null) gleich.netto = g.netto;
+    gleich.gobdArchiviert = gleich.gobdArchiviert || g.gobdArchiviert;
+  }
+  const haupt = rechnungen.length ? rechnungen[0] : anlagen.shift();
+  haupt.anlagen = anlagen.map(a => a.originalName || a.file);
+  for (const a of anlagen) {
+    const name = a.originalName || a.file;
+    if (a.url) haupt.dateien.push({ label: 'Anlage: ' + name, url: a.url, listId: a.listId, itemId: a.itemId, ext: a.ext, anlage: true });
+    for (const d of a.dateien) haupt.dateien.push(Object.assign({}, d, { label: 'Anlage: ' + name + ' (' + d.label + ')', anlage: true }));
+  }
+  haupt.erstellt = sortiert.map(r => r.erstellt).filter(Boolean).sort()[0] || haupt.erstellt;
+  // Mehrere Rechnungen in einer Mail: jede Zeile nennt die anderen
+  if (rechnungen.length > 1) for (const r of rechnungen) r.mailRechnungen = rechnungen.filter(x => x !== r).map(x => x.nummer);
+  return rechnungen.length ? rechnungen : [haupt];
 }
 
 // Beste Primärzeile: die mit den meisten Metadaten; bei Gleichstand PDF vor XML.
@@ -584,7 +640,7 @@ function _monMatchBase(r, f, q) {
       && (!f.genehmigt || (r.bh && r.bh.genehmigt) === f.genehmigt)
       && (!f.from     || (d && d >= f.from))
       && (!f.to       || (d && d <= f.to))
-      && (!q || (r.nummer + ' ' + _monPartner(r) + ' ' + r.steller + ' ' + r.empf + ' ' + (r.absenderMail || '')
+      && (!q || (r.nummer + ' ' + _monPartner(r) + ' ' + r.steller + ' ' + r.empf + ' ' + (r.absenderMail || '') + ' ' + (r.anlagen || []).join(' ')
                  + (r.bh ? ' ' + r.bh.varial + ' ' + r.bh.kontierung + ' ' + r.bh.notiz + ' ' + r.bh.bestellnr : ''))
                  .toLowerCase().includes(q));
 }
@@ -976,8 +1032,14 @@ function _monZelle(id, r, idx) {
     case 'links': {
       const kurz = { 'KoSIT-Bericht': 'Bericht', 'Lesbares PDF': 'Lesbar' };
       const chip = (url, text, tip) => `<a class="mon-datei" href="${_esc(url)}" target="_blank" rel="noopener" title="${_esc(tip)}">${_esc(text)}</a>`;
+      // Anlagen aus derselben Mail: eine einzelne als Link, mehrere als Zähler (Liste in den Details)
+      const anl = r.anlagen || [];
+      const ersteAnlage = (r.dateien || []).find(d => d.anlage);
+      const anlChip = anl.length === 1 && ersteAnlage ? chip(ersteAnlage.url, 'Anlage', ersteAnlage.label + ' öffnen')
+        : anl.length ? `<span class="mon-datei" style="cursor:pointer" title="${_esc(anl.join('\n'))}">${anl.length} Anlagen</span>` : '';
       const dateien = [r.url ? chip(r.url, r.ext ? r.ext.toUpperCase() : 'Datei', 'Original öffnen') : '']
-        .concat((r.dateien || []).map(d => chip(d.url, kurz[d.label] || d.label, d.label + ' öffnen'))).join('');
+        .concat((r.dateien || []).filter(d => !d.anlage).map(d => chip(d.url, kurz[d.label] || d.label, d.label + ' öffnen')))
+        .concat(anlChip).join('');
       return `<td>${bh ? `<button type="button" class="bh-btn" data-bh="${idx}" title="Varialnummer, Kontierung, Genehmigung">Bearbeiten</button>` : ''}${dateien}</td>`;
     }
     default: return '<td></td>';
@@ -1088,7 +1150,8 @@ function _monDetail(r, idx) {
   return `<div class="mon-det">`
     + block('Rechnung', [['Nummer', t(r.nummer) + (r.nummerAusDatei && r.nummer ? ' (aus dem Dateinamen)' : '')], ['Datum', t(_monDate(r.datum))],
         ['Erstellt am', t(_monZeit(r.erstellt))], ['Fällig am', t(_monDate(r.faelligkeit))],
-        ['Werk', t(r.werk)], ['Richtung', t(r.richtung)], ['Typ', t(_monKlass(r))], ['Rechnungsart', t(r.art)]])
+        ['Werk', t(r.werk)], ['Richtung', t(r.richtung)], ['Typ', t(_monKlass(r))], ['Rechnungsart', t(r.art)],
+        ['In derselben Mail', r.mailRechnungen ? t('Rechnung ' + r.mailRechnungen.join(', ')) : '']])
     + block(r.richtung === 'Eingang' ? 'Lieferant' : 'Kunde', [
         ['Name', p.name ? t(p.name) + t(_monPartnerQuelle(r, p)) : t(r.steller ? r.steller + ' (aus dem PDF-Text gelesen, nicht bestätigt)' : '')],
         ['Rechnungsmail von', t(r.absenderMail)], ['USt-IdNr.', t(r.ustid)]])
@@ -1890,6 +1953,6 @@ function _esc(s) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { _monMap, _monGroup, _monMarkDupes, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
+  module.exports = { _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
     _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMitNeuenSpalten };
 }

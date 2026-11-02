@@ -46,6 +46,24 @@ Rechnung (Original-PDF, lesbares PDF), sonst wird die Nummer aus dem Dateinamen 
 die USt-IdNr. bzw. das Lieferantenkürzel aus `dateibasis` und ein Zeitstempel einer zweiten
 Datei (`_JJJJMMTThhmmss`) fallen weg. Eine Korrektur unter „Bearbeiten“ geht vor.
 
+**Eine Mail = ein Vorgang:** Der Eingangs-Flow legt jeden Anhang als eigene Datei ab und
+schreibt in die Spalte `MailVorgang` den Namen seines Laufs, bei allen Anhängen einer Mail
+also denselben Wert (bisher HOL, LEG und EWA). Das Monitoring fasst danach zusammen:
+
+- Anhänge ohne eigene Rechnungsnummer (Leistungsnachweis, Lieferschein, Belege einer
+  Reisekostenabrechnung) kommen als **Anlagen** an die erste Rechnung der Mail. Hat keiner
+  der Anhänge eine Nummer, führt der erste Anhang, die übrigen sind seine Anlagen.
+- Als Rechnung zählt ein Anhang mit Nummer vom Prüfdienst (`Title`) oder eine E-Rechnung.
+- PDF und XML derselben Rechnung (gleiche Nummer, gleicher Lieferant) sind eine Zeile und
+  keine Dublette.
+- Mehrere Rechnungen mit eigener Nummer in einer Mail bleiben eigene Zeilen. Die Details
+  nennen unter „In derselben Mail“ die anderen Nummern.
+
+In der Spalte der Dateien steht eine einzelne Anlage als Abzeichen **Anlage**, mehrere als
+**N Anlagen**. Die Details listen jede Anlage mit dem Namen beim Eingang, die Suche findet
+auch diese Namen. Dateien ohne `MailVorgang` (ältere Eingänge, andere Werke) bleiben wie
+bisher je Rechnung eine Zeile.
+
 **Erstellt am** ist der Zeitpunkt, zu dem die erste Datei der Rechnung in SharePoint
 angelegt wurde. Die Tabelle ist danach sortiert, die neuesten Vorgänge stehen oben.
 

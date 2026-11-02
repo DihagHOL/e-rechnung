@@ -89,6 +89,7 @@ $Felder = @(
   @{ Name='RechnungsstellerUStID'; Titel='USt-IdNr. Rechnungssteller'; Typ='Text' }
   @{ Name='Rechnungsempfaenger'; Titel='Rechnungsempfaenger';        Typ='Text' }   # js/sharepoint.js
   @{ Name='AbsenderMail';        Titel='Absender der Rechnungsmail'; Typ='Text' }   # Eingangs-Flow: Reply-To, sonst body/from (Kreditor-Mail-Flow.md), Empfaenger der Kreditor-Mail
+  @{ Name='MailVorgang';         Titel='Eingangsmail (Kennung)';     Typ='Text' }   # Eingangs-Flow: Name des Flow-Laufs, alle Anhaenge einer Mail = ein Vorgang im Monitoring
   @{ Name='Waehrung';            Titel='Waehrung';                   Typ='Text' }
   @{ Name='Nettobetrag';         Titel='Nettobetrag';                Typ='Currency' } # js/sharepoint.js
   @{ Name='MwStBetrag';          Titel='MwSt-Betrag';                Typ='Currency' } # js/sharepoint.js
