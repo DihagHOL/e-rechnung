@@ -216,37 +216,45 @@ unterschiedlich an die Buchhaltung:
 | Flow | `E-R-Rechnung_WGC` | `E-R-Rechnung_ZAI`, `_HOL`, `_LEG`, `_EWA` |
 | Postfach | `rechnung@walze-coswig.de` | ZAI `er-zaigler@dihag.com`, HOL `ER@dihag.com`, LEG `rechnung@lintorfereg.de`, EWA `er@ewa-guss.de` |
 | Schleifenschutz am Anfang | nicht nötig | Betreff enthält „[ARCHIV]“ = eigene Archiv-Mail: nur in den Ordner `ArchiviertUndGeprueft` (Posteingang) verschieben, nicht verarbeiten |
-| Übergabe | Eintrag in der Eingangsrechnungsliste auf `gruppe_wgc`, Original und lesbares PDF als Anlage (bei grün oder gelb), Eintrag danach mit dem Prüfergebnis aktualisiert | Archiv-Mail aus dem eigenen Postfach an sich selbst. HOL, LEG, EWA: **eine je Eingangsmail** mit allen PDF- und XML-Anhängen, Betreff „[ARCHIV] Rechnung <Nr> — <Lieferant> (N Dateien)“. ZAI: noch je Anhang, von `administrator@dihag.com` |
-| Buchhaltung arbeitet in | der Liste auf `gruppe_wgc` | dem Postfachordner `ArchiviertUndGeprueft` (WebVerify: eine Mail = ein Vorgang) |
+| Übergabe | Eintrag in der Eingangsrechnungsliste auf `gruppe_wgc`, Original und lesbares PDF als Anlage (bei grün oder gelb), Eintrag danach mit dem Prüfergebnis aktualisiert | Archiv-Mail aus dem eigenen Postfach an sich selbst. HOL, LEG, EWA: **je E-Rechnung eine**, normale PDFs der Eingangsmail als Anlagen dabei, ohne E-Rechnung eine für die ganze Mail. Betreff „[ARCHIV] Rechnung <Nr> — <Lieferant> (N Dateien)“. ZAI: noch je Anhang, von `administrator@dihag.com` |
+| Buchhaltung arbeitet in | der Liste auf `gruppe_wgc` | dem Postfachordner `ArchiviertUndGeprueft` (WebVerify: eine Archiv-Mail = ein Vorgang) |
 
 Aufbau in ZAI, HOL, LEG und EWA: oben `Archiv_pruefen` (bei ZAI `Bedingung_4`) mit dem
 Verschieben im Ja-Zweig und der Schleife über die Anlagen im Nein-Zweig. Die Archiv-Mail
 geht auch bei roten Rechnungen raus, die Originalmail bleibt im Posteingang. Die Ordner-Id
 von `ArchiviertUndGeprueft` ist je Postfach eine andere.
 
-**Eine Mail = ein Vorgang (HOL, LEG, EWA, seit 02.11.2026).** Bis dahin schickte die
-Schleife je Anhang eine eigene Archiv-Mail. WebVerify machte daraus je PDF einen eigenen
-Vorgang, eine Reisekostenabrechnung mit elf Belegen also elf Vorgänge. Jetzt:
+**Eine Mail = ein Vorgang, E-Rechnungen getrennt (HOL, LEG, EWA, seit 02.11.2026).** Bis
+dahin schickte die Schleife je Anhang eine eigene Archiv-Mail. WebVerify machte daraus je
+PDF einen eigenen Vorgang, eine Reisekostenabrechnung mit elf Belegen also elf Vorgänge.
+Jetzt gilt: jede E-Rechnung (ZUGFeRD, XRechnung) ein Vorgang, normale PDFs bleiben bei der
+Mail.
 
-1. Oben zwei Variablen: `ArchivAnhaenge` (Array) und `ArchivTitel` (Array).
+1. Oben die Variable `ArchivAnhaenge` (Array).
 2. `Auf_alle_anwenden_2` läuft **nacheinander** (Parallelität 1). So bleibt die Reihenfolge
    der Mail erhalten, und zwei Anhänge mit gleichem Namen kommen sich bei
    `Vorhandene_Datei` nicht in die Quere.
-3. In der Schleife, nach `Bedingung_1`: `Archiv_Anhang_merken` hängt das lesbare PDF an
-   (Name `<basis>_lesbar.pdf`, ohne lesbares PDF das Original als `<basis>.<endung>`),
-   `Archiv_Titel_merken` merkt „<Nr> — <Lieferant>“, wenn der Prüfdienst eine Nummer fand.
+3. In der Schleife, nach `Bedingung_1`: `Archiv_Anhang_merken` merkt die Datei (`Name`,
+   `ContentBytes`: lesbares PDF als `<basis>_lesbar.pdf`, sonst das Original als
+   `<basis>.<endung>`), dazu `eRechnung` (Klassifizierung zugferd oder xrechnung-xml),
+   `nr` (Rechnungsnummer, sonst `basis`), `mitNr` und `titel` „<Nr> — <Lieferant>“.
 4. `Dateieigenschaften_aktualisieren` schreibt zusätzlich `MailVorgang` =
-   `workflow()?['run']?['name']`. Damit fasst das Monitoring die Anhänge zu einem Vorgang
-   zusammen (siehe [Rechnungsmonitoring.md](Rechnungsmonitoring.md)).
-5. Nach der Schleife (auch wenn ein Anhang gescheitert ist): `Archiv_Titel_filtern` nimmt
-   die Titel mit Nummer, `Archiv_Mail_pruefen` schickt **eine** `Archiv_Mail_senden` mit
-   allen gemerkten Dateien. Betreff mit der ersten gefundenen Nummer, ohne Nummer
-   „ohne Nr — <Betreff der Eingangsmail>“, bei mehreren Dateien „(N Dateien)“ dahinter.
-6. Scheitert diese Mail (zum Beispiel zu groß für Exchange), schickt `Archiv_Mail_einzeln`
-   je Datei eine Mail wie früher. Lieber getrennte Vorgänge als keine.
-7. `Anhang_gescheitert`: War ein Anhang nicht zu verarbeiten, endet der Lauf mit
-   `Terminate` als Fehler, nachdem die übrigen archiviert sind. Der Fehler bleibt also im
-   Verlauf sichtbar.
+   `workflow()?['run']?['name']`. Damit fasst das Monitoring nach derselben Regel zusammen
+   (siehe [Rechnungsmonitoring.md](Rechnungsmonitoring.md)).
+5. Nach der Schleife (auch wenn ein Anhang gescheitert ist): `Archiv_Sonstige` und
+   `Archiv_Sonstige_Dateien` sammeln die normalen PDFs, `Archiv_ERechnungen` die
+   E-Rechnungen, `Archiv_Nummern_eindeutig` ihre Nummern ohne Doppelte.
+6. `Archiv_je_Rechnung` (nacheinander): je Nummer eine `Archiv_Rechnung_Mail` mit den Dateien
+   dieser Nummer (PDF und XML derselben Rechnung zusammen). Die erste bekommt zusätzlich die
+   normalen PDFs.
+7. `Archiv_Sonstige_pruefen`: Gibt es keine E-Rechnung, geht eine `Archiv_Mail_senden` mit
+   allen normalen PDFs. Betreff mit der ersten gefundenen Nummer, ohne Nummer
+   „ohne Nr — <Betreff der Eingangsmail>“. Bei mehreren Dateien steht „(N Dateien)“ dahinter.
+8. Scheitert eine Archiv-Mail (zum Beispiel zu groß für Exchange), schickt die Schleife
+   `…_einzeln` je Datei eine Mail wie früher. Lieber getrennte Vorgänge als keine.
+9. `Anhang_gescheitert`: War ein Anhang nicht zu verarbeiten oder ist eine Archiv-Mail ganz
+   gescheitert, endet der Lauf mit `Terminate` als Fehler, nachdem das Übrige archiviert
+   ist. Der Fehler bleibt also im Verlauf sichtbar.
 
 Die Spalte `MailVorgang` muss in `ERAR_<Werk>` vorhanden sein, bevor der Flow sie
 schreibt (Provisioning legt sie an).

@@ -430,10 +430,11 @@ function _monGroup(recs) {
 
 /* ── Eine Eingangsmail = ein Vorgang ──────────────────────────────────
    Der Eingangs-Flow legt jeden Anhang einzeln ab und schreibt die Kennung der Mail in
-   MailVorgang. Anhänge ohne eigene Rechnungsnummer (Leistungsnachweis, Lieferschein,
-   Belege) kommen als Anlagen an die erste Rechnung der Mail, ohne Rechnung an den ersten
-   Anhang. Anhänge mit eigener Nummer bleiben eigene Zeilen, dieselbe Nummer vom selben
-   Lieferanten (PDF und XML einer Rechnung) zählt einmal. */
+   MailVorgang. E-Rechnungen (ZUGFeRD, XRechnung) bleiben je Rechnung eine Zeile, PDF und
+   XML derselben Rechnung zählen einmal. Normale PDFs (Leistungsnachweis, Lieferschein,
+   Belege) kommen als Anlagen an die erste E-Rechnung der Mail. Ohne E-Rechnung ist die
+   ganze Mail eine Zeile, vorne das erste PDF mit Rechnungsnummer, sonst das erste.
+   So arbeitet auch die Archiv-Mail der Flows. */
 function _monMailVorgaenge(gruppen) {
   const jeMail = new Map();
   const out = [];
@@ -453,12 +454,12 @@ function _monMailZusammen(arr) {
   const sortiert = arr.slice().sort((a, b) => String(a.erstellt).localeCompare(String(b.erstellt))
     || String(a.file).localeCompare(String(b.file)));
   const lieferant = r => r.ustid || String(r.steller || '').toLowerCase().replace(/\s+/g, ' ').trim();
-  // Rechnung = Nummer vom Prüfdienst (Title) oder E-Rechnung. Bei XML setzt SharePoint den
-  // Title selbst auf den Dateinamen, die Nummer steht dann nur im Dateinamen.
-  const istRechnung = g => !!g.nummer && (!g.nummerAusDatei || /^(xrechnung|zugferd)/i.test(g.format || ''));
+  // Bei XML setzt SharePoint den Title selbst auf den Dateinamen, die Nummer steht dann
+  // nur im Dateinamen. Für E-Rechnungen zählt sie trotzdem.
+  const istERechnung = g => !!g.nummer && /^(xrechnung|zugferd)/i.test(g.format || '');
   const rechnungen = [], anlagen = [];
   for (const g of sortiert) {
-    if (!istRechnung(g)) { anlagen.push(g); continue; }
+    if (!istERechnung(g)) { anlagen.push(g); continue; }
     const gleich = rechnungen.find(x => x.nummer.toLowerCase() === g.nummer.toLowerCase() && lieferant(x) === lieferant(g));
     if (!gleich) { rechnungen.push(g); continue; }
     // zweite Datei derselben Rechnung
@@ -469,7 +470,11 @@ function _monMailZusammen(arr) {
     if (gleich.netto == null) gleich.netto = g.netto;
     gleich.gobdArchiviert = gleich.gobdArchiviert || g.gobdArchiviert;
   }
-  const haupt = rechnungen.length ? rechnungen[0] : anlagen.shift();
+  if (!rechnungen.length) {
+    const mitNummer = anlagen.findIndex(g => g.nummer && !g.nummerAusDatei);
+    rechnungen.push(anlagen.splice(Math.max(mitNummer, 0), 1)[0]);
+  }
+  const haupt = rechnungen[0];
   haupt.anlagen = anlagen.map(a => a.originalName || a.file);
   for (const a of anlagen) {
     const name = a.originalName || a.file;
@@ -479,7 +484,7 @@ function _monMailZusammen(arr) {
   haupt.erstellt = sortiert.map(r => r.erstellt).filter(Boolean).sort()[0] || haupt.erstellt;
   // Mehrere Rechnungen in einer Mail: jede Zeile nennt die anderen
   if (rechnungen.length > 1) for (const r of rechnungen) r.mailRechnungen = rechnungen.filter(x => x !== r).map(x => x.nummer);
-  return rechnungen.length ? rechnungen : [haupt];
+  return rechnungen;
 }
 
 // Beste Primärzeile: die mit den meisten Metadaten; bei Gleichstand PDF vor XML.

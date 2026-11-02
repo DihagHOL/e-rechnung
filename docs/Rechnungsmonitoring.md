@@ -50,14 +50,13 @@ Datei (`_JJJJMMTThhmmss`) fallen weg. Eine Korrektur unter „Bearbeiten“ geht
 schreibt in die Spalte `MailVorgang` den Namen seines Laufs, bei allen Anhängen einer Mail
 also denselben Wert (bisher HOL, LEG und EWA). Das Monitoring fasst danach zusammen:
 
-- Anhänge ohne eigene Rechnungsnummer (Leistungsnachweis, Lieferschein, Belege einer
-  Reisekostenabrechnung) kommen als **Anlagen** an die erste Rechnung der Mail. Hat keiner
-  der Anhänge eine Nummer, führt der erste Anhang, die übrigen sind seine Anlagen.
-- Als Rechnung zählt ein Anhang mit Nummer vom Prüfdienst (`Title`) oder eine E-Rechnung.
-- PDF und XML derselben Rechnung (gleiche Nummer, gleicher Lieferant) sind eine Zeile und
-  keine Dublette.
-- Mehrere Rechnungen mit eigener Nummer in einer Mail bleiben eigene Zeilen. Die Details
-  nennen unter „In derselben Mail“ die anderen Nummern.
+- E-Rechnungen (ZUGFeRD, XRechnung) bleiben **je Rechnung eine Zeile**. Die Details nennen
+  unter „In derselben Mail“ die anderen Nummern. PDF und XML derselben Rechnung (gleiche
+  Nummer, gleicher Lieferant) sind eine Zeile und keine Dublette.
+- Normale PDFs (Leistungsnachweis, Lieferschein, Belege einer Reisekostenabrechnung) kommen
+  als **Anlagen** an die erste E-Rechnung der Mail.
+- Ohne E-Rechnung ist die ganze Mail eine Zeile. Vorne steht das erste PDF, in dem der
+  Prüfdienst eine Rechnungsnummer fand, sonst das erste PDF. Die übrigen sind Anlagen.
 
 In der Spalte der Dateien steht eine einzelne Anlage als Abzeichen **Anlage**, mehrere als
 **N Anlagen**. Die Details listen jede Anlage mit dem Namen beim Eingang, die Suche findet

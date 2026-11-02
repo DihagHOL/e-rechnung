@@ -120,7 +120,21 @@ vg = M._monGroup([
   mv('LS 99.pdf', { Format: 'PDF' }, '2026-11-02T10:00:03Z'),
 ]);
 gleich(vg.map(r => [r.nummer, r.anlagen || [], r.mailRechnungen]), [['4711', ['LS 99.pdf'], ['4712']], ['4712', [], ['4711']]],
-  'zwei Rechnungen in einer Mail bleiben zwei Zeilen, Lieferschein an der ersten');
+  'zwei XRechnungen in einer Mail bleiben zwei Zeilen, Lieferschein an der ersten');
+
+vg = M._monGroup([
+  mv('A1_DE111111111.pdf', { Title: 'A1', Format: 'ZUGFeRD', RechnungsstellerUStID: 'DE111111111' }, '2026-11-02T10:00:01Z'),
+  mv('A2_DE111111111.pdf', { Title: 'A2', Format: 'ZUGFeRD', RechnungsstellerUStID: 'DE111111111' }, '2026-11-02T10:00:02Z'),
+]);
+gleich(vg.map(r => r.nummer), ['A1', 'A2'], 'zwei ZUGFeRD-Rechnungen bleiben getrennt');
+
+vg = M._monGroup([
+  mv('Aufmass.pdf', { Format: 'PDF' }, '2026-11-02T06:56:01Z'),
+  mv('Rechnung 260158.pdf', { Title: '260158', Format: 'PDF' }, '2026-11-02T06:56:02Z'),
+  mv('Gutschrift 92008753.pdf', { Title: '92008753', Format: 'PDF' }, '2026-11-02T06:56:03Z'),
+]);
+gleich(vg.map(r => [r.nummer, r.anlagen]), [['260158', ['Aufmass.pdf', 'Gutschrift 92008753.pdf']]],
+  'normale PDFs bleiben zusammen, auch mit Nummer; vorne das erste mit Nummer');
 
 vg = M._monGroup([
   mv('RE1_DE296887298.pdf', { Title: 'RE1', Format: 'ZUGFeRD', RechnungsstellerUStID: 'DE296887298' }, '2026-10-30T12:27:00Z'),
