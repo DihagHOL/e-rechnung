@@ -23,8 +23,11 @@ XML stimmen überein). Die Fußzeile lautet „E-Rechnung nach EN 16931 · erste
 ## Vorlagen
 
 Gespeichert in SharePoint, sites/IT, `Dokumente/E-Rechnung/rechnungsvorlagen.json`. Die Datei
-enthält Kunden und Beträge und liegt deshalb nicht im Repo. Wer im Ordner E-Rechnung bearbeiten darf
-(Gruppe „alle Werke“), kann Vorlagen anlegen, ändern und löschen.
+enthält Kunden und Beträge und liegt deshalb nicht im Repo. Sie hat eigene Rechte, die Gruppe
+„alle Werke“ hat darauf keinen Zugriff. Nur wer an der Datei „Mitwirken“ hat (seit 02.11.2026 die
+HOL-Buchhaltung und die IT), sieht Vorlagen und Nummernkreis und kann Vorlagen anlegen, ändern und
+löschen. Alle anderen bekommen im Reiter nur die leere Rechnung mit den Stammdaten und einen Hinweis.
+Neue Personen, etwa für EIS, bekommen „Mitwirken“ direkt an der Datei (SharePoint, Zugriff verwalten).
 
 - **Als Vorlage speichern** nimmt den Stand des Formulars: Empfänger, Rechnungsempfänger-Adresse,
   Referenzen, Notiz, Steuerkategorie, Positionen und den Ansprechpartner. Stammdaten,

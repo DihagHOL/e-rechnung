@@ -265,7 +265,9 @@ const VL_FORM_IDS = {
   abrZeitraumEnde: 'abr-ende', vertragsnummer: 'vertragsnummer', gezahlt: 'gezahlt',
 };
 
-const _vl = { daten: null, etag: '', geladen: false, fehler: '', zuletztNummer: '' };
+// sichtbar: Vorlagendatei gelesen. Sie hat eigene Rechte, wer nicht freigegeben ist, bekommt 404.
+const _vl = { daten: null, etag: '', geladen: false, sichtbar: false, fehler: '', zuletztNummer: '' };
+const VL_NICHT_FREIGEGEBEN = 'Die Vorlagen sind für dieses Konto nicht freigegeben. Die Freigabe erteilt die IT.';
 let _vlVorschauTimer = null;
 
 const _vlEl = id => document.getElementById(id);
@@ -311,6 +313,7 @@ async function _vlLaden() {
     const r = await spLoadVorlagen();
     _vl.daten = r.daten || vlLeer();
     _vl.etag = r.etag;
+    _vl.sichtbar = !!r.daten;
     _vl.fehler = '';
   } catch (e) {
     _vl.daten = _vl.daten || vlLeer();
@@ -332,6 +335,8 @@ async function _vlAendern(aendern) {
       return true;
     } catch (e) {
       if (e.code !== 'KONFLIKT') throw e;
+      // Neu geladen und wieder nicht zu sehen, aber anlegen geht nicht: Die Datei gibt es, nur nicht für uns
+      if (versuch > 0 && !_vl.sichtbar) throw new Error(VL_NICHT_FREIGEGEBEN);
     }
   }
   throw new Error('Die Vorlagen wurden gerade von jemand anderem geändert. Bitte die Seite neu laden.');
@@ -369,7 +374,8 @@ function _vlAuswahlGeaendert() {
   const teile = [];
   if (vorlage) teile.push(`Zuletzt geändert ${vorlage.geaendertAm ? _vlDatum(vorlage.geaendertAm) : _vlDatum(vorlage.am)}`
     + ((vorlage.geaendertVon || vorlage.von) ? ` von ${vorlage.geaendertVon || vorlage.von}` : '') + '.');
-  if (nr) teile.push(`Nächste Rechnungsnummer laut Nummernkreis: ${nr}. Rechnungen, die außerhalb der App entstehen, kennt der Nummernkreis nicht.`);
+  if (_vl.geladen && !_vl.sichtbar) teile.push(VL_NICHT_FREIGEGEBEN + ' Die leere Rechnung mit den Stammdaten geht trotzdem, die Rechnungsnummer bitte selbst eintragen.');
+  else if (nr) teile.push(`Nächste Rechnungsnummer laut Nummernkreis: ${nr}. Rechnungen, die außerhalb der App entstehen, kennt der Nummernkreis nicht.`);
   else teile.push('Für dieses Werk ist kein Nummernkreis hinterlegt, die Rechnungsnummer bitte selbst eintragen.');
   _vlStatus(_vl.fehler ? `Vorlagen nicht geladen: ${_vl.fehler}` : teile.join(' '), _vl.fehler ? 'fehler' : '');
 }
@@ -609,5 +615,6 @@ if (typeof module !== 'undefined' && module.exports) {
     vlNummerBilden, vlNummerLesen, vlNaechsteNummer, vlNummerMerken, vlAnwenden, vlAusFormular,
     vlLeistungAus, vlLeer, vlNeueId, vlVorlagenFuer, vlVorlageSpeichern, vlVorlageLoeschen,
     VL_VORLAGE_FELDER, VL_STAMM_FELDER,
+    _vl, _vlAendern, VL_NICHT_FREIGEGEBEN,   // für die Tests
   };
 }

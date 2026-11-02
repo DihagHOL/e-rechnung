@@ -111,4 +111,40 @@ d = V.vlVorlageLoeschen(d, 'hol-a');
 gleich(V.vlVorlagenFuer(d, 'HOL').map(x => x.id), ['hol-umlage'], 'gelöscht');
 gleich(V.vlNeueId('HOL', 'Umlage März').startsWith('hol-umlage-ma-rz-'), true, 'id aus Werk und Name');
 
-console.log(`vorlagen: ${n} Prüfungen ok`);
+// Speichern in die gesperrte Datei: _vlAendern mit nachgebildetem SharePoint
+const konflikt = () => Object.assign(new Error('geändert'), { code: 'KONFLIKT' });
+const sharepoint = (ladenFolge, speichern) => {
+  let i = 0;
+  global.spLoadVorlagen = async () => ladenFolge[Math.min(i++, ladenFolge.length - 1)];
+  global.spSaveVorlagen = speichern;
+  Object.assign(V._vl, { daten: null, etag: '', geladen: false, sichtbar: false, fehler: '' });
+};
+const ergaenzen = d => Object.assign(d, { neu: true });
+
+(async () => {
+  // Nicht freigegeben: Lesen 404, Anlegen scheitert, weil es die Datei gibt
+  let versuche = 0;
+  sharepoint([{ daten: null, etag: '' }], async () => { versuche++; throw konflikt(); });
+  await assert.rejects(V._vlAendern(ergaenzen), { message: V.VL_NICHT_FREIGEGEBEN }); n++;
+  gleich(versuche, 2, 'nach dem zweiten Versuch Schluss');
+
+  // Jemand legt die Datei gerade an: beim zweiten Laden ist sie da, Speichern mit eTag klappt
+  const gespeichert = [];
+  sharepoint([{ daten: null, etag: '' }, { daten: V.vlLeer(), etag: '"e1"' }], async (d, etag) => {
+    gespeichert.push(etag);
+    if (!etag) throw konflikt();
+    return '"e2"';
+  });
+  gleich(await V._vlAendern(ergaenzen), true, 'gleichzeitig angelegt');
+  gleich([gespeichert, V._vl.etag, V._vl.daten.neu], [['', '"e1"'], '"e2"', true], 'zweiter Versuch mit eTag');
+
+  // Freigegeben, aber jemand war schneller: neu laden, nochmal
+  sharepoint([{ daten: V.vlLeer(), etag: '"a"' }, { daten: V.vlLeer(), etag: '"b"' }], async (d, etag) => {
+    if (etag === '"a"') throw konflikt();
+    return '"c"';
+  });
+  gleich(await V._vlAendern(ergaenzen), true, 'Konflikt mit eTag');
+  gleich(V._vl.etag, '"c"', 'neuer eTag');
+
+  console.log(`vorlagen: ${n} Prüfungen ok`);
+})().catch(e => { console.error(e); process.exit(1); });
