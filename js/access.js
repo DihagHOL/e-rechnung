@@ -55,12 +55,9 @@ function istWerkSchluessel(k) {
   return /^[a-z0-9]{2,8}$/.test(String(k || ''));
 }
 
-// Übergang, bis _app in access-config.json steht. Danach fällt das weg.
-const _APP_UEBERGANG = { admins: ['administrator@dihag.com'], apiHost: 'https://erechnung-xml2pdf.azurewebsites.net' };
-
 /** App-Einstellungen aus der Config: Admins und Adresse der Azure Function */
 function getAppConfig() {
-  const app = (_activeConfig()._app && typeof _activeConfig()._app === 'object') ? _activeConfig()._app : _APP_UEBERGANG;
+  const app = (_activeConfig()._app && typeof _activeConfig()._app === 'object') ? _activeConfig()._app : {};
   const host = String(app.apiHost || '').replace(/\/+$/, '');
   return {
     admins: Array.isArray(app.admins) ? app.admins.map(x => String(x).toLowerCase().trim()) : [],
