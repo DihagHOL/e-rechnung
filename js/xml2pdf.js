@@ -134,6 +134,7 @@ async function buildInvoicePdf(data) {
 
   const waehrung = data.waehrung && data.waehrung !== 'EUR' ? ' ' + data.waehrung : ' €';
   const fmtEur  = n => (n || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + waehrung;
+  const fmtPreis = n => (n || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) + waehrung;
   const fmtDate = s => s ? s.split('-').reverse().join('.') : '–';
 
   /* ── Seite 1: Kopf ── */
@@ -278,7 +279,7 @@ async function buildInvoicePdf(data) {
     beschLines.forEach((l, li) => text(l, cols.besch.x, y - li * 11, { size: 9 }));
     textRight(String(p.menge ?? ''), cols.menge.x + cols.menge.w, y, { size: 9 });
     text(p.einheit || '', cols.einheit.x, y, { size: 9 });
-    textRight(fmtEur(p.einzelpreis), cols.preis.x + cols.preis.w, y, { size: 9 });
+    textRight(fmtPreis(p.einzelpreis), cols.preis.x + cols.preis.w, y, { size: 9 });
     textRight((p.mwst ?? 0) + ' %', cols.mwst.x + cols.mwst.w, y, { size: 9 });
     textRight(fmtEur(gesamt), cols.gesamt.x + cols.gesamt.w, y, { size: 9 });
 

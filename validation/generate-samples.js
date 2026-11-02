@@ -281,6 +281,24 @@ const SAMPLES = [
       ],
     },
   },
+  {
+    // Material nach Entnahmeschein: Einzelpreise mit drei Nachkommastellen, Kunde ohne USt-IdNr.
+    name: 'manuell_preis_3_stellen',
+    data: {
+      ...HOL,
+      kaeufer: 'Muster Montage GbR', kaeuferstrasse: 'Gewerbering 3', kaeuferplz: '12345',
+      kaeuferstadt: 'Musterstadt', kaeuferland: 'DE', kaeufermail: 'buero@muster-montage.de',
+      kundennummer: '8500001', rechnungsnummer: '126/26', rechnungsdatum: '2026-09-22',
+      faelligkeitsdatum: '2026-10-06', abrZeitraumStart: '2026-09-01', abrZeitraumEnde: '2026-09-30',
+      notiz: 'Gemaess Materialentnahmescheinen im September 2026.\nZahlungsbedingung: 14 Tage netto, in Verrechnung',
+      steuerkategorie: 'S', befreiungsgrund: '',
+      positionen: [
+        { posnr: '1', beschreibung: 'Stiftstein 40x20/6 mm', menge: 300, einheit: 'Stk', einzelpreis: 1.764, rabatt: 0, mwst: 19 },
+        { posnr: '2', beschreibung: 'Schruppscheibe 125x15', menge: 20, einheit: 'Stk', einzelpreis: 16.584, rabatt: 0, mwst: 19 },
+        { posnr: '3', beschreibung: 'Schruppscheibe 1F80', menge: 15, einheit: 'Stk', einzelpreis: 7.212, rabatt: 0, mwst: 19 },
+      ],
+    },
+  },
 ];
 
 /* ── Erzeugen ── */

@@ -128,6 +128,8 @@ const _COMPANY_REGISTRY = {
     registernr:         'HRB 34046',
     geschaeftsfuehrung: 'Viktor Babushchak, Dr. Hans-Jürgen Brenninger',
     _detect: /dihag-gienanth\.com|HRB\s*34046/i,
+    // Reiter „Manuelle Rechnung“: die bisherigen Word-Rechnungen tragen die Sparkasse Donnersberg
+    _manuell: { iban: 'DE84540519900007044100', bic: 'MALADE51ROK' },
     _nurInland: true,
     _drittlandUnterschrift: true,   // Drittland nur mit unterschriebenem Original (Präferenzangaben)
     _aktiv: true,

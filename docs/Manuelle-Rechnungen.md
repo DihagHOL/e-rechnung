@@ -86,4 +86,11 @@ XRechnung, „XRechnung“ erzeugen.
 | Werk | Stand |
 |------|-------|
 | HOL | Stammdaten DIHAG Holding GmbH (Sitz Düsseldorf), Nummernkreis `{n}/{jjjj}`, Vorlagen für die Managementumlagen an zwei Werke und einen monatlichen Abschlag nach Menge (MWh) |
-| EIS | Stammdaten vorhanden, Vorlagen folgen |
+| EIS | Stammdaten DIHAG Gienanth GmbH, im Reiter mit der Bank der bisherigen Word-Rechnungen (Sparkasse Donnersberg, Registry `_manuell`), Nummernkreis `{n}/{jj}`, Vorlagen für Material nach Entnahmeschein, eine monatliche Dienstleistung und eine anteilige Weiterbelastung |
+
+Eine Vorlage kann Positionen ohne Menge mitbringen, etwa die üblichen Artikel mit ihren Preisen
+beim Material nach Entnahmeschein. Das Mengenfeld bleibt dann leer, und der Reiter erzeugt die
+Rechnung erst, wenn jede Position eine Menge hat. Nicht benötigte Positionen werden gelöscht.
+
+Einzelpreise gehen mit bis zu vier Nachkommastellen ins XML (z. B. 1,764 €), damit Menge mal Preis
+die Zeilensumme ergibt. Das gilt auch im Konverter. Geprüft mit dem Fall `manuell_preis_3_stellen`.

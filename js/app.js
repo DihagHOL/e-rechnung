@@ -708,7 +708,7 @@ function addPositionRow(data = {}) {
         ).join('')}
       </select>
     </td>
-    <td style="width:110px;"><input type="number" class="pos-einzelpreis" placeholder="0,00" min="0" step="0.01" value="${data.einzelpreis || ''}"></td>
+    <td style="width:110px;"><input type="number" class="pos-einzelpreis" placeholder="0,00" min="0" step="any" value="${data.einzelpreis || ''}"></td>
     <td style="width:80px;"><input type="number" class="pos-rabatt" placeholder="0" step="0.01" value="${data.rabatt || ''}" title="Positiv = Rabatt, negativ = Zuschlag"></td>
     <td style="width:90px;">
       <select class="pos-mwst">
@@ -941,6 +941,9 @@ function validateForm(data) {
   // Positionen
   if (data.positionen.length === 0) errors.push('Mindestens eine Position');
   if (data.positionen.some(p => !p.beschreibung)) errors.push('Beschreibung für alle Positionen');
+  // Vorlagen bringen Positionen ohne Menge mit (z. B. Material nach Entnahmeschein): ausfüllen oder löschen
+  if (typeof vlIstManuell === 'function' && vlIstManuell() && data.positionen.some(p => !parseFloat(p.menge)))
+    errors.push('Menge für alle Positionen (nicht benötigte Positionen löschen)');
 
   // Nicht steuerbar (O) schließt Positionen mit Umsatzsteuer aus (BR-O-11 bis BR-O-14)
   if (hasZeroRateO(data) && data.positionen.some(p => parseFloat(p.mwst) > 0))

@@ -292,7 +292,7 @@ function _vlStamm(werk) {
   const e = (typeof _COMPANY_REGISTRY !== 'undefined' && _COMPANY_REGISTRY[werk]) || {};
   const s = {};
   for (const [k, w] of Object.entries(e)) if (!k.startsWith('_')) s[k] = w;
-  return s;
+  return Object.assign(s, e._manuell || {});   // abweichende Stammdaten nur für diesen Reiter
 }
 
 function _vlKreis(werk) {
@@ -423,6 +423,10 @@ async function vlUebernehmen(ohneRueckfrage) {
   const tbody = _vlEl('positions-body');
   tbody.innerHTML = '';
   positionen.forEach(p => addPositionRow(p));
+  // Ohne Menge in der Vorlage bleibt das Feld leer (addPositionRow setzt sonst 1), die Prüfung verlangt es
+  tbody.querySelectorAll('tr.pos-row .pos-menge').forEach((el, i) => {
+    if (positionen[i] && !parseFloat(positionen[i].menge)) el.value = '';
+  });
   if (typeof renumberRows === 'function') renumberRows();
   updateTotals();
   if (typeof lockSellerMaster === 'function') lockSellerMaster();

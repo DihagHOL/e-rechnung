@@ -10,6 +10,11 @@ function buildXML(data, profile = 'xrechnung') {
     : 'urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0';
 
   const fmt = (n) => parseFloat(n || 0).toFixed(2);
+  // Einzelpreis (BT-146) mit bis zu 4 Nachkommastellen (z. B. 1,764 €), damit Menge × Preis die Zeilensumme ergibt
+  const fmtPreis = (n) => {
+    const x = Math.round(parseFloat(n || 0) * 10000) / 10000;
+    return (String(x).split('.')[1] || '').length > 2 ? String(x) : x.toFixed(2);
+  };
   const fmtDate = (s) => {
     if (!s) return '';
     // Input: YYYY-MM-DD (HTML date) or DD.MM.YYYY
@@ -92,7 +97,7 @@ function buildXML(data, profile = 'xrechnung') {
       <ram:SpecifiedLineTradeAgreement>
         ${p.bestellposition ? `<ram:BuyerOrderReferencedDocument><ram:LineID>${esc(p.bestellposition)}</ram:LineID></ram:BuyerOrderReferencedDocument>` : ''}
         <ram:NetPriceProductTradePrice>
-          <ram:ChargeAmount>${fmt(effPreis)}</ram:ChargeAmount>
+          <ram:ChargeAmount>${fmtPreis(effPreis)}</ram:ChargeAmount>
         </ram:NetPriceProductTradePrice>
       </ram:SpecifiedLineTradeAgreement>
       <ram:SpecifiedLineTradeDelivery>
