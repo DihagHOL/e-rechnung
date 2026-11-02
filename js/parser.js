@@ -60,11 +60,13 @@ const _COMPANY_REGISTRY = {
     verkaeufplz:        '04249',
     verkaeufstadt:      'Leipzig',
     verkaeufland:       'DE',
+    verkaeufkontakt:    'Vertrieb',   // ohne „Uns. Zeichen“ auf dem Beleg
     verkaeuftel:        '+49 341 42 79 0',
     verkaeuferemail:    'sales@shb-guss.de',
     verkaeufervat:      'DE812264517',
     verkaeufersteuernr: '232/118/07369',
-    // Zahlungskonto laut Rechnungsfuß ("Wir erbitten die Zahlungen … IBAN: DE 77 … 01")
+    // Zahlungskonto laut Zahlungsaufforderung ("Wir erbitten die Zahlungen … IBAN: DE 77 … 01");
+    // je Beleg gilt das Konto der Aufforderung (_shbZahlungskonto), Proforma und Anzahlung nennen DE07 … 00
     iban:               'DE77820700000338669501',
     bic:                'DEUTDE8EXXX',
     // Regulatorische Pflichtangaben (BT-30 / BT-33) — laut Rechnungsfuß
@@ -281,6 +283,7 @@ function extractInvoiceDataFromItems(allItems) {
       ...extractSeller(footerText, fullText),
       ...extractBuyerGermanSHB(buyerBlock, fullText),
       positionen: extractLineItemsGermanSHB(fullText),
+      ..._shbZahlungskonto(fullText),
     };
   // SAP Adobe-Formular (EWA, LEG; de/en/fr)
   } else if (_isSapFormular(fullText)) {
@@ -335,6 +338,8 @@ function extractInvoiceDataFromItems(allItems) {
   if (company) {
     const extractedIban = result.iban;
     const extractedBic  = result.bic;
+    // Ansprechpartner aus dem Beleg (SHB „Uns. Zeichen“) geht vor Vertrieb/Zentrale der Registry
+    const kontakt = result._kontaktAusBeleg || null;
     // Nur befüllte Registry-Felder überlagern — leere TODO-Platzhalter (z. B.
     // noch nicht gepflegte Werke) dürfen die aus dem Text gelesenen Werte
     // NICHT mit Leerstrings überschreiben.
@@ -343,7 +348,11 @@ function extractInvoiceDataFromItems(allItems) {
     }
     if (extractedIban) result.iban = extractedIban;
     if (extractedBic)  result.bic  = extractedBic;
+    // Gleiche Bank wie das Stammdatenkonto (Bankleitzahl in der IBAN): dann gilt dessen BIC
+    if (extractedIban && company.iban && company.bic && extractedIban.slice(4, 12) === company.iban.slice(4, 12)) result.bic = company.bic;
+    if (kontakt) for (const [k, v] of Object.entries(kontakt)) if (v) result[k] = v;
   }
+  delete result._kontaktAusBeleg;
 
   return result;
 }
@@ -362,9 +371,10 @@ function _isGermanWGCInvoice(text) {
          /walze-coswig|walzengi/i.test(text);
 }
 
+// SHB deutsch und englisch, auch steuerfrei (ohne „Nettowert“) und als Anzahlungsrechnung
 function _isGermanSHBInvoice(text) {
-  return /Rechnungs-Nr\.\s*:/i.test(text) &&
-         /Nettowert\s*:/i.test(text) &&
+  return /(?:Rechnungs-Nr\.?|Invoice[- ]?N(?:r|o)[.,]?)\s*[:;]/i.test(text) &&
+         /^\s*(?:Nettowert|Rechnungsbetrag|Amount\s+total)\b/im.test(text) &&
          /(shb-guss|bösdorf|b.sdorf|Hartgusswerk)/i.test(text);
 }
 
@@ -588,151 +598,255 @@ function extractLineItemsGermanWGC(fullText) {
 }
 
 /* ══════════════════════════════════════════════════════
-   SHB-RECHNUNG (Stahl- und Hartgusswerk Bösdorf GmbH)
-   Format: Bezeichnung / Preis €/ME Gesamt / Nettowert
+   SHB-RECHNUNG (Stahl- und Hartgusswerk Bösdorf GmbH), deutsch und englisch
+   Format: Bezeichnung / Preis €/ME Gesamt / Nettowert oder (steuerfrei) Rechnungsbetrag
 ══════════════════════════════════════════════════════ */
 
 function extractMetadataGermanSHB(fullText) {
   const r = {};
 
-  // Rechnungsnummer: "Rechnungs-Nr. : 2600290"
-  const nrM = fullText.match(/Rechnungs-Nr\.\s*:\s*(\d{4,12})/i);
+  // Rechnungsnummer: "Rechnungs-Nr. : 2600290", "Rechnungs-Nr.: V2600030", "Invoice No. : 2600626"
+  const nrM = fullText.match(/(?:Rechnungs-Nr\.?|Invoice[- ]?N(?:r|o)[.,]?)\s*[:;]\s*([A-Z]{0,2}\d{4,12})\b/i);
   if (nrM) r.rechnungsnummer = nrM[1];
 
-  // Rechnungsdatum: "Re.-Datum : 08.05.2026"
-  const datM = fullText.match(/Re\.-Datum\s*:\s*(\d{2}\.\d{2}\.\d{4})/i);
+  // Rechnungsdatum: "Re.-Datum : 08.05.2026", "Invoice date: 18.03.2026"
+  const datM = fullText.match(/(?:Re\.-Datum|Invoice\s*date)\s*[:;]?\s*(\d{2}\.\d{2}\.\d{4})/i);
   if (datM) r.rechnungsdatum = _deDate(datM[1]);
 
-  // Leistungs-/Lieferdatum: "Leistungs-Dat. : 08.05.2026"
-  const leistM = fullText.match(/Leistungs-Dat\.\s*:\s*(\d{2}\.\d{2}\.\d{4})/i);
+  // Leistungs-/Lieferdatum: "Leistungs-Dat. : 08.05.2026" (auch ohne Doppelpunkt), "Date of delivery"
+  const leistM = fullText.match(/(?:Leistungs-Dat\.?|Date\s*of\s*delivery)\s*[:;]?\s*(\d{2}\.\d{2}\.\d{4})/i);
   if (leistM) r.lieferdatum = _deDate(leistM[1]);
 
-  // Fälligkeit: "Zahlungseingang : Bis zum 07.07.2026 netto"
-  const faellM = fullText.match(/Zahlungseingang\s*:\s*Bis\s+zum\s+(\d{2}\.\d{2}\.\d{4})/i);
+  // Fälligkeit: "Zahlungseingang : Bis zum 07.07.2026 netto", "Receipt of payment : Up to 08.11.2026 net"
+  const faellM = fullText.match(/(?:Zahlungseingang|Receipt\s*of\s*payment)\s*[:;]?\s*(?:Bis\s*zum|Up\s*to)\s*(\d{2}\.\d{2}\.\d{4})/i);
   if (faellM) r.faelligkeitsdatum = _deDate(faellM[1]);
+
+  // Bestellung des Kunden (BT-13) und Kunden-Nr. (BT-46). „Order N°“ ist der eigene Auftrag.
+  const bestM = fullText.match(/(?:Bestellung|Your\s*Order\s*No[.,]?|\bOrder)\s*[:;]\s*([^\n]+)/i);
+  if (bestM) r.bestellnummer = bestM[1].trim().slice(0, 100);
+  const kdM = fullText.match(/(?:Kunden-Nr\.?|Cust[.,]?\s*ID-No[.,]?)\s*[:;]\s*([A-Z0-9-]+)/i);
+  if (kdM) r.kundennummer = kdM[1];
+
+  // Ansprechpartner (BR-DE-5 bis 7): „Uns. Zeichen“ mit Telefon und E-Mail aus dem Kopf.
+  // Ohne Zeichen gelten Vertrieb, Zentrale und sales@ aus der Registry.
+  const zeichenM = fullText.match(/Uns\.\s*Zeichen\s*:\s*([^\n]+)/i);
+  if (zeichenM) {
+    const k = { verkaeufkontakt: zeichenM[1].trim() };
+    const telM = fullText.match(/(?:^|\s)Telefon\s*:\s*(\+?\d[\d \/()-]{4,})/im);
+    if (telM) k.verkaeuftel = telM[1].trim();
+    const mailM = fullText.match(/(?:^|\s)E-Mail\s*:\s*([\w.+-]+@[\w-]+(?:\.[\w-]+)+)/im);
+    if (mailM) k.verkaeuferemail = mailM[1];
+    Object.assign(r, k);
+    r._kontaktAusBeleg = k;   // geht vor Registry und Fußzeile (extractInvoiceDataFromItems)
+  }
+
+  // Anzahlungsrechnung (BT-3 = 386)
+  if (/^\s*(?:Anzahlungsrechnung|Down\s*payment\s+invoice|Prepayment\s+invoice)\s*$/im.test(fullText)) r.rechnungsart = '386';
+
+  // Steuerfrei (innergemeinschaftlich, § 4 Nr. 2 UStG …): Begründung aus dem Text (BT-120)
+  if (!/MwSt\s*:\s*[1-9]/i.test(fullText)) {
+    const frei = fullText.match(/^[^\n]*(?:steuerfrei|tax\s+free)[^\n]*$/im);
+    if (frei) r.befreiungsgrund = frei[0].trim().slice(0, 200);
+  }
+
+  // Hinweise (BT-22): Zahlungsbedingung (BT-20 über „Zahlungsbedingung: …“), Preisstellung, Vorsteuer-Hinweis
+  const hinweise = [];
+  const zbM = fullText.match(/(?:Zahlungseingang|Zahlungsbedingung|Receipt\s+of\s+payment|Payment\s+Terms)\s*:?[ \t]*([^\n]+)(?:\n(Payable[^\n]+))?/i);
+  const sauber = t => t.replace(/[\s|_—-]+$/, '').trim();
+  if (zbM) hinweise.push('Zahlungsbedingung: ' + [zbM[1], zbM[2]].filter(Boolean).map(sauber).join(', '));
+  const psM = fullText.match(/(Preisstellung|Delivery\s+Terms)\s*:?[ \t]*([^\n]+)/i);
+  if (psM) hinweise.push(`${psM[1].replace(/\s+/g, ' ')}: ${sauber(psM[2])}`);
+  const vstM = fullText.match(/^[^\n]*berechtigt\s+nicht\s+zum\s+Vorsteuerabzug[^\n]*$/im);
+  if (vstM) hinweise.push(vstM[0].trim());
+  if (hinweise.length) r.notiz = hinweise.join('\n');
 
   return r;
 }
 
+/** Kfz-Länderkennzeichen vor der PLZ („F-68025“, „CZ-186 00“) → ISO 3166-1 */
+const _KFZ_ISO = {
+  D: 'DE', A: 'AT', B: 'BE', BG: 'BG', CH: 'CH', CZ: 'CZ', DK: 'DK', E: 'ES', EST: 'EE', F: 'FR', FIN: 'FI',
+  GB: 'GB', GR: 'GR', H: 'HU', HR: 'HR', I: 'IT', IRL: 'IE', L: 'LU', LT: 'LT', LV: 'LV', N: 'NO', NL: 'NL',
+  P: 'PT', PL: 'PL', RO: 'RO', S: 'SE', SK: 'SK', SLO: 'SI', TR: 'TR', USA: 'US',
+};
+
+/**
+ * Zeilen des SHB-Adressfensters. Erst aus buyerBlock; ist der leer (Kopf und Anschrift liegen
+ * auf denselben Zeilen), aus dem Fließtext ab der Absenderzeile, rechte Kopfspalte abgeschnitten.
+ */
+function _shbAdressZeilen(buyerBlock, fullText) {
+  const absender = /Hart[gq]usswerk|Werkstr[.,]\s*7|04249\s+Leipzig/i;   // auch OCR („Hartqusswerk“, „Werkstr, 7“)
+  const ohneAbsender = l => !absender.test(l);
+  const block = (buyerBlock || '').split('\n').map(l => l.trim()).filter(Boolean).filter(ohneAbsender);
+  if (block.length >= 2) return block.slice(0, 8);
+
+  const alle = fullText.split('\n').map(l => l.trim());
+  const start = alle.findIndex(l => absender.test(l));
+  if (start < 0) return block;
+  const rechts = /\s*\b(?:Rechnungs-Nr|Re\.-Datum|Auftrags-Nr|Uns\.\s*Zeichen|Ihr\s+Zeichen|Telefon|E-Mail|Fax-Nr|Bestellung|Bestell-Datum|Kunden-Nr|Liefer\.-Nr|Leistungs-Dat|I\.\s*Ust|Ihre\s+USt|Invoice|Order|Your\s|Cust\.|Date\s+of)\b.*$/i;
+  const out = [];
+  for (let k = start + 1; k < alle.length && out.length < 8; k++) {
+    if (/^(?:Bitte\s+geben|By\s+payment|Pos\.|Item\b)/i.test(alle[k])) break;
+    const l = alle[k].replace(rechts, '').trim();
+    if (l) out.push(l);
+  }
+  return out;
+}
+
 /**
  * Käufer aus dem SHB-Adressfenster (Seite 1, links oben).
- * Block-Aufbau: [Name (1-2 Zeilen)] [Abteilung] [Straße/Postfach] [D-PLZ Ort]
+ * Block-Aufbau: [Name (1-2 Zeilen)] [Abteilung, Postfach] [Straße] [Land-PLZ Ort]
  */
 function extractBuyerGermanSHB(buyerBlock, fullText) {
   const r = { kaeuferland: 'DE' };
 
-  // Käufer-USt-IdNr: "Ihre USt-Id-Nr: DE…" (optional, BT-48)
-  const vatM = fullText.match(/Ihre\s+USt-?Id-?Nr\.?\s*:?[ \t]*([A-Z]{2}[\dA-Z ]{2,18})/i);
+  // Käufer-USt-IdNr (BT-48): "Ihre USt-Id-Nr: DE…", "I. Ust-Id-Nr : FR …", "Your VAT-No. : CZ…"
+  const vatM = fullText.match(/(?:Ihre\s+USt-?Id-?Nr\.?|I\.\s*Ust-?Id-?Nr\.?|Your\s*VAT(?:-?No[.,]?)?)\s*[:;]?[ \t]*([A-Z]{2}[\dA-Z ]{2,18})/i);
   if (vatM) r.kaeufervat = vatM[1].replace(/\s+/g, '');
 
-  const lines = (buyerBlock || '')
-    .split('\n')
-    .map(l => l.trim())
-    .filter(Boolean)
-    // SHB-Absenderzeile entfernen ("...Hartgusswerk Bösdorf GmbH - Werkstr. 7...")
-    .filter(l => !/Hartgusswerk\s+B.sdorf|Werkstr\.\s*7/i.test(l))
-    .slice(0, 8);
-
+  const lines = _shbAdressZeilen(buyerBlock, fullText);
   if (lines.length === 0) return r;
 
-  // PLZ/Ort: "D-16748 Hennigsdorf"  (Länderpräfix D-, dann PLZ, dann Ort)
-  const plzIdx = lines.findIndex(l => /^[A-Z]{0,2}-?\d{4,5}\s+\S/.test(l));
-  if (plzIdx >= 0) {
-    const plzM = lines[plzIdx].match(/^([A-Z]{0,2})-?(\d{4,5})\s+(.+)$/);
-    if (plzM) {
-      r.kaeuferland  = (!plzM[1] || plzM[1] === 'D') ? 'DE' : plzM[1];
-      r.kaeuferplz   = plzM[2];
-      r.kaeuferstadt = plzM[3].trim();
-    }
-    // Straße = Zeile direkt vor der PLZ-Zeile
-    if (plzIdx >= 1) r.kaeuferstrasse = lines[plzIdx - 1];
+  // PLZ/Ort: letzte Zeile wie "D-16748 Hennigsdorf", "F-68025 COLMAR-Cedex", "CZ-186 00 Praha 8"
+  let plzIdx = -1, plzM = null;
+  lines.forEach((l, i) => {
+    const m = l.match(/^([A-Z]{1,3})?-?(\d{4,5}|\d{3}\s\d{2})\s+(.+)$/);
+    if (m && i > 0) { plzIdx = i; plzM = m; }
+  });
+  if (plzM) {
+    r.kaeuferland  = plzM[1] ? (_KFZ_ISO[plzM[1]] || plzM[1]) : 'DE';
+    r.kaeuferplz   = plzM[2];
+    r.kaeuferstadt = plzM[3].trim();
+    if (plzIdx >= 2) r.kaeuferstrasse = lines[plzIdx - 1];
   }
 
   // Name = erste Zeile; fehlt die Rechtsform, zweite (ziffernlose) Zeile anhängen
   // (z.B. "KOMATSU" + "Germany GmbH")
   const legalForm = /\b(GmbH|AG|KG|SE|mbH|e\.K\.|OHG|Co\b|S\.p\.A\.)/i;
   let name = lines[0];
+  let nameZeilen = 1;
   if (!legalForm.test(name) && lines.length > 1 && legalForm.test(lines[1]) && !/\d/.test(lines[1])) {
     name = `${name} ${lines[1]}`;
+    nameZeilen = 2;
   }
   r.kaeufer = name;
+
+  // Zwischen Name und Straße: Abteilung, Postfach ("Fleet Innovation & Technology", "CS 50038")
+  if (plzIdx >= 2) {
+    const zusatz = lines.slice(nameZeilen, plzIdx - 1);
+    if (zusatz.length) r.kaeuferzusatz = zusatz.join(', ');
+  }
 
   return r;
 }
 
 /**
- * Positionen für SHB-Rechnungen.
- *   0001 ...
- *   Bezeichnung : <Text> <Menge> <Einheit>
- *   Preis [...] : <Einzel> €/<Einheit> <Gesamt> €     (Hauptposition)
- *   Modelleinrichtung : <Einzel> €/Pos. <Gesamt> €    (Hauptposition)
- *   MTZ | ETZ : <Einzel> €/kg <Gesamt> €              (Zuschlag → eigene Position)
- * Auch kombinierte Zeilen ("Preis inkl. ETZ/MTZ nach VB 2.045,69 €/Stk 20.456,90 €").
- * Einzelpreis wird als Gesamt/Menge gesetzt → Summe bleibt exakt.
+ * Zahlungskonto laut Zahlungsaufforderung („Wir erbitten die Zahlungen auf unser Konto …“), geht vor
+ * dem Briefkopf-Fuß. Nur mit gültiger Prüfziffer (OCR). Bei der Bank aus den Stammdaten gilt deren BIC,
+ * sonst der gedruckte, wenn er wie ein BIC aussieht („DEUTDE8SEXXX“ aus der OCR fällt so heraus).
+ */
+function _shbZahlungskonto(fullText) {
+  const m = fullText.match(/(?:Wir\s+erbitten\s+die\s+Zahlung(?:en)?|Please\s+send\s+your\s+payment)[\s\S]{0,160}?IBAN\s*:?\s*([A-Z]{2}[\d ]{12,34}\d)([\s\S]{0,60})/i);
+  if (!m) return {};
+  const iban = m[1].replace(/\s/g, '');
+  if (!_ibanPruefzifferOk(iban)) return {};
+  const reg = _COMPANY_REGISTRY.SHB || {};
+  const bicM = m[2].match(/BIC\s*:?\s*([A-Z]{6}[A-Z0-9]{2}(?:[A-Z0-9]{3})?)\b/);
+  const bic = reg.iban && iban.slice(4, 12) === reg.iban.slice(4, 12) ? reg.bic : (bicM ? bicM[1] : '');
+  return bic ? { iban, bic } : { iban };
+}
+
+/** IBAN-Prüfziffer (ISO 13616, Modulo 97). */
+function _ibanPruefzifferOk(iban) {
+  const s = String(iban || '').replace(/\s/g, '').toUpperCase();
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(s)) return false;
+  let rest = 0;
+  for (const c of s.slice(4) + s.slice(0, 4)) {
+    const z = /[A-Z]/.test(c) ? String(c.charCodeAt(0) - 55) : c;
+    for (const d of z) rest = (rest * 10 + Number(d)) % 97;
+  }
+  return rest === 1;
+}
+
+/**
+ * Positionen für SHB-Rechnungen (deutsch und englisch).
+ *   0001 ...                                   (Bezeichnung auch in derselben Zeile)
+ *   Bezeichnung | Name : <Text> <Menge> <Einheit>
+ *   Preis [...] : <Einzel> €/<Einheit> <Gesamt> €     (Hauptposition, erste Preiszeile)
+ *   Modelleinrichtung, 50 % Anzahlung … : …           (Hauptposition, Text an die Bezeichnung)
+ *   MTZ | ETZ | … price escalation surcharge : …     (Zuschlag → eigene Position)
+ *   Transport / Verpackg. (Rahmen): … €/Pos. … €     (weitere Preiszeile → eigene Position)
+ * Einzelpreis der Hauptposition = Gesamt/Menge → Summe bleibt exakt.
  */
 function extractLineItemsGermanSHB(fullText) {
   const items = [];
-  const lines = fullText.split('\n');
+  // Manche PDFs (Word, fett durch Doppeldruck) enthalten jede Zeile zweimal hintereinander
+  const lines = fullText.split('\n').map(l => l.trim()).filter((l, i, a) => l && l !== a[i - 1]);
 
-  const mwstM   = fullText.match(/MwSt\s*:\s*(\d{1,2})(?:,\d+)?\s*%/i);
-  const mwstDoc = mwstM ? parseFloat(mwstM[1]) : 19;
+  // Ohne MwSt-Zeile ist die Rechnung steuerfrei (innergemeinschaftlich, § 4 UStG)
+  const mwstM   = fullText.match(/MwSt\.?\s*:?\s*(\d{1,2})(?:,\d+)?\s*%/i);
+  const mwstDoc = mwstM ? parseFloat(mwstM[1]) : 0;
 
-  // Preiszeile generisch:  LABEL  EINZEL €/EINHEIT  GESAMT €
-  // (LABEL beliebig, mit/ohne Doppelpunkt — toleriert "Preis inkl. ETZ/MTZ nach VB")
-  const priceRe = /^(.+?)\s*:?\s*(-?[\d.]+,\d{2})\s*€\s*\/\s*([A-Za-zäöüÄÖÜ.]+)\s+(-?[\d.]+,\d{2})\s*€\s*$/i;
+  // Preiszeile generisch:  LABEL  EINZEL €/EINHEIT  GESAMT €  ("€ / pc.", Unterstriche vor dem Betrag,
+  // aus der OCR auch "E€" oder "E" statt "€")
+  const priceRe = /^(.+?)\s*:?\s*(-?[\d.]+,\d{2,3})\s*(?:E?€|E)\s*\/\s*([A-Za-zäöüÄÖÜ.]+)[\s_]+(-?[\d.]+,\d{2})\s*(?:E?€|E)?\s*$/i;
   // Bezeichnung mit nachgestellter Menge+Einheit
-  const bezRe   = /^Bezeichnung\s*:\s*(.+?)\s+(\d+(?:,\d+)?)\s+(Stk|St[üu]ck|St|Anz|Pos\.?|kg|t)\s*$/i;
+  const bezRe   = /^(?:Bezeichnung|Name)\s*:\s*(.+?)\s+(\d+(?:[.,]\d+)?)\s+(Stk|St[üu]ck|St|Anz|Pos\.?|kg|t|p[ce]{1,2}s?\.?)\s*$/i;
 
-  let desc = null, menge = 1, einheit = 'Stk', posNr = null;
+  let desc = null, menge = 1, einheit = 'Stk', posNr = null, hauptDa = false;
 
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) continue;
-
+  for (let line of lines) {
     // Ende des Positionsbereichs
-    if (/^Nettowert\s*:/i.test(line)) break;
+    if (/^(?:Nettowert|Rechnungsbetrag|Amount\s+total)\b/i.test(line)) break;
 
-    // Positionsnummer "0001 ..."
-    const posM = line.match(/^(0\d{3})\b/);
-    if (posM) posNr = posM[1];
+    // Positionsnummer "0001 ...", der Rest der Zeile kann schon die Bezeichnung sein
+    const posM = line.match(/^(0\d{3})\b\s*(.*)$/);
+    if (posM) {
+      posNr = posM[1];
+      hauptDa = false;
+      line = posM[2];
+      if (!line) continue;
+    }
 
-    // Bezeichnung
     const bezM = line.match(bezRe);
     if (bezM) {
       desc    = bezM[1].trim();
       menge   = _parseDE(bezM[2]) || 1;
-      einheit = bezM[3];
+      einheit = /^p[ce]/i.test(bezM[3]) ? 'pcs' : bezM[3];
+      hauptDa = false;
       continue;
     }
     // Bezeichnung ohne erkennbare Menge/Einheit
-    const bezPlain = line.match(/^Bezeichnung\s*:\s*(.+)$/i);
-    if (bezPlain) { desc = bezPlain[1].trim(); menge = 1; einheit = 'Stk'; continue; }
+    const bezPlain = line.match(/^(?:Bezeichnung|Name)\s*:\s*(.+)$/i);
+    if (bezPlain) { desc = bezPlain[1].trim(); menge = 1; einheit = 'Stk'; hauptDa = false; continue; }
 
-    // Preiszeile
     const pM = line.match(priceRe);
-    if (pM) {
-      const label  = pM[1].trim();
-      const gesamt = _parseDE(pM[4]);
+    if (!pM) continue;
+    const label  = pM[1].replace(/\s*:\s*$/, '').trim();
+    const gesamt = _parseDE(pM[4]);
 
-      // Zuschlag nur wenn das Label MIT MTZ/ETZ BEGINNT (eigenständige Zeile).
-      // "Preis inkl. ETZ/MTZ …" beginnt mit "Preis" → Hauptposition.
-      if (/^MTZ\b/i.test(label) || /^ETZ\b/i.test(label)) {
-        const name = /^MTZ/i.test(label)
-          ? 'MTZ – Materialteuerungszuschlag'
-          : 'ETZ – Energieteuerungszuschlag';
-        items.push({ posnr: '', beschreibung: name, menge: 1, einheit: 'Pausch.', einzelpreis: gesamt, mwst: mwstDoc });
-      } else {
-        // Hauptposition (Preis / Modelleinrichtung / Preis inkl. …)
-        const m = menge > 0 ? menge : 1;
-        items.push({
-          posnr:        _normPosNr(posNr),
-          beschreibung: desc || label,
-          menge:        m,
-          einheit:      _unitCode(einheit),
-          einzelpreis:  gesamt / m,   // Gesamt/Menge → Summe bleibt exakt
-          mwst:         mwstDoc,
-        });
-      }
+    if (/^(?:MTZ|ETZ)\b|price\s+escalation\s+surcharge/i.test(label)) {
+      // Zuschlag nur wenn das Label MIT MTZ/ETZ BEGINNT ("Preis inkl. ETZ/MTZ …" ist Hauptposition)
+      const name = /^MTZ|^Material/i.test(label)
+        ? 'MTZ – Materialteuerungszuschlag'
+        : 'ETZ – Energieteuerungszuschlag';
+      items.push({ posnr: '', beschreibung: name, menge: 1, einheit: 'Pausch.', einzelpreis: gesamt, mwst: mwstDoc });
+    } else if (!hauptDa) {
+      // Hauptposition: Preis / Price / Modelleinrichtung / 50 % Anzahlung …
+      const m = menge > 0 ? menge : 1;
+      const art = desc && !/^(?:Preis|Price)\b/i.test(label) ? `, ${label}` : '';
+      items.push({
+        posnr:        _normPosNr(posNr),
+        beschreibung: (desc || label) + art,
+        menge:        m,
+        einheit:      _unitCode(einheit),
+        einzelpreis:  gesamt / m,   // Gesamt/Menge → Summe bleibt exakt
+        mwst:         mwstDoc,
+      });
+      hauptDa = true;
+    } else {
+      // Weitere Preiszeile derselben Position (Transport/Verpackung, Modell …) als eigene Position
+      items.push({ posnr: '', beschreibung: label, menge: 1, einheit: 'Pausch.', einzelpreis: gesamt, mwst: mwstDoc });
     }
   }
 
@@ -2251,7 +2365,7 @@ function _extractShipTo(fullText) {
   const r = {};
   const lines = fullText.split('\n').map(l => l.trim());
 
-  const labelRe = /^(?:Lieferanschrift|Versandanschrift|Shipping\s+address|Delivery\s+address)\s*:?\s*(.*)$/i;
+  const labelRe = /^(?:Lieferanschrift|Versandanschrift|Shipping\s+address|Delivery\s*address)\s*:?\s*(.*)$/i;
   const li = lines.findIndex(l => labelRe.test(l));
   if (li < 0) return r;
 
@@ -2321,7 +2435,7 @@ function _extractShipTo(fullText) {
  * englisch ("Delivery note 3240007"). Wert: erste Nummer nach dem Label.
  */
 function _extractLieferschein(fullText) {
-  const m = fullText.match(/(?:Lieferschein(?:-?Nr\.?|nummer)?|Delivery\s+note)\s*[:.]?\s*([0-9][0-9.\-\/]{3,20})/i);
+  const m = fullText.match(/(?:Lieferschein(?:-?Nr\.?|nummer)?|Delivery\s+note|Delivery\s+No\.?)\s*[:.]?\s*([0-9][0-9.\-\/]{3,20})/i);
   return m ? { lieferscheinnummer: m[1].replace(/[.\-\/]+$/, '').trim() } : {};
 }
 
@@ -2336,8 +2450,11 @@ function _detectTaxCategory(fullText, result) {
   if (!hasZero) return {};
 
   // 1) Expliziter Hinweis im Rechnungstext
-  if (/innergemeinschaftlich|intra-?community/i.test(fullText))
+  if (/innergemeinschaftlich|innergem\.|intra-?community|Internal\s+communal|§\s*6a\s*UStG/i.test(fullText))
     return { steuerkategorie: 'K' };
+  // § 4 Nr. 2 UStG (Seeschifffahrt, Luftfahrt): steuerbefreit, aber keine Ausfuhr
+  if (/§\s*4\s*Nr\.?\s*2\s*U[Ss]t[Gg]/.test(fullText))
+    return { steuerkategorie: 'E' };
   if (/reverse\s+charge|Steuerschuldnerschaft\s+des\s+Leistungsempf/i.test(fullText))
     return { steuerkategorie: 'AE' };
   if (/Ausfuhrlieferung|export\s+delivery/i.test(fullText))
@@ -2449,8 +2566,14 @@ function _extractNetTotalGermanWGC(fullText) {
  * "Nettowert : 59.000,00 €" ist der ausgewiesene Nettobetrag.
  */
 function _extractNetTotalGermanSHB(fullText) {
-  const m = [...fullText.matchAll(/Nettowert\s*:\s*([\d.]+,\d{2})/gi)];
-  return m.length ? _parseDE(m[m.length - 1][1]) : null;
+  const m = [...fullText.matchAll(/Nettowert\s*:?\s*([\d.]+,\d{2})/gi)];
+  if (m.length) return _parseDE(m[m.length - 1][1]);
+  // Steuerfrei ohne Nettowert: der Rechnungsbetrag ist netto
+  if (!/MwSt\.?\s*:?\s*\d/i.test(fullText)) {
+    const b = fullText.match(/(?:Rechnungsbetrag|Amount\s+total)\s*:?[\s_]*([\d.]+,\d{2})/i);
+    if (b) return _parseDE(b[1]);
+  }
+  return null;
 }
 
 /**
@@ -2532,7 +2655,7 @@ function _normPosNr(s) {
 
 function _unitCode(u) {
   const map = {
-    Stk: 'Stk', St: 'Stk', Anz: 'Stk',
+    Stk: 'Stk', St: 'Stk', Anz: 'Stk', pcs: 'Stk', 'pcs.': 'Stk', pc: 'Stk', 'pc.': 'Stk',
     HUR: 'h', h: 'h', Std: 'h', Stunde: 'h',
     kg: 'kg', m: 'm', km: 'km',
     LS: 'Pausch.', Psch: 'Pausch.',
