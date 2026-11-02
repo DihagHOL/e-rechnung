@@ -281,7 +281,7 @@ function buildXML(data, profile = 'xrechnung') {
         <ram:Name>${esc(data.kaeufer)}</ram:Name>
         <ram:PostalTradeAddress>
           <ram:PostcodeCode>${esc(data.kaeuferplz)}</ram:PostcodeCode>
-          <ram:LineOne>${esc(data.kaeuferstrasse)}</ram:LineOne>
+          ${data.kaeuferstrasse ? `<ram:LineOne>${esc(data.kaeuferstrasse)}</ram:LineOne>` : ''}
           ${data.kaeuferzusatz ? `<ram:LineTwo>${esc(data.kaeuferzusatz)}</ram:LineTwo>` : ''}
           <ram:CityName>${esc(data.kaeuferstadt)}</ram:CityName>
           <ram:CountryID>${esc(data.kaeuferland || 'DE')}</ram:CountryID>
@@ -397,11 +397,17 @@ function _anlagenXML(anlagen, profile) {
  */
 function _skontoZeile(text, rechnungsdatum) {
   const m = String(text || '').match(/(\d{2})\.(\d{2})\.(\d{4})[^;]*?(\d+(?:[.,]\d+)?)\s*%\s*(?:Skonto|cash discount|discount|escompte)/i);
-  if (!m || !rechnungsdatum) return '';
-  const bis = Date.UTC(+m[3], +m[2] - 1, +m[1]);
-  const [j, mo, t] = String(rechnungsdatum).split('-').map(Number);
-  const tage = Math.round((bis - Date.UTC(j, mo - 1, t)) / 86400000);
-  const prozent = parseFloat(m[4].replace(',', '.'));
+  let tage = 0, prozent = 0;
+  if (m && rechnungsdatum) {
+    const bis = Date.UTC(+m[3], +m[2] - 1, +m[1]);
+    const [j, mo, t] = String(rechnungsdatum).split('-').map(Number);
+    tage = Math.round((bis - Date.UTC(j, mo - 1, t)) / 86400000);
+    prozent = parseFloat(m[4].replace(',', '.'));
+  } else {
+    // Frist in Tagen: „14 Tage 3% Skonto“, „14 Tage, 3 % Skonto“, „bei 15 Tage 2% Abzug“
+    const d = String(text || '').match(/(\d+)\s*Tage\s*,?\s*(\d+(?:[.,]\d+)?)\s*%\s*(?:Skonto|Abzug)/i);
+    if (d) { tage = Number(d[1]); prozent = parseFloat(d[2].replace(',', '.')); }
+  }
   if (!(tage > 0) || !(prozent > 0)) return '';
   return `#SKONTO#TAGE=${tage}#PROZENT=${prozent.toFixed(2)}#`;
 }

@@ -199,7 +199,28 @@ const _COMPANY_REGISTRY = {
     _detect: /HRB[-\s]*(?:Nr\.?\s*)?111213/i,
     _aktiv: true,
   },
-  MEG: _werkGeruest('MEG'),
+  // ── MEG · Meuselwitz Guss (pdfFactory-Druck aus dem ERP) ─────────────
+  // Briefkopf und Fuß sind Grafik und stehen nicht im Text. Bank, Register und
+  // Kontakt hier aus dem Rechnungsfuß abgelesen (Belege 09/10 2026).
+  MEG: {
+    verkaeufer:         'Meuselwitz Guss Eisengießerei GmbH',
+    verkaeufstrasse:    'Industriepark Nord',
+    verkaeufplz:        '04610',
+    verkaeufstadt:      'Meuselwitz',
+    verkaeufland:       'DE',
+    verkaeufkontakt:    'Vertrieb',   // ohne Bearbeiter auf dem Beleg
+    verkaeuftel:        '+49 3448 82-0',
+    verkaeuferemail:    'info@meuselwitz-guss.de',
+    verkaeufervat:      'DE150528912',
+    verkaeufersteuernr: '',
+    iban:               'DE11860700000208986000',
+    bic:                'DEUTDE8LXXX',
+    handelsregister:    'Amtsgericht Jena',
+    registernr:         'HRB 203104',
+    geschaeftsfuehrung: 'Viktor Babushchak',
+    _detect: /UST-ID\.Nr\.\s*DE\s?150\s?528\s?912|meuselwitz-guss\.de/i,
+    _aktiv: true,
+  },
   SCH: _werkGeruest('SCH'),
 
 };
@@ -285,6 +306,10 @@ function extractInvoiceDataFromItems(allItems) {
       positionen: extractLineItemsGermanSHB(fullText),
       ..._shbZahlungskonto(fullText),
     };
+  // MEG-Rechnung (Meuselwitz Guss, pdfFactory-Druck, Kopf und Fuß als Grafik)
+  } else if (_isMegInvoice(fullText)) {
+    result = extractMeg(fullText);
+    eigenesLayout = true;
   // SAP Adobe-Formular (EWA, LEG; de/en/fr)
   } else if (_isSapFormular(fullText)) {
     result = { ...extractSeller(footerText, fullText), ...extractSapFormular(fullText, allItems) };
@@ -698,46 +723,13 @@ function _shbAdressZeilen(buyerBlock, fullText) {
  * Block-Aufbau: [Name (1-2 Zeilen)] [Abteilung, Postfach] [Straße] [Land-PLZ Ort]
  */
 function extractBuyerGermanSHB(buyerBlock, fullText) {
-  const r = { kaeuferland: 'DE' };
+  const r = {};
 
   // Käufer-USt-IdNr (BT-48): "Ihre USt-Id-Nr: DE…", "I. Ust-Id-Nr : FR …", "Your VAT-No. : CZ…"
   const vatM = fullText.match(/(?:Ihre\s+USt-?Id-?Nr\.?|I\.\s*Ust-?Id-?Nr\.?|Your\s*VAT(?:-?No[.,]?)?)\s*[:;]?[ \t]*([A-Z]{2}[\dA-Z ]{2,18})/i);
   if (vatM) r.kaeufervat = vatM[1].replace(/\s+/g, '');
 
-  const lines = _shbAdressZeilen(buyerBlock, fullText);
-  if (lines.length === 0) return r;
-
-  // PLZ/Ort: letzte Zeile wie "D-16748 Hennigsdorf", "F-68025 COLMAR-Cedex", "CZ-186 00 Praha 8"
-  let plzIdx = -1, plzM = null;
-  lines.forEach((l, i) => {
-    const m = l.match(/^([A-Z]{1,3})?-?(\d{4,5}|\d{3}\s\d{2})\s+(.+)$/);
-    if (m && i > 0) { plzIdx = i; plzM = m; }
-  });
-  if (plzM) {
-    r.kaeuferland  = plzM[1] ? (_KFZ_ISO[plzM[1]] || plzM[1]) : 'DE';
-    r.kaeuferplz   = plzM[2];
-    r.kaeuferstadt = plzM[3].trim();
-    if (plzIdx >= 2) r.kaeuferstrasse = lines[plzIdx - 1];
-  }
-
-  // Name = erste Zeile; fehlt die Rechtsform, zweite (ziffernlose) Zeile anhängen
-  // (z.B. "KOMATSU" + "Germany GmbH")
-  const legalForm = /\b(GmbH|AG|KG|SE|mbH|e\.K\.|OHG|Co\b|S\.p\.A\.)/i;
-  let name = lines[0];
-  let nameZeilen = 1;
-  if (!legalForm.test(name) && lines.length > 1 && legalForm.test(lines[1]) && !/\d/.test(lines[1])) {
-    name = `${name} ${lines[1]}`;
-    nameZeilen = 2;
-  }
-  r.kaeufer = name;
-
-  // Zwischen Name und Straße: Abteilung, Postfach ("Fleet Innovation & Technology", "CS 50038")
-  if (plzIdx >= 2) {
-    const zusatz = lines.slice(nameZeilen, plzIdx - 1);
-    if (zusatz.length) r.kaeuferzusatz = zusatz.join(', ');
-  }
-
-  return r;
+  return Object.assign(_anschriftAusZeilen(_shbAdressZeilen(buyerBlock, fullText)), r);
 }
 
 /**
@@ -851,6 +843,240 @@ function extractLineItemsGermanSHB(fullText) {
   }
 
   return _validateAndFallback(items, _extractNetTotalGermanSHB(fullText), mwstDoc);
+}
+
+/**
+ * Käuferanschrift aus den Zeilen des Adressfensters (SHB, MEG):
+ * [Name (1-2 Zeilen)] [Zusatz: Abteilung, c/o, Postfach …] [Straße] [Land-PLZ Ort].
+ * Kfz-Kennzeichen vor der PLZ ergeben das Land. Die Zeile vor der PLZ ist nur Straße,
+ * wenn sie eine Hausnummer hat oder wie eine Straße heißt („Abteilung ABC“ ist Zusatz).
+ */
+function _anschriftAusZeilen(lines) {
+  const r = { kaeuferland: 'DE' };
+  if (!lines.length) return r;
+
+  // PLZ/Ort: letzte Zeile wie "D-16748 Hennigsdorf", "F-67000 STRASBOURG-Cedex", "CZ-186 00 Praha 8"
+  let plzIdx = -1, plzM = null;
+  lines.forEach((l, i) => {
+    const m = l.match(/^([A-Z]{1,3})?-?(\d{4,5}|\d{3}\s\d{2})\s+(.+)$/);
+    if (m && i > 0) { plzIdx = i; plzM = m; }
+  });
+  if (plzM) {
+    r.kaeuferland  = plzM[1] ? (_KFZ_ISO[plzM[1]] || plzM[1]) : 'DE';
+    r.kaeuferplz   = plzM[2];
+    r.kaeuferstadt = plzM[3].trim();
+  }
+
+  // Name = erste Zeile; fehlt die Rechtsform, zweite (ziffernlose) Zeile anhängen
+  // (z.B. "KOMATSU" + "Germany GmbH", "Werkzeugmaschinenfabrik" + "WALDRICH COBURG GmbH")
+  const legalForm = /\b(GmbH|AG|KG|SE|mbH|e\.K\.|OHG|OG|Co\b|S\.p\.A\.|SAS|S\.A\.|SA|a\.s\.)/i;
+  let name = lines[0];
+  let nameZeilen = 1;
+  if (!legalForm.test(name) && lines.length > 1 && legalForm.test(lines[1]) && !/\d/.test(lines[1])) {
+    name = `${name} ${lines[1]}`;
+    nameZeilen = 2;
+  }
+  r.kaeufer = name;
+
+  const ende = plzIdx >= 0 ? plzIdx : lines.length;
+  const vor = ende - 1;
+  const strasse = vor >= nameZeilen && plzIdx >= 0 &&
+    (/\d/.test(lines[vor]) || /stra(?:ss|ß)e|str\.|weg\b|platz|allee|ring\b|damm\b|ufer\b|gasse/i.test(lines[vor]));
+  if (strasse) r.kaeuferstrasse = lines[vor];
+  const zusatz = lines.slice(nameZeilen, strasse ? vor : ende);
+  // Ohne Straße wird die letzte Zusatzzeile die Adresszeile ("Abteilung ABC"), das Formular verlangt eine
+  if (!strasse && plzIdx >= 0 && zusatz.length) r.kaeuferstrasse = zusatz.pop();
+  if (zusatz.length) r.kaeuferzusatz = zusatz.join(', ');
+  return r;
+}
+
+/* ══════════════════════════════════════════════════════
+   MEG-RECHNUNG (Meuselwitz Guss Eisengießerei GmbH), deutsch und englisch
+   pdfFactory-Druck aus dem ERP. Briefkopf und Fuß sind Grafik, im Text steht nur
+   die eigene USt-IdNr. im Kopf ("UST-ID.Nr. DE150528912").
+   Position: "0001 Grundpreis 2, ST 1.636,38 EUR/ST 3.272,76 EUR", weitere Preiszeilen
+   (Material TZ, Teuerungszuschlag, Transportkosten …), darunter Bezeichnung und
+   Lieferschein, Abschluss "Positionssumme" bzw. "item price".
+══════════════════════════════════════════════════════ */
+function _isMegInvoice(text) {
+  return /UST-ID\.Nr\.\s*DE\s?150\s?528\s?912/i.test(text) &&
+         /(?:Rechnungs-Nr\.|invoice-no\.)\s+\d{6,}/i.test(text);
+}
+
+const _MEG_ZUSCHLAG = { 'material tz': 'Materialteuerungszuschlag', 'energie tz': 'Energieteuerungszuschlag' };
+
+/** Preiszeile: Text, Mengenangabe ("2, ST" oder "1 x 8,8 %kg"), Einzelpreis, Gesamt. */
+function _megPreiszeile(m) {
+  const p = { label: m[1].trim(), einzel: _parseDE(m[2]), gesamt: _parseDE(m[4]), menge: null, einheit: '', spec: '' };
+  const kg = p.label.match(/^(.*?)\s+(\d[\d.]*,?\d*)\s*x\s+([\d.]*,\d*)\s*%\s*kg$/i);   // 1 x 8,8 %kg  (je 100 kg)
+  const st = p.label.match(/^(.*?)\s+(\d[\d.]*),(\d*)\s+([A-Za-z]{1,4})$/);              // 2, ST
+  if (kg) {
+    p.label = kg[1].trim();
+    p.stueck = _parseDE(kg[2]) || 1;
+    p.spec = `${kg[2].replace(/,$/, '')} x ${kg[3].replace(/^,/, '0,').replace(/,$/, '')} %kg à ${m[2]} EUR/%kg`;
+  } else if (st) {
+    p.label = st[1].trim();
+    p.menge = _parseDE(`${st[2]},${st[3] || '0'}`) || 1;
+    p.einheit = _unitCode(st[4]);
+  }
+  return p;
+}
+
+function extractMeg(fullText) {
+  // Fett gedruckte Zeilen stehen doppelt im PDF
+  const z = fullText.split('\n').map(l => l.trim()).filter((l, i, a) => l && l !== a[i - 1]);
+  const r = { positionen: [] };
+
+  const nrM = fullText.match(/(?:Rechnungs-Nr\.|invoice-no\.)\s+(\d{6,12})/i);
+  if (nrM) r.rechnungsnummer = nrM[1];
+  const datM = fullText.match(/\b(?:Datum|date)\s+(\d{2}\.\d{2}\.\d{4})/);
+  if (datM) r.rechnungsdatum = _deDate(datM[1]);
+  if (/^\s*(?:Gutschrift|Credit\s+note)\s*$/im.test(fullText)) r.rechnungsart = '381';
+  if (/^\s*(?:Anzahlungsrechnung|Down\s*payment\s+invoice|Prepayment\s+invoice)\s*$/im.test(fullText)) r.rechnungsart = '386';
+  if (/Pro-?\s?forma-?\s?(?:Rechnung|Invoice)/i.test(fullText)) r.proforma = true;
+
+  // Anschrift: Zeilen nach dem Titel bis zur Kundentabelle, rechte Kopfspalte abgeschnitten
+  const iTitel = z.findIndex(l => /^(?:Rechnung|Invoice|Gutschrift|Credit\s+note|Anzahlungsrechnung)$/i.test(l));
+  const iKd = z.findIndex(l => /^(?:Ihre\s+Kunden-Nr\.|customer-no\.)/i.test(l));
+  if (iKd > 0) {
+    const zeilen = z.slice(iTitel + 1, iKd)
+      .filter(l => !/^UST-ID\.Nr\./i.test(l))
+      .map(l => l.replace(/\s+(?:Rechnungs-Nr\.|invoice-no\.)\s+\d.*$/i, '').replace(/\s+(?:Datum|date)\s+\d{2}\.\d{2}\.\d{4}.*$/, '').trim())
+      .filter(Boolean);
+    Object.assign(r, _anschriftAusZeilen(zeilen));
+    // Wertezeile: Kunden-Nr., Ihre Zeichen, Bestell-Nr. (BT-13), Bestelldatum
+    const kd = (z[iKd + 1] || '').match(/^(\S+)\s+(.*?)\s*(\S+)\s+(\d{2}\.\d{2}\.\d{4})$/);
+    if (kd) { r.kundennummer = kd[1]; r.bestellnummer = kd[3]; }
+  }
+
+  // Zweite Tabelle: Auftrags-Nr., unser Zeichen, Bearbeiter (Ansprechpartner, BR-DE-5), USt-IdNr. des Kunden
+  const iAuf = z.findIndex(l => /^(?:Unsere\s+Auftrags-Nr\.|our\s+order-no\.)/i.test(l));
+  const auf = iAuf >= 0 ? (z[iAuf + 1] || '') : '';
+  const vatM = auf.match(/\s([A-Z]{2}U?\s?\d[\d ]{5,14}\d)$/);
+  if (vatM) r.kaeufervat = vatM[1].replace(/\s+/g, '');
+  const aufTeile = (vatM ? auf.slice(0, vatM.index) : auf).trim().split(/\s+/);
+  if (aufTeile.length >= 3 && /^\d+$/.test(aufTeile[0])) {
+    r.verkaeufkontakt = aufTeile.slice(2).join(' ');
+    r._kontaktAusBeleg = { verkaeufkontakt: r.verkaeufkontakt };   // geht vor „Vertrieb“ aus der Registry
+  }
+
+  // Kopfangaben bis zur Positionstabelle: Lieferant-Nr., Zahlungsbedingung, Preisstellung, Freitext
+  const iPos = z.findIndex(l => /^(?:Pos\.\s+B\s*e\s*s\s*c\s*h|i\s+t\s+e\s+m\b)/i.test(l));
+  const kopfEnde = iPos >= 0 ? iPos : z.length;
+  let zahlung = '', preis = '';
+  const freiText = [];
+  for (let k = iAuf >= 0 ? iAuf + 2 : 0; k < kopfEnde; k++) {
+    const l = z[k];
+    let m;
+    if ((m = l.match(/^(?:Lieferant-Nr\.|supplier-no)\s*:?\s*(\S+)/i))) { r.lieferantennummer = m[1]; continue; }
+    if ((m = l.match(/^(?:Zahlungsbed\.|terms)\s*:\s*(.+)$/i))) { zahlung = m[1].trim(); continue; }
+    if ((m = l.match(/^(?:Preisstellung|price\s+condition)\s*:\s*(.+)$/i))) { preis = m[1].trim(); continue; }
+    if (/^(?:Lieferart|tran?s?port\s+route)\s*:/i.test(l)) continue;   // auch vertippt „tranport route“
+    if (/^[_=*\s-]+$/.test(l)) continue;
+    if (/^(?:Lieferadresse|delivery\s+address)\b/i.test(l)) break;
+    const t = l.replace(/^[-*\s]+|[-*\s]+$/g, '');
+    freiText.push(/^S\s*C\s*H\s*L\s*U\s*S\s*S\s*-\s*R\s*E\s*C\s*H\s*N\s*U\s*N\s*G$/i.test(t) ? 'Schlussrechnung' : t);
+  }
+  const hinweise = [];
+  if (zahlung) hinweise.push('Zahlungsbedingung: ' + zahlung);   // BT-20, Skonto liest xrechnung.js daraus
+  if (preis) hinweise.push('Preisstellung: ' + preis);
+  hinweise.push(...freiText.filter(Boolean));
+  if (hinweise.length) r.notiz = hinweise.join('\n');
+  const nettoTage = zahlung.match(/(\d+)\s*Tage\s*netto/i);
+  if (nettoTage && r.rechnungsdatum) {
+    const d = new Date(r.rechnungsdatum + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + Number(nettoTage[1]));
+    r.faelligkeitsdatum = d.toISOString().slice(0, 10);
+  }
+
+  // Steuer: ohne MWSt-Zeile steuerfrei, Begründung aus dem Freitext (BT-120)
+  const mwstM = fullText.match(/MWSt\s+(\d{1,2})(?:,\d+)?\s*%/i);
+  const mwst = mwstM ? parseFloat(mwstM[1]) : 0;
+  if (!mwstM) {
+    const frei = freiText.find(l => /steuerbefreit|steuerfrei|tax[- ]?free|exempt|innergemeinschaftlich|intra-?community/i.test(l));
+    if (frei) r.befreiungsgrund = frei;
+  }
+
+  // Schlussrechnung über den Rest: Bezug auf die Anzahlungsrechnung (BT-25/26)
+  const anzM = fullText.match(/Anzahlung\s*#?\s*(\d{6,12})\s+vom\s+(\d{2}\.\d{2}\.\d{4})/i);
+  if (anzM && /Schluss|S\s*C\s*H\s*L\s*U\s*S\s*S\s*-/i.test(fullText)) { r.vorrechnungsnummer = anzM[1]; r.vorrechnungsdatum = _deDate(anzM[2]); }
+
+  // Positionsblöcke ab "0001 …" bis zur Summe
+  const ende = /^(?:Rechnungsbetrag|Gesamtbetrag|total\s+price|invoice\s+amount)\b/i;
+  const rauschen = /^(?:Blatt\s+\d+\s+zu|page\s+\d+\s+to|Pos\.\s+B\s*e\s*s|i\s+t\s+e\s+m\b|[_=-]{5,}$|Kundeninformation$|customer\s+information$)/i;
+  const bloecke = [];
+  let blk = null;
+  for (let k = kopfEnde; k < z.length; k++) {
+    const l = z[k];
+    if (ende.test(l)) break;
+    const posM = l.match(/^(0\d{3})\s+(.+)$/);
+    if (posM) { blk = { posnr: posM[1], zeilen: [posM[2]] }; bloecke.push(blk); continue; }
+    if (blk && !rauschen.test(l)) blk.zeilen.push(l);
+  }
+
+  const preisRe = /^(.*?)\s*(-?[\d.]*,\d{2,3})\s*EUR\/\s*(\S+)\s+_*\s*(-?[\d.]+,\d{2})\s*EUR$/;
+  for (const b of bloecke) {
+    const preise = [];
+    const info = { details: [] };
+    let summe = null;
+    for (const l of b.zeilen) {
+      let m;
+      if ((m = l.match(/^(?:Positionssumme|item\s+price)\s*_*\s*(-?[\d.]+,\d{2})\s*EUR/i))) { summe = _parseDE(m[1]); continue; }
+      if ((m = l.match(preisRe))) { preise.push(_megPreiszeile(m)); continue; }
+      if ((m = l.match(/^(?:Bezeichnung|name)\s*:\s*(.+)$/i))) { if (!info.name) info.name = m[1].trim(); continue; }
+      if ((m = l.match(/^(?:Lieferschein|delivery\s+note)\s*:\s*(\S+?)\s*(?:für\s+Lieferung\s+vom|for\s+delivery\s+from)\s+(\d{2}\.\d{2}\.\d{4})/i))) {
+        info.ls = m[1]; info.lsDatumText = m[2]; info.lsDatum = _deDate(m[2]); continue;
+      }
+      if ((m = l.match(/^(?:Pos-Nr\.|item-no\.)\s*:\s*(\S+)/i))) { info.bestellpos = m[1]; continue; }
+      if ((m = l.match(/^(Artikel-Nr\.|part-no\.|Zeichn\.-Nr\.|draw-no\.|Werkstoff|material|Material-Nr\.|material-no\.)\s*:\s*(.+)$/i))) {
+        info.details.push(`${m[1]} ${m[2].trim()}`);
+      }
+    }
+    const lsNotiz = info.ls ? `Lieferschein ${info.ls}${info.lsDatumText ? ' vom ' + info.lsDatumText : ''}` : '';
+    const gemeinsam = { mwst, leistungVon: info.lsDatum || '' };   // Lieferdatum je Position (BG-26)
+    const summePreise = Math.round(preise.reduce((s, p) => s + p.gesamt, 0) * 100) / 100;
+    if (!r.lieferscheinnummer && info.ls) r.lieferscheinnummer = info.ls;   // BT-16 und BT-72 aus der ersten Position
+    if (!r.lieferdatum && info.lsDatum) r.lieferdatum = info.lsDatum;
+
+    if (!preise.length || (summe != null && Math.abs(summePreise - summe) > 0.011)) {
+      // Preiszeilen nicht lesbar (Frachtzeile mit überlagertem Text): Positionssumme als eine Position
+      const label = (b.zeilen[0].match(/^[^\d]+/) || [''])[0].trim();
+      r.positionen.push({
+        posnr: _normPosNr(b.posnr), beschreibung: [label, info.name].filter(Boolean).join(' ') || 'Position ' + _normPosNr(b.posnr),
+        details: info.details.join('; '), positionsnotiz: lsNotiz, bestellposition: info.bestellpos || '',
+        menge: 1, einheit: 'Pausch.', einzelpreis: summe != null ? summe : summePreise, ...gemeinsam,
+      });
+      continue;
+    }
+
+    // Erste Preiszeile = Hauptposition (Grundpreis, Preis /% kg, 50% Rest …), Einzelpreis = Gesamt/Menge
+    const [haupt, ...rest] = preise;
+    const stueck = haupt.menge || haupt.stueck || 1;
+    const grund = /^(?:Grundpreis|basic\s+price|Preis)\b/i.test(haupt.label);
+    r.positionen.push({
+      posnr: _normPosNr(b.posnr),
+      beschreibung: info.name ? (grund ? info.name : `${info.name}, ${haupt.label}`) : haupt.label,
+      details: [haupt.spec, ...info.details].filter(Boolean).join('; '),
+      positionsnotiz: lsNotiz, bestellposition: info.bestellpos || '',
+      menge: stueck, einheit: haupt.einheit || 'Stk', einzelpreis: haupt.gesamt / stueck, ...gemeinsam,
+    });
+    // Weitere Preiszeilen (Zuschläge, Transport, Werkszeugnis, Bearbeitung) als eigene Positionen
+    for (const p of rest) {
+      const jeStueck = p.menge != null;
+      r.positionen.push({
+        posnr: '', beschreibung: _MEG_ZUSCHLAG[p.label.toLowerCase()] || p.label, details: p.spec,
+        menge: jeStueck ? p.menge : 1, einheit: jeStueck ? (p.einheit || 'Stk') : 'Pausch.',
+        einzelpreis: jeStueck ? p.gesamt / p.menge : p.gesamt, ...gemeinsam,
+      });
+    }
+  }
+
+  const nettoM = fullText.match(/^(?:Rechnungsbetrag|invoice\s+amount)\s+_*\s*(-?[\d.]+,\d{2})\s*EUR/im)
+    || (!mwstM && fullText.match(/^(?:Gesamtbetrag|total\s+price)\s+_*\s*(-?[\d.]+,\d{2})\s*EUR/im));
+  r.positionen = _validateAndFallback(r.positionen, nettoM ? _parseDE(nettoM[1]) : null, mwst);
+
+  Object.assign(r, _extractShipTo(fullText));
+  return r;
 }
 
 /* ══════════════════════════════════════════════════════
@@ -2365,7 +2591,7 @@ function _extractShipTo(fullText) {
   const r = {};
   const lines = fullText.split('\n').map(l => l.trim());
 
-  const labelRe = /^(?:Lieferanschrift|Versandanschrift|Shipping\s+address|Delivery\s*address)\s*:?\s*(.*)$/i;
+  const labelRe = /^(?:Lieferanschrift|Versandanschrift|Lieferadresse|Shipping\s+address|Delivery\s*address)\s*:?\s*(.*)$/i;
   const li = lines.findIndex(l => labelRe.test(l));
   if (li < 0) return r;
 
@@ -2375,10 +2601,13 @@ function _extractShipTo(fullText) {
   const first = lines[li].match(labelRe)[1].trim();
   if (first) block.push(first);
 
-  let plzM = null, plzIdx = -1;
+  let plzM = null, plzIdx = -1, vatLand = '';
   for (let k = li + 1; k < Math.min(li + 8, lines.length); k++) {
     const l = lines[k];
     if (!l || stopRe.test(l)) break;
+    // USt-IdNr. des Empfängers in der Anschrift ("FR70508029824"): keine Adresszeile, gibt das Land
+    const vat = l.match(/^([A-Z]{2})\s?[0-9A-Z]{8,12}$/);
+    if (vat && /\d/.test(l)) { vatLand = vat[1] === 'EL' ? 'GR' : vat[1]; continue; }
     block.push(l);
 
     // PLZ-Zeile: "57250 Netphen", "DE 59269 Beckum", "LU 4823 RODANGE"
@@ -2425,7 +2654,7 @@ function _extractShipTo(fullText) {
     r.lieferStrasse = rest.join(', ');
   }
 
-  if ((r.lieferName || r.lieferStrasse) && !r.lieferLand) r.lieferLand = 'DE';
+  if ((r.lieferName || r.lieferStrasse) && !r.lieferLand) r.lieferLand = vatLand || 'DE';
   return r;
 }
 
@@ -2655,7 +2884,7 @@ function _normPosNr(s) {
 
 function _unitCode(u) {
   const map = {
-    Stk: 'Stk', St: 'Stk', Anz: 'Stk', pcs: 'Stk', 'pcs.': 'Stk', pc: 'Stk', 'pc.': 'Stk',
+    Stk: 'Stk', St: 'Stk', ST: 'Stk', Anz: 'Stk', pcs: 'Stk', 'pcs.': 'Stk', pc: 'Stk', 'pc.': 'Stk',
     HUR: 'h', h: 'h', Std: 'h', Stunde: 'h',
     kg: 'kg', m: 'm', km: 'km',
     LS: 'Pausch.', Psch: 'Pausch.',

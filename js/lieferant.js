@@ -202,7 +202,7 @@
   /* ── Mailadresse ───────────────────────────────────────────────────── */
 
   // Domains der eigenen Gesellschaften. Solche Adressen sind nie die des Lieferanten.
-  const EIGENE_DOMAINS = ['dihag', 'walze-coswig', 'shb-guss', 'lintorfereg', 'ewa-guss', 'gienanth', 'zaigler'];
+  const EIGENE_DOMAINS = ['dihag', 'walze-coswig', 'shb-guss', 'lintorfereg', 'ewa-guss', 'gienanth', 'zaigler', 'meuselwitz-guss'];
   const MAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g;
 
   function istEigeneMail(mail) {

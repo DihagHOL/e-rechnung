@@ -73,6 +73,13 @@ xml = ctx.buildXML(Object.assign({}, basis, { kaeuferland: 'AT' }), 'zugferd');
 hat(xml, '<ram:ID>urn:cen.eu:en16931:2017</ram:ID>', 'ZUGFeRD Ausland EN 16931');
 ohne(xml, 'BusinessProcessSpecifiedDocumentContextParameter', 'ZUGFeRD Ausland ohne BT-23');
 
+// Skonto mit Frist in Tagen (MEG: „14 Tage 3% Skonto, 30 Tage Netto“), mit Datum wie bisher
+const skonto = notiz => (ctx.buildXML(Object.assign({}, basis, { notiz }), 'xrechnung').match(/#SKONTO#[^#]*#[^#]*#/) || [''])[0];
+gleich(skonto('Zahlungsbedingung: 14 Tage 3% Skonto, 30 Tage Netto'), '#SKONTO#TAGE=14#PROZENT=3.00#', 'Skonto in Tagen');
+gleich(skonto('Zahlungsbedingung: TPS 75 Tage Netto (bei 15 Tage 2% Abzug)'), '#SKONTO#TAGE=15#PROZENT=2.00#', 'Abzug in Tagen');
+gleich(skonto('Zahlungsbedingung: bis 16.11.2026 2 % Skonto'), '#SKONTO#TAGE=14#PROZENT=2.00#', 'Skonto mit Datum');
+gleich(skonto('Zahlungsbedingung: 30 Tage netto'), '', 'ohne Skonto');
+
 // Einzelpreis mit drei Nachkommastellen
 hat(ctx.buildXML(basis, 'xrechnung'), '<ram:ChargeAmount>1.764</ram:ChargeAmount>', 'Preis 1,764');
 
