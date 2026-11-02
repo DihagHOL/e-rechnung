@@ -9,9 +9,9 @@ const SP = {
   siteHost:  'dihag.sharepoint.com:/sites/IT',
   listName:  'E-Rechnung',
   folder:    'E-Rechnung',
+  // Nur SharePoint-Sites; Files.ReadWrite.All (OneDrive, freigegebene Dateien) braucht die App nicht
   scopes: [
     'https://graph.microsoft.com/Sites.ReadWrite.All',
-    'https://graph.microsoft.com/Files.ReadWrite.All',
   ],
 };
 

@@ -7,7 +7,7 @@
    die per Aufrufaktivität (⊞) eingebunden sind; ein Klick darauf öffnet sie. */
 const PROC = { eingang: null, ausgang: null, zahlung: null };
 const GRAPH = 'https://graph.microsoft.com/v1.0';
-const GRAPH_SCOPES = ['https://graph.microsoft.com/Sites.ReadWrite.All', 'https://graph.microsoft.com/Files.ReadWrite.All'];
+const GRAPH_SCOPES = ['https://graph.microsoft.com/Sites.ReadWrite.All'];
 const MODELL_MARKER = /\[\[rms:modell=([^\]]+)\]\]/;
 let MODELLE = {}, RMS = { url: 'https://rms.dihag.de', driveId: '' };
 const _esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
