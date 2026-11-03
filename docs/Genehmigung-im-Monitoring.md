@@ -261,7 +261,7 @@ Der Knopf **„Spalten“** neben „Zurücksetzen“ ist nur für Admins sichtb
   SAP buchen und nie mit der Eingangsrechnungsliste gearbeitet haben, zum Beispiel ZAI.
 - **Welche Spalten** das Werk zeigt und **in welcher Reihenfolge** (Ziehen am ☰ oder Pfeile).
   „Bearbeiten“ mit den Dateien ist immer dabei und steht im Standard vorn. Auswahl aus: Datum, Erstellt am, Werk, Richtung, Rechnungsnr., Steller /
-  Empfänger, Netto, Brutto, Fällig am, Klassifizierung, Status, Buchung, Lieferant informiert,
+  Empfänger, Netto, Brutto, Fällig am, Geprüft, Klassifizierung, Status, Buchung, Lieferant informiert,
   Konform., Fehler, Bestellnummer, Varialnummer, Kontierung, Bearbeitung, Genehmigung, Notiz.
   „Standard“ setzt die Auswahl zurück (Netto statt Brutto, mit Lieferant informiert und den
   Spalten der Bearbeitung).
@@ -284,9 +284,10 @@ diese Datei nicht lesen darf, sieht die Standardspalten. Das Monitoring meldet d
 Zeile unter der Überschrift („Spalten-Einstellungen nicht lesbar“). Lesen auf die Bibliothek
 Dokumente reicht.
 
-Unter „Alle Buchung“ gibt es zusätzlich **„Kleinbetrag (bis 250 € brutto)“**. Der Filter
-findet nur Rechnungen, deren Bruttobetrag bekannt ist, bei PDF-Rechnungen ohne XML fehlt er
-meist.
+Unter „Alle Buchung“ gibt es zusätzlich **„Kleinbetrag (bis 250 € brutto)“** und
+**„Lieferant im Ausland (bestätigt)“**. Der Kleinbetrag-Filter findet Rechnungen, deren
+Bruttobetrag bekannt ist oder deren Kleinbetrag im 800k-Dialog bestätigt wurde. Bei
+PDF-Rechnungen ohne XML fehlt der Betrag meist.
 
 ## Hinweise
 

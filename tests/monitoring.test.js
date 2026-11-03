@@ -92,10 +92,13 @@ gleich(M._monPartnerSicher({ richtung: 'Eingang', baseKey: 'R_3', steller: 'Neu 
 gleich(M._monPartnerSicher({ richtung: 'Eingang', baseKey: 'Scan_4', steller: 'Neu AG', format: 'PDF', ext: 'pdf' }).name, '', 'PDF-Text allein ist nicht sicher');
 
 // 7) Neue Spalte in alten Werkseinstellungen
-gleich(M._monMitNeuenSpalten({ spalten: ['links', 'werk', 'datum', 'nummer'] }), ['links', 'werk', 'datum', 'erstellt', 'nummer'], 'hinter Datum');
-gleich(M._monMitNeuenSpalten({ spalten: ['links', 'nummer'] }), ['links', 'erstellt', 'nummer'], 'ohne Datum hinter dem Vorgänger');
-gleich(M._monMitNeuenSpalten({ spalten: ['links', 'datum'], spaltenAm: '2026-10-30T08:00:00Z' }), ['links', 'datum'], 'neu gespeichert: Auswahl gilt');
-gleich(M._monMitNeuenSpalten({ spalten: ['erstellt', 'links'] }), ['erstellt', 'links'], 'schon dabei');
+gleich(M._monMitNeuenSpalten({ spalten: ['links', 'werk', 'datum', 'nummer'], spaltenAm: '2026-11-01T08:00:00Z' }), ['links', 'werk', 'datum', 'nummer', 'geprueft'], 'Geprüft hinter dem Vorgänger');
+gleich(M._monMitNeuenSpalten({ spalten: ['links', 'werk', 'datum', 'nummer'] }), ['links', 'werk', 'datum', 'erstellt', 'nummer', 'geprueft'], 'hinter Datum');
+gleich(M._monMitNeuenSpalten({ spalten: ['links', 'nummer'] }), ['links', 'erstellt', 'nummer', 'geprueft'], 'ohne Datum hinter dem Vorgänger');
+gleich(M._monMitNeuenSpalten({ spalten: ['links', 'datum'], spaltenAm: '2026-11-04T08:00:00Z' }), ['links', 'datum'], 'neu gespeichert: Auswahl gilt');
+gleich(M._monMitNeuenSpalten({ spalten: ['erstellt', 'links', 'geprueft'] }), ['erstellt', 'links', 'geprueft'], 'schon dabei');
+gleich(M._monMitNeuenSpalten({ spalten: ['links', 'datum', 'partner', 'klass'], spaltenAm: '2026-11-01T08:00:00Z' }), ['links', 'datum', 'partner', 'geprueft', 'klass'], 'Geprüft zwischen Empfänger und Klassifizierung');
+gleich(M._monMitNeuenSpalten({ spalten: ['partner', 'netto', 'faellig', 'klass'], spaltenAm: '2026-11-01T08:00:00Z' }), ['partner', 'netto', 'faellig', 'geprueft', 'klass'], 'direkt vor der Klassifizierung');
 
 // 8) Eine Eingangsmail = ein Vorgang (Spalte MailVorgang vom Eingangs-Flow)
 const mv = (name, f, zeit, lauf) => datei(name, Object.assign({ MailVorgang: lauf || 'LAUF1', OriginalPdfName: name }, f), { createdDateTime: zeit });

@@ -241,8 +241,13 @@ denen das noch fehlt.
 
 Keine Mail nötig:
 - Kleinbetragsrechnungen bis 250 € brutto. Ist der Betrag im Monitoring bekannt, tragen sie das
-  Abzeichen „Kleinbetrag“. Bei PDF-Rechnungen fehlt er dort meist. Dann den Betrag im PDF
-  ansehen oder im Hinweis in der Spalte „Konform.“ („Betrag laut Text: …“).
+  Abzeichen „Kleinbetrag“. Bei PDF-Rechnungen fehlt er dort meist. Dann den Dialog öffnen: Er
+  liest den Betrag aus dem PDF ins Feld „Brutto“. Stimmt er, **„Kleinbetrag bestätigen“**
+  klicken. Die Rechnung zeigt danach „Kleinbetrag ✓“.
+- Lieferanten ohne Sitz in Deutschland. Der Dialog weist darauf hin, wenn Anschrift im Kopf,
+  IBAN oder USt-IdNr. ins Ausland zeigen. Stimmt das und ist keine deutsche Betriebsstätte
+  beteiligt, **„Ausland bestätigen“** klicken. Das gilt dann für alle Rechnungen dieses
+  Lieferanten, sie zeigen „Ausland ✓“.
 - Rechnungen von Kleinunternehmern (§ 19 UStG). Der Dialog weist darauf hin, wenn die Rechnung
   § 19 nennt.
 
@@ -293,7 +298,7 @@ Keine Mail nötig:
    Tabelle steht das in der Spalte „Lieferant informiert“:
    - **Ja** oder **Nein**: an dieser Rechnung eingeschätzt, mit oder ohne Info an den Lieferanten
    - **Automatik**: Der Lieferant war schon eingeschätzt, an dieser Rechnung war nichts zu tun
-   - leer: noch nicht eingeschätzt, Kleinbetrag oder E-Rechnung
+   - leer: noch nicht eingeschätzt, Kleinbetrag, Lieferant im Ausland oder E-Rechnung
 
 8. **Danach**
    - 2026 und 2027 mit Variante 2: Die Rechnung normal weiterverarbeiten.

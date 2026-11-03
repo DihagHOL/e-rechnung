@@ -71,11 +71,19 @@ angelegt wurde. Die Tabelle ist danach sortiert, die neuesten Vorgänge stehen o
 Welche Spalten ein Werk zeigt und in welcher Reihenfolge, legt ein Admin über den Knopf
 **„Spalten“** fest (Einzelheiten in [Genehmigung-im-Monitoring.md](Genehmigung-im-Monitoring.md)).
 Standard: vorn „Bearbeiten“ mit den Dateien (PDF, XML, Bericht), dann Datum, Erstellt am, Werk, Richtung, Rechnungsnr., Steller / Empfänger, Netto, Fällig am,
-Klassifizierung, Status, Buchung, Lieferant informiert, Konform., Fehler und, wo die
+Geprüft, Klassifizierung, Status, Buchung, Lieferant informiert, Konform., Fehler und, wo die
 Bearbeitung an ist, Varialnummer, Bearbeitung, Genehmigung. Wählbar sind außerdem Brutto,
 Bestellnummer, Kontierung und Notiz. Werke mit eigener Spaltenauswahl zeigen „Erstellt am“
-hinter „Datum“, bis der Admin ihre Spalten neu speichert. Danach gilt seine Auswahl
-(`spaltenAm` in den Einstellungen, neue Spalten stehen in `MON_NEUE_SPALTEN`).
+hinter „Datum“ und „Geprüft“ vor „Klassifizierung“ (hinter Fällig am, Netto oder Steller /
+Empfänger, je nachdem, was das Werk zeigt), bis der Admin ihre Spalten neu speichert. Danach
+gilt seine Auswahl (`spaltenAm` in den Einstellungen, neue Spalten stehen in `MON_NEUE_SPALTEN`).
+
+**Geprüft**: Der Knopf **„Als geprüft markieren“** setzt die Markierung mit Name und Datum,
+in der Zelle steht dann „✓ Geprüft“ mit Kürzel und Datum (Tooltip: Name und Uhrzeit). Ein
+Klick auf „✓ Geprüft“ nimmt sie nach einer Rückfrage zurück. Die Markierung liegt im
+Lieferantenregister unter `rechnungen` (Feld `geprueft`), gilt für alle Rechnungen, auch
+E-Rechnungen, und ändert nichts an Buchung oder Bearbeitungsstatus. Die Spalte lässt sich
+sortieren, die aufgeklappte Zeile nennt unter „Prüfung“, wer markiert hat.
 
 **Steller / Empfänger** zeigt nur, was sicher ist, in dieser Reihenfolge:
 
@@ -114,6 +122,37 @@ des neuen Namens. Die Einschätzung selbst (über oder bis 800.000 €) ist kein
 sie merkt den Lieferanten nur. Nach der Korrektur fasst
 das Monitoring die Zeilen neu zusammen und prüft die Dubletten neu.
 
+## Kleinbetrag und Lieferant im Ausland im 800k-Dialog
+
+Zwei Fälle brauchen keine Einschätzung und keine Mail. Beide bestätigt die
+Kreditorenbuchhaltung im Dialog mit einem Klick, so wie den Lieferanten:
+
+- **Kleinbetrag** (§ 33 UStDV, bis 250 € brutto). Neben dem Feld **„Brutto“** steht
+  „Kleinbetrag bestätigen“, sobald dort höchstens 250 € stehen. Vorbelegt ist der Betrag aus
+  der Rechnung, sonst der aus dem PDF gelesene. Gespeichert wird an der Rechnung (Betrag, wer,
+  wann), aus dem Knopf wird „✓ Kleinbetrag“, das ✕ daneben nimmt es zurück. Die Bestätigung
+  gilt auch, wenn der Prüfdienst den Betrag falsch gelesen hat.
+- **Lieferant ohne Sitz in Deutschland.** Die E-Rechnungspflicht gilt nur, wenn Lieferant
+  und Empfänger in Deutschland ansässig sind (§ 14 Abs. 2 UStG). Beim Lesen des PDFs (auch per
+  Texterkennung) sucht der Dialog nach dem Land in der Anschrift im Kopf (erste 20 Zeilen,
+  ohne Lieferanschrift und Bankverbindung, auch mit Kennzeichen wie „I-25100“), nach der IBAN
+  (nur mit gültiger Prüfziffer, keine Lastschrift vom eigenen Konto) und nach der USt-IdNr.
+  Überwiegen die Hinweise aufs Ausland, steht dort „Der Lieferant sitzt vermutlich nicht in
+  Deutschland (…)“. Bei Gleichstand, etwa Anschrift in Polen und deutsche IBAN, steht ein
+  Hinweis zum Prüfen. Eine IBAN im Ausland allein gegen eine deutsche USt-IdNr. reicht nicht.
+  Der Knopf **„Ausland bestätigen“** merkt den Lieferanten mit Land und Gründen, das gilt für
+  alle seine Rechnungen. Ohne Treffer gibt es den Knopf trotzdem („Lieferant ohne Sitz in
+  Deutschland?“). Ist der Lieferant schon als Ausland gemerkt, die Rechnung aber noch nicht
+  ihm zugeordnet, ordnet „Rechnung zuordnen“ sie zu. „Zurücknehmen“ hebt die Bestätigung auf.
+  Bei einer deutschen Betriebsstätte, die an der Leistung beteiligt ist, gilt die Pflicht
+  trotzdem. Das prüft die Kreditorenbuchhaltung vor dem Klick.
+
+In der Spalte „Buchung“ stehen dann „Kleinbetrag ✓“ oder „Ausland ✓“ (ein Klick öffnet den
+Dialog), „Lieferant informiert“ bleibt leer, und die Rechnung zählt nicht mehr zu
+„800k-Einschätzung offen“. Die aufgeklappte Zeile nennt die Ausnahme unter „800.000 €“.
+Rechnungen mit bekanntem Betrag bis 250 € tragen wie bisher das Abzeichen „Kleinbetrag“
+ohne Bestätigung.
+
 ## Lieferantenregister
 
 `Monitoring/lieferanten-umsatzgrenze.json` auf der Monitoring-Site war das Register der
@@ -125,8 +164,11 @@ das Monitoring die Zeilen neu zusammen und prüft die Dubletten neu.
 | `aliase` | Schreibweisen aus dem PDF-Text, die schon einmal zu diesem Lieferanten bestätigt wurden (höchstens 10) |
 | `bestaetigtAm`, `bestaetigtVon`, `bestaetigtVonName` | Siegel: letzte Bestätigung durch die Kreditorenbuchhaltung („Bestätigen“ im 800k-Dialog, „Bearbeiten“) |
 | `vermutung`, `am`, `vonName`, `verlauf` | 800k-Einschätzung, falls es eine gibt |
+| `ausland` | Lieferant ohne Sitz in Deutschland: `land`, `landName`, `gruende`, wer und wann |
 
-`rechnungen` ordnet einzelne Rechnungen (Dateischlüssel) einem Lieferanten zu. Gemerkt wird
+`rechnungen` ordnet einzelne Rechnungen (Dateischlüssel) einem Lieferanten zu und hält je
+Rechnung `informiert`, `klein` (bestätigter Kleinbetrag mit Betrag) und `geprueft` (Spalte
+„Geprüft“) fest, jeweils mit wer und wann. Gemerkt wird
 bei der 800k-Einschätzung und unter „Bearbeiten“, das Siegel gibt es nur mit „Bestätigen“
 bzw. einer Korrektur unter „Bearbeiten“. Eine neue Rechnung wird erkannt über
 die Zuordnung, die USt-IdNr., den Namen oder eine gemerkte Schreibweise. Name und
@@ -170,7 +212,8 @@ beziehen sich auf die gefilterte Auswahl, ein Klick filtert.
 
 ## Filter & Suche
 
-Werk · Richtung · Typ · Konformität · Buchung (mit „Kleinbetrag bis 250 € brutto“) ·
+Werk · Richtung · Typ · Konformität · Buchung (mit „Kleinbetrag bis 250 € brutto“ und
+„Lieferant im Ausland (bestätigt)“) ·
 Status · Bearbeitung · Genehmigt · Datum von/bis · Freitextsuche (Nummer, Steller,
 Empfänger, Absendermail, Varialnummer, Kontierung, Bestellnummer, Notiz).
 

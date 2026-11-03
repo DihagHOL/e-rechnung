@@ -97,14 +97,39 @@ function ugSonstige(r) {
   return (r.richtung || '') === 'Eingang' && !!r.formatmangel && !ugMitXml(r);
 }
 
-/** Kleinbetragsrechnung (§ 33 UStDV): immer als sonstige Rechnung zulässig. */
+/**
+ * Kleinbetragsrechnung (§ 33 UStDV): immer als sonstige Rechnung zulässig. Entweder ist der
+ * Betrag bekannt, oder die Kreditorenbuchhaltung hat den Kleinbetrag im 800k-Dialog bestätigt
+ * (Betrag aus dem PDF gelesen oder selbst eingetragen).
+ */
 function ugKleinbetrag(r) {
-  return r.brutto != null && Math.abs(r.brutto) <= UG.kleinbetrag;
+  return (r.brutto != null && Math.abs(r.brutto) <= UG.kleinbetrag) || !!ugKleinBestaetigt(r);
+}
+
+/** Bestätigter Kleinbetrag an der Rechnung: { betrag, am, von, vonName } oder null. */
+function ugKleinBestaetigt(r) {
+  const zu = _ug.daten.rechnungen[ugRechnungKey(r)];
+  return (zu && zu.klein) || null;
+}
+
+/**
+ * Lieferant ohne Sitz in Deutschland, im 800k-Dialog bestätigt: Für ihn gilt keine
+ * E-Rechnungspflicht (§ 14 Abs. 2 UStG). { land, landName, gruende, am, von, vonName } oder null.
+ */
+function ugAusland(r) {
+  const l = ugLieferantFuer(r);
+  return (l && l.ausland) || null;
+}
+
+/** Als geprüft markiert (Spalte „Geprüft“ im Monitoring)? { am, von, vonName } oder null. */
+function ugGeprueft(r) {
+  const zu = _ug.daten.rechnungen[ugRechnungKey(r)];
+  return (zu && zu.geprueft) || null;
 }
 
 /** Braucht die Rechnung eine Einschätzung (Button anzeigen)? */
 function ugBraucht(r) {
-  return ugSonstige(r) && !ugKleinbetrag(r);
+  return ugSonstige(r) && !ugKleinbetrag(r) && !ugAusland(r);
 }
 
 /**
@@ -284,15 +309,17 @@ function ugFuer(r) {
  * Rechnung fest (Mail gesendet oder nicht). Automatik: Der Lieferant war schon
  * eingeschätzt, an dieser Rechnung war keine Einschätzung nötig. Eine Mail über den
  * Flow zählt immer als Ja, auch bei E-Rechnungen (Zurückweisung, Hinweis auf
- * Abweichungen aus dem Eingangs-Flow). Leer: noch offen, Kleinbetrag oder E-Rechnung ohne Mail.
+ * Abweichungen aus dem Eingangs-Flow). Leer: noch offen, Kleinbetrag, Lieferant im Ausland
+ * oder E-Rechnung ohne Mail.
  */
 function ugInformiert(r) {
   const perMail = ugMailsFuer(r).some(m => m.status !== 'Fehler');
   if (!ugSonstige(r)) return perMail ? 'Ja' : '';
-  if (ugKleinbetrag(r)) return '';
+  if (ugKleinbetrag(r) || ugAusland(r)) return '';
   if (perMail) return 'Ja';
+  // Nur eine Einschätzung oder Bestätigung an dieser Rechnung zählt, nicht „Geprüft“ allein
   const zu = _ug.daten.rechnungen[ugRechnungKey(r)];
-  if (zu) return zu.informiert || '';
+  if (zu && (zu.lieferant || zu.informiert)) return zu.informiert || '';
   return ugFuer(r) ? 'Automatik' : '';
 }
 
@@ -415,6 +442,54 @@ async function ugBestaetigen(r, name, extra) {
   return neu.lieferanten[key];
 }
 
+/** Wer und wann, für Einträge im Register. */
+function _ugWer(am) {
+  const user = (typeof getAuthUser === 'function' && getAuthUser()) || {};
+  return { am, von: user.username || '', vonName: user.name || user.username || '' };
+}
+
+/**
+ * Angabe an einer Rechnung setzen oder mit wert null zurücknehmen: 'klein' (Kleinbetrag
+ * bestätigt, wert { betrag }) oder 'geprueft' (als geprüft markiert, wert {}). Wer und wann
+ * kommt dazu. Ein Eintrag ohne Angaben fällt aus dem Register.
+ */
+async function ugRechnungSetzen(r, feld, wert) {
+  const key = ugRechnungKey(r);
+  const wer = _ugWer(new Date().toISOString());
+  const neu = await _ugSchreiben(d => {
+    const zu = Object.assign({}, d.rechnungen[key]);
+    if (wert) zu[feld] = Object.assign({}, wert, wer); else delete zu[feld];
+    const rechnungen = Object.assign({}, d.rechnungen, { [key]: zu });
+    if (!Object.keys(zu).length) delete rechnungen[key];
+    return { version: 1, lieferanten: d.lieferanten, rechnungen };
+  });
+  return neu.rechnungen[key] || null;
+}
+
+/**
+ * Lieferant ohne Sitz in Deutschland bestätigen (info { land, landName, gruende }) oder mit
+ * info null zurücknehmen. Das gilt für alle Rechnungen des Lieferanten. Er wird gemerkt wie
+ * bei der Einschätzung und die Rechnung ihm zugeordnet.
+ * @param extra  { vat } USt-IdNr., falls der Dialog sie kennt
+ */
+async function ugAuslandSetzen(r, name, info, extra) {
+  const user = (typeof getAuthUser === 'function' && getAuthUser()) || {};
+  const key = ugKey(name);
+  if (!key) throw new Error('Bitte den Lieferanten angeben.');
+  const wer = _ugWer(new Date().toISOString());
+  const rk = ugRechnungKey(r);
+  const neu = await _ugSchreiben(d => {
+    const e = ugLieferantMerken(d.lieferanten[key], name, r, user, wer.am, { vat: extra && extra.vat });
+    if (info) {
+      e.ausland = Object.assign({ land: info.land || '', landName: info.landName || '',
+        gruende: (info.gruende || []).slice(0, 5) }, wer);
+    } else delete e.ausland;
+    return { version: 1, lieferanten: Object.assign({}, d.lieferanten, { [key]: e }),
+      rechnungen: Object.assign({}, d.rechnungen, { [rk]: Object.assign({}, d.rechnungen[rk], { lieferant: key, am: wer.am, von: wer.von }) }) };
+  });
+  return neu.lieferanten[key];
+}
+
 /* ── Mailaufträge (Liste KreditorMails, Versand über den Flow) ────────── */
 
 /**
@@ -508,8 +583,21 @@ const _UG_LABEL = { ueber: 'über 800k', bis: 'bis 800k' };
 /** HTML für die Buchungs-Spalte: Button bzw. Badge mit der Einschätzung. */
 function ugZelle(r, idx) {
   if (!ugSonstige(r)) return '';
+  // Bestätigte Ausnahmen öffnen den Dialog, dort lassen sie sich zurücknehmen
+  const klein = ugKleinBestaetigt(r);
+  if (klein) {
+    const tip = `Kleinbetrag${klein.betrag != null ? ' ' + _ugBetragText(klein.betrag) + ' €' : ''} bestätigt von `
+      + `${klein.vonName || klein.von} am ${_monDate(klein.am)}: als sonstige Rechnung immer zulässig`;
+    return `<button type="button" class="ug-badge ug-klein" data-ug="${idx}" title="${_esc(tip)}">Kleinbetrag ✓</button>`;
+  }
   if (ugKleinbetrag(r)) {
     return `<div title="Kleinbetragsrechnung bis 250 € brutto: als sonstige Rechnung immer zulässig" class="ug-badge ug-klein">Kleinbetrag</div>`;
+  }
+  const aus = ugAusland(r);
+  if (aus) {
+    const tip = `Lieferant ohne Sitz in Deutschland${aus.landName ? ' (' + aus.landName + ')' : ''}, bestätigt von `
+      + `${aus.vonName || aus.von} am ${_monDate(aus.am)}: keine E-Rechnungspflicht`;
+    return `<button type="button" class="ug-badge ug-ausland" data-ug="${idx}" title="${_esc(tip)}">Ausland ✓</button>`;
   }
   const e = ugFuer(r);
   const phase = ugPhase(r.datum);
@@ -579,6 +667,8 @@ function ugDialogOeffnen(r, onGespeichert) {
     an: ((ugMailsFuer(r)[0] || {}).an) || (l && l.mail) || absender || '',
     anQuelle: (ugMailsFuer(r)[0] || {}).an ? 'mail' : (l && l.mail) ? 'gemerkt' : absender ? 'absender' : '',
     informiert: ((_ug.daten.rechnungen[ugRechnungKey(r)] || {}).informiert) || 'Nein',
+    // Bruttobetrag: bestätigt, aus der Rechnung, sonst aus dem PDF-Text (_ugAusRechnungLesen)
+    betrag: _ugBetragText((ugKleinBestaetigt(r) || {}).betrag != null ? ugKleinBestaetigt(r).betrag : r.brutto),
     kannSenden: ugKannSenden(r),
     bearbeitet: {},          // Felder, die jemand selbst geändert hat, überschreibt das Lesen nicht
     gelesen: null,           // Ergebnis aus dem PDF-Text
@@ -619,13 +709,20 @@ function _ugRender() {
         <label>Datum<input id="ug-datum" value="${_esc(a.datum)}" placeholder="TT.MM.JJJJ"></label>
       </div>
       <datalist id="ug-namen">${Object.values(_ug.daten.lieferanten).map(l => `<option value="${_esc(l.name)}">`).join('')}</datalist>
-      <label class="ug-lbl">An (Mailadresse des Lieferanten)<input id="ug-an" type="email" value="${_esc(a.an)}" placeholder="rechnung@lieferant.de" autocomplete="off"></label>
+      <div class="ug-felder ug-felder2">
+        <label>An (Mailadresse des Lieferanten)<input id="ug-an" type="email" value="${_esc(a.an)}" placeholder="rechnung@lieferant.de" autocomplete="off"></label>
+        <div class="ug-feld">
+          <div class="ug-feldkopf"><label for="ug-betrag">Brutto</label><span id="ug-klein"></span></div>
+          <input id="ug-betrag" value="${_esc(a.betrag)}" placeholder="0,00" inputmode="decimal" autocomplete="off">
+        </div>
+      </div>
       ${phase === 'pflicht' ? '' : `<label class="ug-lbl ug-inf">Lieferant informiert<select id="ug-informiert">
         ${['Nein', 'Ja'].map(v => `<option${v === a.informiert ? ' selected' : ''}>${v}</option>`).join('')}</select>
         <span class="ug-hinweis">Senden und „In Outlook öffnen“ setzen Ja. „Nur speichern“ nimmt den Wert hier, z. B. Ja nach einem Anruf.</span></label>`}
       <p class="ug-mailstand" id="ug-mailstand">${_esc(_ugMailstand(a))}</p>
       ${ugMailsFuer(a.r).length ? `<ul class="ug-mails">${ugMailsFuer(a.r).slice(0, 3).map(m => `<li class="${m.status === 'Fehler' ? 'nicht' : m.status === 'Gesendet' ? 'ok' : ''}">${_esc(_ugMailStand(m))}</li>`).join('')}</ul>` : ''}
       <p class="ug-gelesen" id="ug-gelesen" role="status"></p>
+      <p class="ug-ausland" id="ug-ausland"></p>
       ${phase === 'pflicht' ? '' : `
       <div class="ug-wahl" role="radiogroup" aria-label="Einschätzung">
         <button type="button" class="ug-opt" data-ug-v="ueber" role="radio">
@@ -674,11 +771,13 @@ function _ugRender() {
       dlg.querySelector('#ug-an').value = a.an;
     }
     _ugSiegel();
+    _ugAuslandZeigen();
     _ugKnoepfe();
   });
   feld('ug-nr', 'nr', _ugVorlageNeu);
   feld('ug-datum', 'datum', _ugVorlageNeu);
   feld('ug-an', 'an', _ugKnoepfe);
+  feld('ug-betrag', 'betrag', _ugKleinZeigen);
   // Ein anderes Rechnungsjahr kann die Regel ändern: dann neu aufbauen
   dlg.querySelector('#ug-datum').addEventListener('change', () => {
     const iso = _ugIso(a.datum);
@@ -687,6 +786,14 @@ function _ugRender() {
   dlg.querySelector('[data-ug-zu]').addEventListener('click', () => dlg.close());
   dlg.querySelector('#ug-siegel').addEventListener('click', ev => {
     if (ev.target.closest('[data-ug-bestaetigen]')) _ugBestaetigenKlick();
+  });
+  dlg.querySelector('#ug-klein').addEventListener('click', ev => {
+    const k = ev.target.closest('[data-ug-klein]');
+    if (k) _ugKleinKlick(k.getAttribute('data-ug-klein') === 'an');
+  });
+  dlg.querySelector('#ug-ausland').addEventListener('click', ev => {
+    const k = ev.target.closest('[data-ug-ausland]');
+    if (k) _ugAuslandKlick(k.getAttribute('data-ug-ausland'));
   });
   dlg.querySelector('[data-ug-kopie]').addEventListener('click', _ugKopieren);
   const nur = dlg.querySelector('[data-ug-nur]');
@@ -699,6 +806,8 @@ function _ugRender() {
   _ugWahlZeigen();
   _ugVorlageNeu();
   _ugSiegel();
+  _ugKleinZeigen();
+  _ugAuslandZeigen();
 }
 
 /**
@@ -744,14 +853,130 @@ async function _ugBestaetigenKlick() {
   if (_ugAktuell === a) _ugSiegel();
 }
 
+/** Betrag als Text im deutschen Format ('' ohne Betrag). */
+function _ugBetragText(v) {
+  return v == null || isNaN(v) ? '' : Number(v).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Eingabe „1.234,56“, „120,00 €“ oder „99.5“ als Zahl (null, wenn es keine ist). */
+function _ugBetragZahl(s) {
+  let t = String(s || '').replace(/€|EUR|\s/gi, '');
+  if (!t) return null;
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
+  const n = Number(t);
+  return isFinite(n) ? n : null;
+}
+
 /**
- * Lieferant, USt-IdNr., Nummer, Datum und Betrag aus dem PDF lesen (js/lieferant.js).
- * Nur wenn etwas fehlt und die Datei ein PDF ist. Was jemand schon selbst
- * eingetragen hat, bleibt stehen.
+ * Neben „Betrag brutto“: grünes Siegel, wenn der Kleinbetrag an dieser Rechnung bestätigt ist
+ * (mit ✕ zum Zurücknehmen), sonst bei höchstens 250 € der Knopf „Kleinbetrag bestätigen“.
+ */
+function _ugKleinZeigen() {
+  const a = _ugAktuell;
+  const el = document.getElementById('ug-klein');
+  if (!el || !a) return;
+  const k = ugKleinBestaetigt(a.r);
+  if (k) {
+    const tip = `Kleinbetrag bestätigt von ${k.vonName || k.von || '?'} am ${_monDate(k.am)}`;
+    el.innerHTML = `<span class="ug-siegel" title="${_esc(tip)}">✓ Kleinbetrag</span>`
+      + '<button type="button" class="ug-weg" data-ug-klein="weg" title="Bestätigung als Kleinbetrag zurücknehmen" aria-label="Kleinbetrag zurücknehmen">✕</button>';
+    return;
+  }
+  const n = _ugBetragZahl(a.betrag);
+  el.innerHTML = n != null && Math.abs(n) <= UG.kleinbetrag && _ug.fehler !== UG_KEIN_ZUGRIFF
+    ? '<button type="button" class="ug-bestaetigen" data-ug-klein="an" title="Betrag geprüft: Kleinbetragsrechnung bis 250 € brutto, keine Einschätzung und keine Mail nötig">Kleinbetrag bestätigen</button>'
+    : '';
+}
+
+async function _ugKleinKlick(an) {
+  const a = _ugAktuell;
+  const knopf = document.querySelector('#ug-klein [data-ug-klein]');
+  if (!an && !window.confirm('Bestätigung als Kleinbetrag zurücknehmen?')) return;
+  if (knopf) knopf.disabled = true;
+  try {
+    await ugRechnungSetzen(a.r, 'klein', an ? { betrag: _ugBetragZahl(a.betrag) } : null);
+    _ugMeldung(an ? 'Als Kleinbetrag bestätigt. Für diese Rechnung ist keine Einschätzung und keine Mail nötig.'
+      : 'Bestätigung als Kleinbetrag zurückgenommen.', 'ok');
+    if (typeof a.onGespeichert === 'function') a.onGespeichert();
+  } catch (e) {
+    _ugMeldung(e.message || String(e), 'nicht');
+  }
+  if (_ugAktuell === a) { _ugKleinZeigen(); _ugGelesenZeigen(); }
+}
+
+/**
+ * Lieferant im Ausland: bestätigt (mit „Zurücknehmen“), aus dem PDF erkannt (mit „Ausland
+ * bestätigen“) oder nur die Frage mit dem Knopf, falls das Lesen nichts gefunden hat.
+ */
+function _ugAuslandZeigen() {
+  const a = _ugAktuell;
+  const el = document.getElementById('ug-ausland');
+  if (!el || !a) return;
+  const name = (document.getElementById('ug-name') || {}).value || a.name;
+  const l = _ug.daten.lieferanten[ugKey(name)];
+  const knopf = (wert, text, tip) => `<button type="button" class="ug-bestaetigen" data-ug-ausland="${wert}" title="${_esc(tip)}">${text}</button>`;
+  if (l && l.ausland) {
+    const x = l.ausland;
+    const wer = `${x.landName ? ' (' + x.landName + ')' : ''}, bestätigt von ${x.vonName || x.von || '?'} am ${_monDate(x.am)}`;
+    // Name passt, die Rechnung gehört aber noch nicht zu diesem Lieferanten (Name aus dem PDF gelesen)
+    if (!ugAusland(a.r)) {
+      el.className = 'ug-ausland warn';
+      el.innerHTML = _esc(`${l.name} ist als Lieferant ohne Sitz in Deutschland gemerkt${wer}. Gehört die Rechnung zu ihm, ist keine Einschätzung und keine Mail nötig. `)
+        + knopf('zuordnen', 'Rechnung zuordnen', 'Lieferant geprüft: Rechnung diesem Lieferanten zuordnen und ihn bestätigen');
+      return;
+    }
+    el.className = 'ug-ausland ok';
+    el.innerHTML = _esc(`✓ Lieferant ohne Sitz in Deutschland${wer}. Keine E-Rechnungspflicht, keine Einschätzung und keine Mail nötig. `)
+      + knopf('weg', 'Zurücknehmen', 'Bestätigung „Ausland“ für diesen Lieferanten zurücknehmen');
+    return;
+  }
+  const kannBestaetigen = !!ugKey(name) && _ug.fehler !== UG_KEIN_ZUGRIFF;
+  const g = a.gelesen && a.gelesen.ausland;
+  const regel = 'Ohne Sitz und ohne beteiligte Betriebsstätte in Deutschland gilt keine E-Rechnungspflicht.';
+  if (g) {
+    el.className = 'ug-ausland warn';
+    el.innerHTML = _esc(g.sicher
+      ? `Der Lieferant sitzt vermutlich nicht in Deutschland (${g.gruende.join(', ')}). ${regel} `
+      : `Hinweis auf einen Lieferanten in ${g.landName} (${g.gruende.join(', ')}), dagegen spricht ${g.dagegen.join(', ')}. Bitte prüfen. ${regel} `)
+      + (kannBestaetigen ? knopf('an', 'Ausland bestätigen', 'Geprüft: Lieferant ohne Sitz in Deutschland, für weitere Rechnungen merken') : '');
+    return;
+  }
+  el.className = 'ug-ausland';
+  el.innerHTML = kannBestaetigen
+    ? 'Lieferant ohne Sitz in Deutschland? ' + knopf('an', 'Ausland bestätigen', 'Geprüft: Lieferant ohne Sitz in Deutschland, für weitere Rechnungen merken')
+    : '';
+}
+
+/** modus: 'an' (bestätigen), 'weg' (zurücknehmen) oder 'zuordnen' (Rechnung dem gemerkten Lieferanten zuordnen). */
+async function _ugAuslandKlick(modus) {
+  const a = _ugAktuell;
+  const name = document.getElementById('ug-name').value.trim();
+  const l = _ug.daten.lieferanten[ugKey(name)];
+  if (modus === 'weg' && !window.confirm(`Bestätigung „Ausland“ für ${(l && l.name) || name} zurücknehmen?`)) return;
+  const g = (a.gelesen && a.gelesen.ausland) || {};
+  document.querySelectorAll('#ug-ausland [data-ug-ausland]').forEach(b => { b.disabled = true; });
+  try {
+    if (modus === 'zuordnen') await ugBestaetigen(a.r, l.name, { vat: a.vat });
+    else await ugAuslandSetzen(a.r, (l && l.name) || name, modus === 'an' ? { land: g.land, landName: g.landName, gruende: g.gruende || ['von Hand'] } : null, { vat: a.vat });
+    _ugMeldung(modus === 'weg' ? `Bestätigung „Ausland“ für ${name} zurückgenommen.`
+      : `${name} ist als Lieferant ohne Sitz in Deutschland gemerkt. Keine Einschätzung und keine Mail nötig.`, 'ok');
+    if (typeof a.onGespeichert === 'function') a.onGespeichert();
+  } catch (e) {
+    _ugMeldung(e.message || String(e), 'nicht');
+  }
+  if (_ugAktuell === a) { _ugSiegel(); _ugAuslandZeigen(); }
+}
+
+/**
+ * Lieferant, USt-IdNr., Nummer, Datum, Betrag und Hinweise auf einen Sitz im Ausland aus
+ * dem PDF lesen (js/lieferant.js). Nur bei einem PDF, und wenn etwas fehlt oder noch keine
+ * Ausnahme bestätigt ist. Was jemand schon selbst eingetragen hat, bleibt stehen.
  */
 async function _ugAusRechnungLesen(r) {
   const a = _ugAktuell;
-  const fehlt = !r.steller || !r.ustid || r.nummerAusDatei || !r.datumAusRechnung || r.brutto == null || !a.an;
+  const fehlt = !r.steller || !r.ustid || r.nummerAusDatei || !r.datumAusRechnung || r.brutto == null || !a.an
+    || !(ugAusland(r) || ugKleinBestaetigt(r));
   if (!fehlt || r.ext !== 'pdf' || !r.listId || !r.itemId || !_ug.siteId
       || typeof textAusPdf !== 'function' || typeof lieferantAusText !== 'function' || !window.pdfjsLib) return;
   a.lesen = 'laeuft';
@@ -794,12 +1019,15 @@ async function _ugAusRechnungLesen(r) {
     }
     if (l.nummer && !a.bearbeitet.nr && r.nummerAusDatei) a.nr = l.nummer;
     if (l.datum && !a.bearbeitet.datum && !r.datumAusRechnung) { a.datum = _monDate(l.datum); a.phase = ugPhase(l.datum); }
+    if (l.brutto != null && !a.bearbeitet.betrag && !a.betrag) a.betrag = _ugBetragText(l.brutto);
     if (l.kleinunternehmer && !a.vermutung) a.vermutung = 'bis';
     if (a.phase !== vorher) { _ugRender(); return; }
     const dlg = document.getElementById('ug-dialog');
     const setze = (id, v) => { const el = dlg.querySelector('#' + id); if (el) el.value = v; };
-    setze('ug-name', a.name); setze('ug-nr', a.nr); setze('ug-datum', a.datum); setze('ug-an', a.an);
+    setze('ug-name', a.name); setze('ug-nr', a.nr); setze('ug-datum', a.datum); setze('ug-an', a.an); setze('ug-betrag', a.betrag);
     _ugSiegel();
+    _ugKleinZeigen();
+    _ugAuslandZeigen();
     const stand = dlg.querySelector('#ug-mailstand');
     if (stand) stand.textContent = _ugMailstand(a);
     _ugGelesenZeigen();
@@ -839,8 +1067,8 @@ function _ugGelesenZeigen() {
   if (l.kleinunternehmer) {
     text += ' Die Rechnung verweist auf § 19 UStG (Kleinunternehmer): keine E-Rechnungspflicht, keine Mail nötig.';
     el.className = 'ug-gelesen ok';
-  } else if (l.brutto != null && Math.abs(l.brutto) <= UG.kleinbetrag) {
-    text += ' Stimmt der Betrag, ist es ein Kleinbetrag bis 250 €: keine E-Rechnungspflicht, keine Mail nötig.';
+  } else if (l.brutto != null && Math.abs(l.brutto) <= UG.kleinbetrag && !ugKleinBestaetigt(a.r)) {
+    text += ' Stimmt der Betrag, ist es ein Kleinbetrag bis 250 €: bitte am Betrag bestätigen, dann ist keine Mail nötig.';
     el.className = 'ug-gelesen ok';
   }
   el.textContent = text;
@@ -976,5 +1204,6 @@ async function _ugAbschliessen(modus) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { UG, UG_MAIL_ART, ugKey, ugRechnungKey, ugPhase, ugSonstige, ugKleinbetrag, ugBraucht, ugFolge, ugVorlage,
     ugMailOk, ugMailHtml, ugInformiert, ugSpeichern, ugBestaetigen, ugLieferantFuer, ugLieferantMerken, ugLieferantName,
-    ugMitXml, ugFuer, ugLaden, _ugAbsenderOk, _ugAbsenderWahl, _ug };
+    ugMitXml, ugFuer, ugLaden, ugKleinBestaetigt, ugAusland, ugGeprueft, ugRechnungSetzen, ugAuslandSetzen,
+    _ugBetragZahl, _ugBetragText, _ugAbsenderOk, _ugAbsenderWahl, _ug };
 }

@@ -592,7 +592,8 @@ function _monBuildFilterOptions(libs) {
   _fillSelect('mon-f-klass',   uniq(_monRecords.map(r => _monKlass(r))), 'Alle Typen');
   _fillSelect('mon-f-buchung', uniq(_monRecords.map(r => r.buchung)),    'Alle Buchung');
   const buchung = document.getElementById('mon-f-buchung');
-  if (buchung) buchung.insertAdjacentHTML('beforeend', '<option value="__klein">Kleinbetrag (bis 250 € brutto)</option>');
+  if (buchung) buchung.insertAdjacentHTML('beforeend', '<option value="__klein">Kleinbetrag (bis 250 € brutto)</option>'
+    + '<option value="__ausland">Lieferant im Ausland (bestätigt)</option>');
   _fillSelect('mon-f-status',  uniq(_monRecords.map(r => r.status)),     'Alle Status');
   _fillSelect('mon-f-bstatus', uniq(_monRecords.map(r => r.bh && r.bh.bstatus)),   'Alle Bearbeitung');
   _fillSelect('mon-f-genehmigt', uniq(_monRecords.map(r => r.bh && r.bh.genehmigt)), 'Alle Genehmigt');
@@ -639,7 +640,8 @@ function _monMatchBase(r, f, q) {
       && (!f.richtung || r.richtung === f.richtung)
       && (!f.klass    || _monKlass(r) === f.klass)
       && (!f.konform  || (r.konform || '').toLowerCase().startsWith(f.konform))
-      && (!f.buchung  || (f.buchung === '__klein' ? _monKlein(r) : r.buchung === f.buchung))
+      && (!f.buchung  || (f.buchung === '__klein' ? _monKlein(r)
+                          : f.buchung === '__ausland' ? typeof ugAusland === 'function' && !!ugAusland(r) : r.buchung === f.buchung))
       && (!f.status   || r.status === f.status)
       && (!f.bstatus  || (r.bh && r.bh.bstatus) === f.bstatus)
       && (!f.genehmigt || (r.bh && r.bh.genehmigt) === f.genehmigt)
@@ -691,6 +693,7 @@ function _monSortVal(r, key) {
     case 'genehmigt': return (r.bh && r.bh.genehmigt) || '';
     case 'faellig':  return (r.faelligkeit || '').slice(0, 10);
     case 'klass':    return _monKlass(r) || '';
+    case 'geprueft': return (typeof ugGeprueft === 'function' && (ugGeprueft(r) || {}).am) || '';
     case 'status':   return r.status || '';
     case 'buchung':  return r.buchung || '';
     case 'konform':  return r.konform || '';
@@ -775,6 +778,7 @@ const MON_SPALTEN = [
   { id: 'netto',       titel: 'Netto',                sort: 'netto',      breite: 8 },
   { id: 'brutto',      titel: 'Brutto',               sort: 'brutto',     breite: 8 },
   { id: 'faellig',     titel: 'Fällig am',            sort: 'faellig',    breite: 8 },
+  { id: 'geprueft',    titel: 'Geprüft',              sort: 'geprueft',   breite: 10 },
   { id: 'klass',       titel: 'Klassifizierung',      sort: 'klass',      breite: 9 },
   { id: 'status',      titel: 'Status',               sort: 'status',     breite: 8 },
   { id: 'buchung',     titel: 'Buchung',              sort: 'buchung',    breite: 11 },
@@ -790,7 +794,7 @@ const MON_SPALTEN = [
   { id: 'links',       titel: '',  name: 'Bearbeiten und Dateien (PDF, XML, Bericht)', breite: 15, fest: true },
 ];
 // Standard-Reihenfolge; „Bearbeiten“ und die Dateien stehen vorn
-const MON_STANDARD = ['links', 'datum', 'erstellt', 'werk', 'richtung', 'nummer', 'partner', 'netto', 'faellig', 'klass',
+const MON_STANDARD = ['links', 'datum', 'erstellt', 'werk', 'richtung', 'nummer', 'partner', 'netto', 'faellig', 'geprueft', 'klass',
   'status', 'buchung', 'informiert', 'konform', 'fehler', 'varial', 'bstatus', 'genehmigung'];
 
 /** Spalten-IDs eines Werks in seiner Reihenfolge ('links' ist immer dabei, sonst vorn). */
@@ -822,7 +826,7 @@ function _monSpaltenIds(werk) {
 // Spalten, die nach dem Speichern einer Werkseinstellung dazugekommen sind (Spalte: seit).
 // Sie erscheinen dort hinter ihrem Vorgänger aus dem Standard, bis der Admin die Spalten
 // des Werks neu speichert. Danach gilt seine Auswahl (spaltenAm).
-const MON_NEUE_SPALTEN = { erstellt: '2026-10-29' };
+const MON_NEUE_SPALTEN = { erstellt: '2026-10-29', geprueft: '2026-11-03' };
 
 function _monMitNeuenSpalten(einst) {
   const ids = (einst.spalten || []).slice();
@@ -961,6 +965,26 @@ function _monKlein(r) {
   return typeof ugKleinbetrag === 'function' ? ugKleinbetrag(r) : (r.brutto != null && Math.abs(r.brutto) <= 250);
 }
 
+/** Kürzel aus dem Namen („Erika Muster“ → EM, aus einer Mailadresse der Teil vor dem @). */
+function _monKuerzel(name) {
+  const teile = String(name || '').split('@')[0].split(/[\s._-]+/).filter(Boolean);
+  if (!teile.length) return '';
+  return (teile.length === 1 ? teile[0].slice(0, 2) : teile[0][0] + teile[teile.length - 1][0]).toUpperCase();
+}
+
+/** „Als geprüft markieren“ bzw. zurücknehmen (mit Rückfrage), danach die Tabelle neu zeichnen. */
+async function _monGeprueftUmschalten(r, knopf) {
+  const g = ugGeprueft(r);
+  if (g && !window.confirm(`Markierung „Geprüft“ (${g.vonName || g.von}, ${_monDate(g.am)}) zurücknehmen?`)) return;
+  knopf.disabled = true;
+  try {
+    await ugRechnungSetzen(r, 'geprueft', g ? null : {});
+  } catch (e) {
+    window.alert(e.message || String(e));
+  }
+  _monApply();
+}
+
 // Eine Zelle der Tabelle
 function _monZelle(id, r, idx) {
   const bh = r.bh;
@@ -993,6 +1017,15 @@ function _monZelle(id, r, idx) {
       return `<td>${faellig
         ? `<span style="white-space:nowrap;${overdue ? 'color:#b40000;font-weight:600;' : ''}">${_esc(faellig)}${overdue ? ' ⚠' : ''}</span>`
         : '<span style="color:#9ca3af;">–</span>'}</td>`;
+    }
+    case 'geprueft': {
+      // Markierung im Lieferantenregister (js/umsatzgrenze.js): ein Klick setzt sie, ein Klick auf ✓ nimmt sie zurück
+      if (typeof ugGeprueft !== 'function') return '<td></td>';
+      const g = ugGeprueft(r);
+      return `<td>${g
+        ? `<button type="button" class="mon-geprueft" data-geprueft="${idx}" title="${_esc(`Geprüft von ${g.vonName || g.von} am ${_monZeit(g.am)}. Klicken nimmt die Markierung zurück.`)}">✓ Geprüft</button>`
+          + `<div class="mon-geprueft-wer">${_esc([_monKuerzel(g.vonName || g.von), _monDate(g.am)].filter(Boolean).join(' · '))}</div>`
+        : `<button type="button" class="ug-btn" data-geprueft="${idx}" title="Rechnung als geprüft markieren, mit Name und Datum">Als geprüft markieren</button>`}</td>`;
     }
     case 'klass':    return `<td>${_esc(_monKlass(r))}</td>`;
     case 'status': {
@@ -1146,6 +1179,10 @@ function _monDetail(r, idx) {
   const sonstige = typeof ugSonstige === 'function' && ugSonstige(r);
   const e = sonstige && typeof ugFuer === 'function' ? ugFuer(r) : null;
   const mails = sonstige && typeof ugMailsFuer === 'function' ? ugMailsFuer(r).slice(0, 3).map(m => _ugMailStand(m)) : [];
+  const wer = x => `${x.vonName || x.von || ''} am ${_monDate(x.am)}`;
+  const klein = sonstige && typeof ugKleinBestaetigt === 'function' ? ugKleinBestaetigt(r) : null;
+  const ausland = sonstige && typeof ugAusland === 'function' ? ugAusland(r) : null;
+  const geprueft = typeof ugGeprueft === 'function' ? ugGeprueft(r) : null;
   const b = r.bh;
   const dateien = [r.url ? `<a href="${_esc(r.url)}" target="_blank" rel="noopener">${r.ext ? 'Original (' + _esc(r.ext.toUpperCase()) + ')' : 'Original'} ↗</a>` : '']
     .concat((r.dateien || []).map(d => `<a href="${_esc(d.url)}" target="_blank" rel="noopener">${_esc(d.label)} ↗</a>`))
@@ -1163,12 +1200,14 @@ function _monDetail(r, idx) {
     + block('Beträge', [['Netto', t(_monGeld(r.netto, r))], ['Brutto', t(_monGeld(r.brutto, r))], ['Bestellnummer', t((b && b.bestellnr) || r.bestellnr)]])
     + block('Prüfung', [['Ergebnis', t(r.konform)], ['Hinweis', t(_monHinweis(r))], ['Status', t(r.status)],
         ['Buchung', t(r.buchung) + (r.buchungAlt ? ` (gespeichert: ${t(r.buchungAlt)})` : '')], ['Prüfschritte', t(flags.join('\n'))],
-        ['Fehler', t(r.fehler)], ['Aufbewahrung', r.gobdArchiviert ? t(r.complianceTag || 'GoBD-Aufbewahrung gesetzt') : ''],
+        ['Fehler', t(r.fehler)], ['Als geprüft markiert', geprueft ? t(wer(geprueft)) : ''], ['Aufbewahrung', r.gobdArchiviert ? t(r.complianceTag || 'GoBD-Aufbewahrung gesetzt') : ''],
         ['Mails', !sonstige && typeof ugMailsFuer === 'function' ? t(ugMailsFuer(r).slice(0, 3)
           .map(m => ({ Zurueckweisung: 'Zurückweisung: ', Abweichung: 'Hinweis auf Abweichungen: ' }[m.art] || '') + _ugMailStand(m))
           .join(String.fromCharCode(10))) : '']])
     + (sonstige ? block('800.000 €', [
-        ['Einschätzung', e ? t(`${(typeof _UG_LABEL !== 'undefined' && _UG_LABEL[e.vermutung]) || e.vermutung}, ${e.vonName || e.von || ''} am ${_monDate(e.am)}`) : 'noch offen'],
+        ['Ausnahme', t(klein ? 'Kleinbetrag bestätigt von ' + wer(klein)
+          : ausland ? `Lieferant ohne Sitz in Deutschland${ausland.landName ? ' (' + ausland.landName + ')' : ''}, bestätigt von ${wer(ausland)}` : '')],
+        ['Einschätzung', e ? t(`${(typeof _UG_LABEL !== 'undefined' && _UG_LABEL[e.vermutung]) || e.vermutung}, ${e.vonName || e.von || ''} am ${_monDate(e.am)}`) : klein || ausland ? 'nicht nötig' : 'noch offen'],
         ['Lieferant informiert', t(typeof ugInformiert === 'function' ? ugInformiert(r) : '')], ['Mails', t(mails.join('\n'))]]) : '')
     + (b ? block('Bearbeitung', [['Varialnummer', t(b.varial)], ['Kontierung', t(b.kontierung)], ['Bearbeitungsstatus', t(b.bstatus)],
         ['Genehmigung', t([typeof bhGenehmigungsStand === 'function' ? bhGenehmigungsStand(b) : '', b.genehmigt && 'Genehmigt: ' + b.genehmigt,
@@ -1820,7 +1859,7 @@ function _monRenderChips() {
   if (f.richtung) chips.push(['richtung', f.richtung]);
   if (f.klass)    chips.push(['klass', 'Typ: ' + f.klass]);
   if (f.konform)  chips.push(['konform', 'Konform.: ' + (KONF[f.konform] || f.konform)]);
-  if (f.buchung)  chips.push(['buchung', f.buchung === '__klein' ? 'Kleinbetrag' : 'Buchung: ' + f.buchung]);
+  if (f.buchung)  chips.push(['buchung', { __klein: 'Kleinbetrag', __ausland: 'Lieferant im Ausland' }[f.buchung] || 'Buchung: ' + f.buchung]);
   if (f.status)   chips.push(['status', 'Status: ' + f.status]);
   if (f.bstatus)  chips.push(['bstatus', 'Bearbeitung: ' + f.bstatus]);
   if (f.genehmigt) chips.push(['genehmigt', 'Genehmigt: ' + f.genehmigt]);
@@ -1929,6 +1968,12 @@ function monInitFilterEvents() {
       const r = _monRows[Number(bh.getAttribute('data-bh'))];
       // Nach dem Speichern neu zusammenfassen: Nummer und Lieferant können sich geändert haben (Dubletten)
       if (r) bhDialogOeffnen(r, () => { _monRecords = _monGroup(_monDateien); _monMarkDupes(_monRecords); _monBuildFilterOptions(_monLibs); _monSyncControls(); _monApply(); });
+      return;
+    }
+    const gp = e.target.closest('[data-geprueft]');
+    if (gp && typeof ugRechnungSetzen === 'function') {
+      const r = _monRows[Number(gp.getAttribute('data-geprueft'))];
+      if (r) _monGeprueftUmschalten(r, gp);
       return;
     }
     const btn = e.target.closest('[data-ug]');

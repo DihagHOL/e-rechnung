@@ -16,11 +16,14 @@
 (function (global) {
   'use strict';
 
-  // USt-IdNr. der eigenen Gesellschaften (js/parser.js, _COMPANY_REGISTRY).
-  const EIGENE_VAT = ['DE140598967', 'DE812264517', 'DE368990137'];
-  // Namensteile der eigenen Gesellschaften (klein, ohne Umlaut-Varianten).
+  // USt-IdNr. der eigenen Gesellschaften: die aus js/parser.js (_COMPANY_REGISTRY, wie in
+  // api/src/functions/vat.js) und die der Schmiedeberger Gießerei (SCH).
+  const EIGENE_VAT = ['DE140598967', 'DE812264517', 'DE368990137', 'DE368676368',
+    'DE811154479', 'DE812737567', 'DE281233945', 'DE150528912', 'DE140462641'];
+  // Namensteile der eigenen Gesellschaften (klein, ohne Umlaut-Varianten). „Schmiederberger“
+  // schreiben manche Lieferanten aus Tschechien.
   const EIGENE_NAMEN = ['dihag', 'gienanth', 'walzengie', 'coswig guss', 'hartgusswerk', 'leipzig guss',
-    'zaigler', 'lintorfer eisengie', 'lintorf guss', 'meuselwitz guss', 'schmiedeberg', 'arnstadt guss',
+    'zaigler', 'lintorfer eisengie', 'lintorf guss', 'meuselwitz guss', 'schmiedeberg', 'schmiederberg', 'arnstadt guss',
     'eisenwerk arnstadt'];
 
   const RECHTSFORM = /(GmbH\s*&\s*Co\.?\s*KG(?:aA)?|GmbH|gGmbH|mbH|AG\s*&\s*Co\.?\s*KG|\bAG\b|\bSE\b|\bKG\b|\bOHG\b|\bUG\b|e\.\s?K\.|\be\.V\.|\bLtd\.?|\bLimited\b|\bInc\.?|\bS\.?A\.?S?\b|\bS\.p\.A\.|\bS\.r\.l\.|\bB\.V\.|\bN\.V\.|s\.r\.o\.|a\.s\.|Sp\. z o\.o\.)/;
@@ -42,7 +45,9 @@
   function vatKandidaten(zeilen) {
     const out = [];
     zeilen.forEach((z, i) => {
-      const fremd = /\b(Ihre|Kunden|Your|Empf(?:ä|ae)nger)\b/i.test(z) || /\b(Ihre|Kunden|Your)\b/i.test(zeilen[i - 1] || '');
+      // „Unsere USt.-IdNr.“ direkt unter „Ihre USt.-IdNr.“ ist die des Lieferanten
+      const fremd = /\b(Ihre|Kunden|Your|Empf(?:ä|ae)nger)\b/i.test(z)
+        || (/\b(Ihre|Kunden|Your)\b/i.test(zeilen[i - 1] || '') && !/\b(Unsere|Our)\b/i.test(z));
       let m;
       VAT_DE.lastIndex = 0;
       while ((m = VAT_DE.exec(z))) {
@@ -53,7 +58,8 @@
         out.push({ vat: v, zeile: i, label: VAT_LABEL.test(z) || VAT_LABEL.test(zeilen[i - 1] || ''), fremd });
       }
       if (VAT_LABEL.test(z) || VAT_LABEL.test(zeilen[i - 1] || '')) {
-        const e = VAT_EU.exec(z.replace(/\s+/g, ''));
+        // erst wie geschrieben (Wortgrenzen bleiben), dann ohne Leerzeichen („ATU 1234 5678“)
+        const e = VAT_EU.exec(z) || VAT_EU.exec(z.replace(/\s+/g, ''));
         if (e) out.push({ vat: e[1].replace(/[- .]/g, ''), zeile: i, label: true, fremd });
       }
     });
@@ -239,18 +245,158 @@
     return liste.length ? liste[0].mail : '';
   }
 
+  /* ── Sitz im Ausland ───────────────────────────────────────────────── */
+
+  // Die E-Rechnungspflicht gilt nur, wenn Lieferant und Empfänger in Deutschland ansässig
+  // sind (§ 14 Abs. 2 UStG). Hinweise auf einen Lieferanten im Ausland: das Land in der
+  // Anschrift im Kopf der Rechnung, die IBAN und die USt-IdNr. Die Anschrift des Empfängers
+  // (eigene Gesellschaft) liegt in Deutschland und zeigt deshalb nie ein anderes Land.
+  // [Kennung, Name, Schreibweisen, Kennzeichen vor der Postleitzahl]
+  const LAENDER = [
+    ['AT', 'Österreich', 'Österreich|Oesterreich|Austria|Autriche', 'A|AT'],
+    ['CH', 'Schweiz', 'Schweiz|Switzerland|Suisse|Svizzera', 'CH'],
+    ['IT', 'Italien', 'Italien|Italia|Italy|Italie', 'I|IT'],
+    ['FR', 'Frankreich', 'Frankreich|France', 'F|FR'],
+    ['NL', 'Niederlande', 'Niederlande|Nederland|Netherlands|Holland', 'NL'],
+    ['BE', 'Belgien', 'Belgien|Belgique|België|Belgie|Belgium', 'B|BE'],
+    ['LU', 'Luxemburg', 'Luxemburg|Luxembourg', 'L|LU'],
+    ['PL', 'Polen', 'Polen|Polska|Poland|Pologne', 'PL'],
+    ['CZ', 'Tschechien', 'Tschechien|Tschechische Republik|Česká republika|Ceska republika|Czech Republic|Czechia', 'CZ'],
+    ['SK', 'Slowakei', 'Slowakei|Slovensko|Slovakia|Slovak Republic', 'SK'],
+    ['HU', 'Ungarn', 'Ungarn|Magyarország|Magyarorszag|Hungary', 'H|HU'],
+    ['SI', 'Slowenien', 'Slowenien|Slovenija|Slovenia', 'SI|SLO'],
+    ['HR', 'Kroatien', 'Kroatien|Hrvatska|Croatia', 'HR'],
+    ['DK', 'Dänemark', 'Dänemark|Daenemark|Danmark|Denmark', 'DK'],
+    ['SE', 'Schweden', 'Schweden|Sverige|Sweden', 'S|SE'],
+    ['NO', 'Norwegen', 'Norwegen|Norge|Norway', 'N|NO'],
+    ['FI', 'Finnland', 'Finnland|Suomi|Finland', 'FI|FIN'],
+    ['ES', 'Spanien', 'Spanien|España|Espana|Spain', 'E|ES'],
+    ['PT', 'Portugal', 'Portugal', 'P|PT'],
+    ['GB', 'Großbritannien', 'Großbritannien|Grossbritannien|Vereinigtes Königreich|United Kingdom|Great Britain|England|Scotland', 'GB|UK'],
+    ['IE', 'Irland', 'Irland|Ireland', 'IRL|IE'],
+    ['RO', 'Rumänien', 'Rumänien|Rumaenien|România|Romania', 'RO'],
+    ['BG', 'Bulgarien', 'Bulgarien|Bulgaria', 'BG'],
+    ['GR', 'Griechenland', 'Griechenland|Greece', 'GR'],
+    ['LT', 'Litauen', 'Litauen|Lietuva|Lithuania', 'LT'],
+    ['LV', 'Lettland', 'Lettland|Latvija|Latvia', 'LV'],
+    ['EE', 'Estland', 'Estland|Eesti|Estonia', 'EE'],
+    ['TR', 'Türkei', 'Türkei|Tuerkei|Türkiye|Turkiye|Turkey', 'TR'],
+    ['US', 'USA', 'USA|U[.]S[.]A[.]|United States', ''],
+    ['CN', 'China', 'China|Volksrepublik China', ''],
+    ['JP', 'Japan', 'Japan', ''],
+    ['IN', 'Indien', 'Indien|India', ''],
+  ];
+  const BUCHSTABE = 'A-Za-zÀ-ž';
+  const LAND_RE = LAENDER.map(([land, name, namen, kennz]) => ({
+    land, name,
+    wort: new RegExp(`(?<![${BUCHSTABE}])(?:${namen})(?![${BUCHSTABE}])`, 'i'),
+    // „I-57025 Piombino“, „CH-8000 Zürich“, „AT 4020 Linz“ (ein Buchstabe nur mit Bindestrich)
+    plz: kennz ? new RegExp(`(?<![A-Za-z0-9])(?:${kennz.split('|').map(k => k.length === 1 ? k + '-' : k + '[- ]').join('|')})`
+      + `\\d{2,6}(?:-\\d{3})?\\s+[A-ZÄÖÜ][${BUCHSTABE}]{2,}`) : null,
+  }));
+  const LANDNAME = Object.fromEntries(LAENDER.map(([land, name]) => [land, name]));
+
+  /** Steht das Land wie in einer Anschrift: allein, hinter Postleitzahl und Ort oder zwischen Trennzeichen? */
+  function wieAnschrift(z, m) {
+    const vor = z.slice(0, m.index), nach = z.slice(m.index + m[0].length);
+    const leer = s => /^[\s,.;|·•–-]*$/.test(s);
+    const plzDavor = /\d{4,5}/.test(vor);
+    return (leer(nach) && (leer(vor) || plzDavor || /[,|·•–-]\s*$/.test(vor))) || (plzDavor && /^\s*[,|·•–-]/.test(nach));
+  }
+
+  /**
+   * Land aus der Anschrift im Kopf (erste 20 Zeilen). Lieferanschriften, Bankverbindungen und
+   * Ursprungsangaben zählen nicht („… Bank Abp, Finland“ bei einem deutschen Lieferanten).
+   */
+  function landImKopf(zeilen) {
+    let sperre = -1;
+    for (let i = 0; i < Math.min(zeilen.length, 20); i++) {
+      const z = zeilen[i];
+      if (/Liefer(?:an)?schrift|Lieferadresse|Versandanschrift|Warenempf|Shipping|Ship to|Deliver(?:y)? (?:to|address)|Consignee/i.test(z)) sperre = i + 3;
+      if (i <= sperre || /Origin|Ursprung|Herkunft|Made in|Bank|Sparkasse|IBAN|BIC|SWIFT|Konto|Account/i.test(z)) continue;
+      for (const l of LAND_RE) {
+        if (l.plz && l.plz.test(z)) return l.land;
+        const m = l.wort.exec(z);
+        if (m && wieAnschrift(z, m)) return l.land;
+      }
+    }
+    return '';
+  }
+
+  // Länge der IBAN je Land: Die Prüfziffer wird über genau diese Länge gerechnet.
+  const IBAN_LAENGE = { AT: 20, BE: 16, BG: 22, CH: 21, CY: 28, CZ: 24, DE: 22, DK: 18, EE: 20, ES: 24, FI: 18, FR: 27,
+    GB: 22, GR: 27, HR: 21, HU: 28, IE: 22, IS: 26, IT: 27, LI: 21, LT: 20, LU: 20, LV: 21, MT: 31, NL: 18, NO: 15,
+    PL: 28, PT: 25, RO: 24, SE: 24, SI: 19, SK: 24, TR: 26 };
+
+  function ibanOk(iban) {
+    let rest = 0;
+    for (const c of iban.slice(4) + iban.slice(0, 4)) {
+      const wert = /[0-9]/.test(c) ? c : String(c.charCodeAt(0) - 55);
+      for (const z of wert) rest = (rest * 10 + Number(z)) % 97;
+    }
+    return rest === 1;
+  }
+
+  /**
+   * Länder der IBAN mit gültiger Prüfziffer. Gelesen wird hinter „IBAN“ in derselben Zeile
+   * oder in der Zeile darunter. Zeilen zu einer Lastschrift vom Konto des Empfängers zählen nicht.
+   */
+  function ibanLaender(zeilen) {
+    const laender = new Set();
+    zeilen.forEach((z, i) => {
+      const label = /IBAN/i.exec(z);
+      const teil = label ? z.slice(label.index + 4) : /IBAN/i.test(zeilen[i - 1] || '') ? z : '';
+      if (!teil || /Lastschrift|abgebucht|Mandat|Ihr(?:em|e)? Konto|Ihre IBAN|your account|direct debit/i.test(z)) return;
+      const kompakt = teil.replace(/\s+/g, '').toUpperCase();
+      const re = /([A-Z]{2})\d{2}/g;
+      let m;
+      while ((m = re.exec(kompakt))) {
+        const iban = kompakt.substr(m.index, IBAN_LAENGE[m[1]] || 0);
+        if (iban.length === IBAN_LAENGE[m[1]] && /^[A-Z0-9]+$/.test(iban) && ibanOk(iban)) {
+          laender.add(m[1]);
+          re.lastIndex = m.index + iban.length;
+        }
+      }
+    });
+    return [...laender];
+  }
+
+  /**
+   * Hinweis auf einen Lieferanten ohne Sitz in Deutschland, sonst null. sicher: Die Gründe für
+   * das Ausland überwiegen die Angaben für Deutschland (deutsche IBAN, deutsche USt-IdNr.). Bei
+   * Gleichstand bleibt es ein Hinweis zum Prüfen, aber nur, wenn die Anschrift im Kopf ins
+   * Ausland zeigt (eine IBAN in Finnland allein macht einen deutschen Lieferanten nicht ausländisch).
+   * @returns {null|{land:string, landName:string, gruende:string[], dagegen:string[], sicher:boolean}}
+   */
+  function auslandAusZeilen(zeilen, vat) {
+    const gruende = [], dagegen = [];
+    const kopf = landImKopf(zeilen);
+    if (kopf) gruende.push('Anschrift im Kopf: ' + LANDNAME[kopf]);
+    const vatLand = vat ? (/^CHE/.test(vat) ? 'CH' : vat.slice(0, 2)) : '';
+    if (vatLand && vatLand !== 'DE') gruende.push('USt-IdNr. ' + vat);
+    else if (vatLand === 'DE') dagegen.push('USt-IdNr. ' + vat);
+    const ibans = ibanLaender(zeilen);
+    const fremd = ibans.filter(l => l !== 'DE');
+    if (ibans.length && fremd.length === ibans.length) gruende.push('IBAN ' + fremd.join(', '));
+    else if (ibans.length && !fremd.length) dagegen.push('IBAN DE');
+    const land = kopf || (vatLand !== 'DE' && vatLand) || (fremd.length === 1 && fremd[0]) || '';
+    const sicher = gruende.length > dagegen.length;
+    if (!land || !(sicher || (kopf && gruende.length === dagegen.length))) return null;
+    return { land, landName: LANDNAME[land] || land, gruende, dagegen, sicher };
+  }
+
   /* ── Hauptfunktion ─────────────────────────────────────────────────── */
 
   /**
    * @param {string} text  PDF-Text (Zeilen durch Zeilenumbruch getrennt)
    * @returns {{name:string, vat:string, mail:string, nummer:string, datum:string, brutto:(number|null),
-   *            kleinunternehmer:boolean, lesbar:boolean}}
+   *            kleinunternehmer:boolean, ausland:(null|{land, landName, gruende}), lesbar:boolean}}
    */
   function lieferantAusText(text) {
     const roh = String(text || '');
     const zeilen = roh.split(/\r?\n/).map(z => z.replace(/\s+$/, '')).filter(z => z.trim());
     const lesbar = (roh.match(/[A-Za-z0-9]/g) || []).length >= 80;
-    const leer = { name: '', vat: '', mail: '', nummer: '', datum: '', brutto: null, kleinunternehmer: false, lesbar };
+    const leer = { name: '', vat: '', mail: '', nummer: '', datum: '', brutto: null, kleinunternehmer: false, ausland: null, lesbar };
     if (!lesbar) return leer;
 
     const vats = vatKandidaten(zeilen);
@@ -269,6 +415,7 @@
       datum: rechnungsdatum(zeilen),
       brutto: bruttobetrag(zeilen),
       kleinunternehmer: /§\s*19\s*(Abs\.?\s*1\s*)?UStG|Kleinunternehmer/i.test(roh),
+      ausland: auslandAusZeilen(zeilen, vatWahl),
       lesbar,
     };
   }

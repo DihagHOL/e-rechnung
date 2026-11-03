@@ -165,6 +165,35 @@ for (const art of ['ueber-ruecksendung', 'bis-akzeptanz', 'ueber-ankuendigen', '
   let fehler = '';
   try { await ug.ugBestaetigen(scan, '  '); } catch (x) { fehler = x.message; }
   ok(/Lieferanten angeben/.test(fehler), 'ohne Namen kein Eintrag');
+  // Kleinbetrag bestätigen: an der Rechnung, mit Betrag, wer und wann; Zurücknehmen räumt auf
+  const gross = { nummer: 'RE-20', werk: 'WGC', richtung: 'Eingang', formatmangel: true, baseKey: 'Scan_20', brutto: null, steller: '' };
+  ok(ug.ugBraucht(gross), 'ohne Betrag braucht die Rechnung eine Einschätzung');
+  let eintrag = await ug.ugRechnungSetzen(gross, 'klein', { betrag: 118.5 });
+  ok(eintrag.klein.betrag === 118.5 && eintrag.klein.von === 'test@dihag.com' && !!eintrag.klein.am, 'Kleinbetrag mit Betrag und wer');
+  ok(ug.ugKleinbetrag(gross) && !ug.ugBraucht(gross) && ug.ugInformiert(gross) === '', 'bestätigter Kleinbetrag braucht nichts');
+  ok(ug.ugKleinbetrag(Object.assign({}, gross, { brutto: 1180 })), 'Bestätigung gilt auch bei falsch gelesenem Betrag');
+  await ug.ugRechnungSetzen(gross, 'klein', null);
+  ok(!ug._ug.daten.rechnungen[ug.ugRechnungKey(gross)] && ug.ugBraucht(gross), 'zurückgenommen, leerer Eintrag fällt weg');
+  // Als geprüft markieren ändert „Lieferant informiert“ nicht (Automatik bleibt)
+  ug._ug.daten.lieferanten['beispiel ag'] = { name: 'Beispiel AG', vermutung: 'bis' };
+  const auto = Object.assign({}, gross, { baseKey: 'Scan_21', steller: 'Beispiel AG', brutto: 900 });
+  ok(ug.ugInformiert(auto) === 'Automatik', 'vorher Automatik');
+  eintrag = await ug.ugRechnungSetzen(auto, 'geprueft', {});
+  ok(ug.ugGeprueft(auto).vonName === 'Test' && ug.ugInformiert(auto) === 'Automatik', 'geprüft, Automatik bleibt');
+  ug._ug.daten.rechnungen[ug.ugRechnungKey(auto)].informiert = 'Ja';
+  await ug.ugRechnungSetzen(auto, 'geprueft', null);
+  ok(!ug.ugGeprueft(auto) && ug._ug.daten.rechnungen[ug.ugRechnungKey(auto)].informiert === 'Ja', 'Zurücknehmen lässt andere Angaben stehen');
+  // Ausland: am Lieferanten, gilt für seine weiteren Rechnungen
+  const it = Object.assign({}, gross, { baseKey: 'Scan_22', steller: 'Beispiel Fonderia S.r.l.', brutto: 4210 });
+  e = await ug.ugAuslandSetzen(it, 'Beispiel Fonderia S.r.l.', { land: 'IT', landName: 'Italien', gruende: ['IBAN IT'] }, { vat: 'IT01234567897' });
+  ok(e.ausland.land === 'IT' && e.ausland.von === 'test@dihag.com' && e.vat === 'IT01234567897', 'Ausland mit Land, wer und USt-IdNr.');
+  const it2 = Object.assign({}, it, { baseKey: 'Scan_23', steller: '', ustid: 'IT01234567897' });
+  ok(!!ug.ugAusland(it2) && !ug.ugBraucht(it2) && ug.ugInformiert(it2) === '', 'nächste Rechnung über die USt-IdNr.: keine Einschätzung');
+  e = await ug.ugAuslandSetzen(it, 'Beispiel Fonderia S.r.l.', null);
+  ok(!e.ausland && ug.ugBraucht(it2), 'Ausland zurückgenommen');
+  // Betrag aus dem Dialog lesen
+  ok(ug._ugBetragZahl('1.234,56') === 1234.56 && ug._ugBetragZahl('120,00 €') === 120 && ug._ugBetragZahl('99.5') === 99.5, 'Betrag lesen');
+  ok(ug._ugBetragZahl('1.200') === 1200 && ug._ugBetragZahl('') === null && ug._ugBetragZahl('abc') === null, 'Tausenderpunkt, leer, Text');
   // Ordner Monitoring für das Konto nicht sichtbar: Laden meldet es, Schreiben nennt die Rechte
   global.fetch = async () => ({ ok: false, status: 404, text: async () => 'itemNotFound' });
   await ug.ugLaden('site', 'token');

@@ -96,6 +96,55 @@ r = lieferantAusText(text([
 ]));
 gleich(r.mail, '', 'nur eigene Adressen: keine');
 
+// 8) Lieferant im Ausland: Anschrift im Kopf, USt-IdNr. und IBAN (Beispiel-IBAN mit gültiger Prüfziffer)
+r = lieferantAusText(text([
+  'Beispiel Fonderia S.r.l. - Via Roma 12 - I-25100 Brescia',
+  'Walzengießerei Coswig GmbH', 'Grenzstraße 1', '01640 Coswig', 'Germany',
+  'Fattura / Rechnung Nr. 2027118', 'Datum 04.02.2027', 'Totale 4.210,00',
+  'Partita IVA / VAT No. IT01234567897',
+  'IBAN IT60 X054 2811 1010 0000 0123 456',
+]));
+gleich(r.ausland && r.ausland.land, 'IT', 'Italien erkannt');
+gleich(r.ausland.gruende, ['Anschrift im Kopf: Italien', 'USt-IdNr. IT01234567897', 'IBAN IT'], 'alle drei Hinweise');
+gleich(r.ausland.sicher, true, 'nichts spricht dagegen');
+
+r = lieferantAusText(text([
+  'Muster Gießerei GmbH · Hauptplatz 1 · A-4020 Linz', 'DIHAG Zaigler GmbH', 'Gummistraße 28', '95326 Kulmbach',
+  'Rechnung Nr. 55012', 'Datum 03.03.2027', 'Zu zahlen 980,00', 'UID-Nr. ATU12345678',
+]));
+gleich(r.ausland && r.ausland.landName, 'Österreich', 'Kennzeichen vor der Postleitzahl');
+
+// Anschrift im Kopf im Ausland, aber deutsche IBAN: nur ein Hinweis zum Prüfen
+r = lieferantAusText(text([
+  'Probe Metal Sp. z o.o.', 'ul. Długa 5', '00-950 Warszawa', 'Polska',
+  'DIHAG Zaigler GmbH', 'Rechnung Nr. 77001', 'Datum 03.03.2027', 'Zu zahlen 1.200,00',
+  'IBAN: DE89 3704 0044 0532 0130 00',
+]));
+gleich([r.ausland.land, r.ausland.sicher, r.ausland.dagegen], ['PL', false, ['IBAN DE']], 'Gleichstand bleibt ein Hinweis');
+
+// Deutscher Lieferant mit Bank in Finnland, Lieferanschrift in den Niederlanden, Lastschrift vom eigenen Konto
+r = lieferantAusText(text([
+  'Muster Reinigungstechnik GmbH', 'Industriestr. 4', '89000 Musterstadt',
+  'Musterbank Abp, Finland', 'IBAN FI21 1234 5600 0007 85',
+  'DIHAG Zaigler GmbH', 'Lieferanschrift:', 'Muster Lager', 'Hafenweg 1', 'NL-1234 AB Rotterdam',
+  'Rechnung Nr. 31025', 'Datum 20.10.2026', 'Zu zahlen 410,00', 'USt-IdNr. DE123456789',
+  'Wir buchen per Lastschrift von Ihrem Konto IBAN AT61 1904 3002 3457 3201 ab',
+]));
+gleich(r.ausland, null, 'Bankzeile, Lieferanschrift und Lastschrift zählen nicht');
+
+// Kein Hinweis: deutscher Lieferant ohne Auslandsbezug, IBAN mit falscher Prüfziffer
+r = lieferantAusText(text([
+  'Probe Handel AG · Ring 1 · 10115 Berlin', 'Rechnung Nr. 55501', 'Datum 03.03.2026',
+  'Bankverbindung IBAN IT61 X054 2811 1010 0000 0123 456', 'Zu zahlen 99,00',
+]));
+gleich(r.ausland, null, 'IBAN mit falscher Prüfziffer zählt nicht');
+
+// Eigene USt-IdNr.: dieselben wie im Prüfdienst (api/src/functions/vat.js), dazu SCH
+const { EIGENE_VAT } = require('../js/lieferant.js');
+const vatQuelle = require('fs').readFileSync(require('path').join(__dirname, '..', 'api', 'src', 'functions', 'vat.js'), 'utf8');
+const prueferVat = (/EIGENE_UST_IDS = \[([^\]]+)\]/.exec(vatQuelle)[1].match(/DE\d{9}/g));
+gleich(prueferVat.filter(v => !EIGENE_VAT.includes(v)), [], 'alle eigenen USt-IdNr. des Prüfdienstes');
+
 gleich(istEigen('DIHAG Holding GmbH'), true, 'DIHAG eigen');
 gleich(istEigen('Meuselwitz Guss GmbH'), true, 'MEG eigen');
 gleich(istEigen('Telekom Deutschland GmbH'), false, 'fremd');

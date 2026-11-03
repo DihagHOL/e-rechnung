@@ -189,7 +189,15 @@
     .ug-badge.ug-ueber { background:#e8f0fb; color:#134080; }
     .ug-badge.ug-nicht { background:#ffe6cc; color:#8a3b00; }
     .ug-badge.ug-klein { background:var(--gray-100); color:var(--gray-600); cursor:default; }
+    button.ug-badge.ug-klein { cursor:pointer; }
+    .ug-badge.ug-ausland { background:#eef2ff; color:#3730a3; }
     button.ug-badge:hover { border-color:currentColor; }
+    /* Spalte „Geprüft“ */
+    .mon-geprueft { font:inherit; font-size:11px; font-weight:700; color:#0a6b2e; background:#e3f5e9; border:1px solid transparent;
+                border-radius:999px; padding:1px 8px; margin-top:4px; cursor:pointer; white-space:nowrap; }
+    .mon-geprueft:hover { border-color:#0a6b2e; }
+    .mon-geprueft:disabled, td .ug-btn:disabled { opacity:.6; cursor:wait; }
+    .mon-geprueft-wer { margin-top:2px; font-size:11px; color:var(--gray-500); white-space:nowrap; }
 
     #ug-dialog, #bh-dialog, #sp-dialog { margin:auto; border:none; border-radius:12px; padding:0; width:min(680px, calc(100vw - 32px));
                 max-height:calc(100vh - 48px); box-shadow:0 20px 50px rgba(0,0,0,.25); }
@@ -208,6 +216,14 @@
                 border-radius:999px; padding:1px 9px; cursor:pointer; white-space:nowrap; }
     .ug-bestaetigen:hover { background:#e3f5e9; }
     .ug-bestaetigen:disabled { opacity:.6; cursor:wait; }
+    .ug-weg { font:inherit; font-size:11px; color:var(--gray-500); background:none; border:none; cursor:pointer; padding:0 2px; }
+    .ug-weg:hover { color:var(--danger); }
+    .ug-felder2 { grid-template-columns:2fr 1fr; }
+    .ug-ausland { margin:0; font-size:12px; color:var(--gray-500); }
+    .ug-ausland:empty { display:none; }
+    .ug-ausland.warn { color:#8a5a00; }
+    .ug-ausland.ok { color:#0a6b2e; font-weight:600; }
+    .ug-ausland .ug-bestaetigen { margin-left:4px; }
     .ug-felder label, .ug-lbl { display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:600; color:var(--gray-600); }
     .ug-felder input, .ug-lbl input, .ug-lbl textarea { font:inherit; font-size:13px; font-weight:400; color:var(--gray-900);
                 border:1px solid var(--gray-300); border-radius:6px; padding:7px 9px; width:100%; }
@@ -415,10 +431,10 @@
 <script type="module" src="js/pdfjs-laden.mjs?v=47a74e334d"></script>
 <script src="js/vendor/tesseract/tesseract.min.js?v=000c27d9cd"></script>
 <script src="js/ocr.js?v=ca1f1ec809"></script>
-<script src="js/lieferant.js?v=12664375d9"></script>
-<script src="js/umsatzgrenze.js?v=feb8fc20b1"></script>
+<script src="js/lieferant.js?v=fe6e1235c8"></script>
+<script src="js/umsatzgrenze.js?v=b8bb8f5eaa"></script>
 <script src="js/bearbeitung.js?v=cfcf125ff8"></script>
-<script src="js/monitoring.js?v=c594081124"></script>
+<script src="js/monitoring.js?v=7b3c1549d1"></script>
 
 <script src="js/seite-monitoring.js?v=a61e72cce7"></script>
 </body>
