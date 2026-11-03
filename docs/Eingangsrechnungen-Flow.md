@@ -243,7 +243,12 @@ Mail.
    (siehe [Rechnungsmonitoring.md](Rechnungsmonitoring.md)).
 5. Nach der Schleife (auch wenn ein Anhang gescheitert ist): `Archiv_Sonstige` und
    `Archiv_Sonstige_Dateien` sammeln die normalen PDFs, `Archiv_ERechnungen` die
-   E-Rechnungen, `Archiv_Nummern_eindeutig` ihre Nummern ohne Doppelte.
+   E-Rechnungen, `Archiv_Nummern_eindeutig` ihre Nummern ohne Doppelte. Die beiden
+   Select-Schritte `Archiv_Sonstige_Dateien` und `Archiv_Rechnung_Dateien` setzen
+   `ContentBytes` = `base64ToBinary(item()?['ContentBytes'])`. In der Variable steht die
+   Datei als Base64-Text. Geht dieser Text ohne Umwandlung an Outlook, kodiert der Schritt ihn
+   ein zweites Mal, und in der Archiv-Mail liegt statt des PDFs Text, den kein Programm
+   öffnet (so vom 02.11. 16:05 bis 03.11. 11:05 UTC, 49 Archiv-Mails neu gesendet).
 6. `Archiv_je_Rechnung` (nacheinander): je Nummer eine `Archiv_Rechnung_Mail` mit den Dateien
    dieser Nummer (PDF und XML derselben Rechnung zusammen). Die erste bekommt zusätzlich die
    normalen PDFs.
