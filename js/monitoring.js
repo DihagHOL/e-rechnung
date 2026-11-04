@@ -1841,7 +1841,7 @@ function _monShowSetup(title, msg) {
   if (body) body.style.display = 'none';
   const setup = document.getElementById('mon-setup');
   if (setup) {
-    setup.style.display = '';
+    setup.style.display = 'block';   // .mon-setup ist im CSS ausgeblendet, '' reicht nicht
     setup.innerHTML = `<div class="mon-setup-card">
       <div style="font-size:34px;">🗂️</div>
       <h3>${_esc(title)}</h3>

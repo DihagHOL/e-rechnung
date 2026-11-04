@@ -41,6 +41,7 @@ async function spSaveExport({ invoiceData, xml, pdfBytes, format }) {
   const token = await acquireToken(SP.scopes);
   if (!token) return null;
   await _spInit(token);
+  _spListe();
 
   const safeNr   = _safe(invoiceData.rechnungsnummer);
   const dateStr  = (invoiceData.rechnungsdatum || '').replace(/-/g, '');
@@ -118,6 +119,7 @@ async function spGetExports() {
   const token = await acquireToken(SP.scopes);
   if (!token) return [];
   await _spInit(token);
+  _spListe();
 
   const resp = await _get(
     `${SP.graphBase}/sites/${_sp.siteId}/lists/${_sp.listId}/items` +
@@ -175,13 +177,15 @@ async function spLoadAccessConfig() {
   const token = await acquireToken(SP.scopes);
   if (!token) return null;
   await _spInit(token);
-  if (!_sp.driveId) return null;
+  if (!_sp.driveId) throw new Error('Dokumentbibliothek in sites/IT nicht sichtbar');
 
   const url = `${SP.graphBase}/drives/${_sp.driveId}/root:/${SP.folder}/access-config.json:/content`;
   const resp = await fetch(url, {
     headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
   });
-  if (!resp.ok) return null; // 404 = noch keine Config angelegt
+  // Die Datei gibt es. 404 heißt bei Graph meist: keine Rechte darauf.
+  if ([401, 403, 404].includes(resp.status)) throw new Error(`kein Zugriff auf ${SP.folder}/access-config.json in sites/IT`);
+  if (!resp.ok) throw new Error(`access-config.json nicht lesbar (HTTP ${resp.status})`);
   return resp.json();
 }
 
@@ -321,6 +325,7 @@ async function spDeleteItem(itemId) {
   const token = await acquireToken(SP.scopes);
   if (!token) return;
   await _spInit(token);
+  _spListe();
   await _del(
     `${SP.graphBase}/sites/${_sp.siteId}/lists/${_sp.listId}/items/${itemId}`,
     token
@@ -549,6 +554,12 @@ async function _patch(url, token, body) {
    Initialisierung & Spalten-Setup
 ═══════════════════════════════════════════════════ */
 
+/** Für Funktionen, die die alte Verlaufsliste brauchen: ohne Liste die frühere Meldung. */
+function _spListe() {
+  if (!_sp.listId) throw new Error(`SharePoint-Liste "${SP.listName}" nicht gefunden oder nicht freigegeben (sites/IT).`);
+  return _sp.listId;
+}
+
 async function _spInit(token) {
   if (_sp.ready) return;
 
@@ -556,15 +567,17 @@ async function _spInit(token) {
   const site = await _get(`${SP.graphBase}/sites/${SP.siteHost}`, token);
   _sp.siteId = site.id;
 
-  // Liste suchen
-  const lists = await _get(
-    `${SP.graphBase}/sites/${_sp.siteId}/lists?$filter=displayName eq '${SP.listName}'`,
-    token
-  );
-  if (!lists.value?.length) {
-    throw new Error(`SharePoint-Liste "${SP.listName}" nicht gefunden.\nBitte die Liste unter sites/IT anlegen.`);
+  // Alte Verlaufsliste suchen. Sie braucht nur noch verlauf.html (_spListe). Wer sie nicht
+  // sieht, muss trotzdem Einstellungen und Dateien im Ordner E-Rechnung laden können.
+  try {
+    const lists = await _get(
+      `${SP.graphBase}/sites/${_sp.siteId}/lists?$filter=displayName eq '${SP.listName}'`,
+      token
+    );
+    _sp.listId = lists.value?.length ? lists.value[0].id : null;
+  } catch (e) {
+    _sp.listId = null;
   }
-  _sp.listId = lists.value[0].id;
 
   // Dokument-Bibliothek für Datei-Uploads suchen
   const drives = await _get(`${SP.graphBase}/sites/${_sp.siteId}/drives`, token);
@@ -575,7 +588,7 @@ async function _spInit(token) {
 
   // Vorhandene Spalten ermitteln — nur verfügbare Felder werden beim Schreiben gesendet.
   // Schlägt das Lesen fehl (z. B. 403), werden nur Title-Einträge gespeichert.
-  try {
+  if (_sp.listId) try {
     const cols = await _get(
       `${SP.graphBase}/sites/${_sp.siteId}/lists/${_sp.listId}/columns`, token
     );

@@ -82,16 +82,38 @@ async function loadRuntimeAccessConfig() {
   return _runtimeConfigLaden;
 }
 
+let _runtimeConfigFehler = '';    // Grund, wenn die Config nicht geladen werden konnte
+
 async function _runtimeConfigHolen() {
   try {
     const cfg = await spLoadAccessConfig();
     if (cfg && typeof cfg === 'object') {
       _runtimeConfig = cfg;
+      _runtimeConfigFehler = '';
+    } else {
+      // null heißt: Weiterleitung zur Anmeldung läuft
+      _runtimeConfigFehler = 'neue Anmeldung bei Microsoft läuft';
     }
   } catch (e) {
-    // Kein JSON in SharePoint → Fallback auf Default (kein Fehler)
-    console.info('[access] Keine SP-Config gefunden, nutze Default.');
+    // Ohne Config sieht niemand ein Werk. Den Grund merken, damit die Seiten nicht
+    // „kein Werk zugewiesen“ melden, wenn nur das Laden gescheitert ist.
+    _runtimeConfigFehler = (e && e.message) || String(e);
+    console.warn('[access] Einstellungen nicht geladen:', _runtimeConfigFehler);
+  } finally {
+    if (!_runtimeConfig) _runtimeConfigLaden = null;   // beim nächsten Aufruf neu versuchen
   }
+}
+
+/** Warum die Config fehlt ('' = geladen oder noch nicht versucht). */
+function zugriffLadeFehler() {
+  return _runtimeConfig ? '' : _runtimeConfigFehler;
+}
+
+/** Text für die Seiten, wenn die Einstellungen nicht geladen werden konnten. */
+function zugriffLadeHinweis() {
+  const grund = zugriffLadeFehler();
+  return 'Die Einstellungen der App ließen sich nicht laden' + (grund ? ` (${grund})` : '')
+    + '. Bitte abmelden und neu anmelden oder die App in einem neuen Tab öffnen.';
 }
 
 /* ── Zugriffs-Checks ── */
@@ -234,5 +256,6 @@ async function initAdminNav() {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { ROLLEN, ROLLE_STANDARD, rolleIn, getRolle, erlaubteRichtungen, zugriffKopie, rolleSetzen, zugriffBereinigen,
-    istWerkSchluessel, getAccessFor, getAppConfig, _zugriffSetzen: cfg => { _runtimeConfig = cfg; } };
+    istWerkSchluessel, getAccessFor, getAppConfig, loadRuntimeAccessConfig, zugriffLadeFehler, zugriffLadeHinweis,
+    _zugriffSetzen: cfg => { _runtimeConfig = cfg; _runtimeConfigLaden = null; _runtimeConfigFehler = ''; } };
 }

@@ -9,6 +9,7 @@ onAuthReady(async () => {
   // Das zugewiesene Werk ist beim Öffnen vorgewählt (bei mehreren das erste der Liste)
   const zugewiesen = getCurrentUserAccess();
   if (!isCurrentUserAdmin() && !zugewiesen.length) {
+    if (zugriffLadeFehler()) return _monShowSetup('Einstellungen nicht geladen', zugriffLadeHinweis());
     return _monShowSetup('Kein Werk zugewiesen',
       'Dir ist in den Einstellungen noch kein Werk zugeordnet. Bitte die IT, dich einem Werk zuzuordnen.');
   }

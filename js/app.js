@@ -66,8 +66,11 @@ function setupGesellschaftSelector() {
   // Admins alle. Ohne Zuweisung gibt es kein Werk und damit keinen Export.
   const werke = typeof erlaubteWerke === 'function' ? erlaubteWerke(alle) : alle;
   if (!werke.length) {
-    sel.innerHTML = '<option value="">Kein Werk zugewiesen</option>';
+    // Konnte die Config nicht geladen werden, ist das kein fehlendes Werk
+    const ladeFehler = typeof zugriffLadeFehler === 'function' && zugriffLadeFehler();
+    sel.innerHTML = `<option value="">${ladeFehler ? 'Einstellungen nicht geladen' : 'Kein Werk zugewiesen'}</option>`;
     sel.disabled = true;
+    if (ladeFehler && typeof showToast === 'function') showToast(zugriffLadeHinweis(), 'error');
     return;
   }
   sel.disabled = false;
@@ -1032,7 +1035,8 @@ async function exportInvoice(format) {
 function _werkZugewiesen() {
   const sel = document.getElementById('gesellschaft');
   if (sel && sel.value) return true;
-  showToast('Dir ist kein Werk zugewiesen. Bitte die IT, dich in den Einstellungen einem Werk zuzuordnen.', 'error');
+  if (typeof zugriffLadeFehler === 'function' && zugriffLadeFehler()) showToast(zugriffLadeHinweis(), 'error');
+  else showToast('Dir ist kein Werk zugewiesen. Bitte die IT, dich in den Einstellungen einem Werk zuzuordnen.', 'error');
   return false;
 }
 

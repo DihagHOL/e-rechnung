@@ -96,8 +96,33 @@ function authLogout() {
 function getAuthUser() { return _account; }
 
 /**
+ * Muss sich der Benutzer neu anmelden, weil das Token nicht still zu holen ist?
+ * Das Refresh-Token einer Single-Page-App lebt höchstens 24 Stunden (AADSTS700084). MSAL
+ * versucht es dann im unsichtbaren Fenster; ohne Drittanbieter-Cookies (Firefox, Safari)
+ * scheitert das mit Zeitüberschreitung, also nicht als InteractionRequiredAuthError.
+ * Netzwerkfehler und eine schon laufende Anmeldung zählen nicht.
+ */
+function _anmeldungNoetig(e) {
+  if (typeof msal !== 'undefined' && e instanceof msal.InteractionRequiredAuthError) return true;
+  const text = `${(e && e.errorCode) || ''} ${(e && e.message) || ''}`;
+  if (/interaction_in_progress|no_network_connectivity|endpoints_resolution_error/i.test(text)) return false;
+  return /AADSTS(700084|700082|50058|50078|50079|50076|70043|70008|65001)\b|invalid_grant|login_required|interaction_required|consent_required|monitor_window_timeout|token_renewal_error|no_tokens_found|block_iframe_reload|timed_out/i.test(text);
+}
+
+/** Höchstens eine Weiterleitung zur Anmeldung je Minute, sonst droht eine Schleife. */
+const _ANMELDUNG_SPERRE = 'erechnung-neu-anmelden';
+function _neuAnmeldenErlaubt() {
+  try {
+    const zuletzt = Number(sessionStorage.getItem(_ANMELDUNG_SPERRE) || 0);
+    if (Date.now() - zuletzt < 60000) return false;
+    sessionStorage.setItem(_ANMELDUNG_SPERRE, String(Date.now()));
+  } catch (e) { /* ohne sessionStorage trotzdem anmelden */ }
+  return true;
+}
+
+/**
  * Access-Token für eine Graph/SharePoint-Scope anfordern.
- * Bei fehlendem Consent → Redirect zu Microsoft.
+ * Bei fehlendem Consent oder abgelaufener Anmeldung → Redirect zu Microsoft.
  */
 async function acquireToken(scopes) {
   if (!_msal || !_account) throw new Error('Nicht angemeldet');
@@ -105,7 +130,7 @@ async function acquireToken(scopes) {
     const result = await _msal.acquireTokenSilent({ scopes, account: _account });
     return result.accessToken;
   } catch (e) {
-    if (e instanceof msal.InteractionRequiredAuthError) {
+    if (_anmeldungNoetig(e) && _neuAnmeldenErlaubt()) {
       await _msal.acquireTokenRedirect({ scopes, account: _account });
       return null; // Page will redirect
     }
@@ -124,7 +149,7 @@ async function acquireTokenPopupSafe(scopes) {
     const result = await _msal.acquireTokenSilent({ scopes, account: _account });
     return result.accessToken;
   } catch (e) {
-    if (e instanceof msal.InteractionRequiredAuthError) {
+    if (_anmeldungNoetig(e)) {
       const result = await _msal.acquireTokenPopup({ scopes, account: _account });
       return result.accessToken;
     }
@@ -156,7 +181,7 @@ function _showAuthError(err) {
 
 // Klicks, die früher als onclick im HTML standen (die Content-Security-Policy erlaubt keine
 // Inline-Handler): Abmelden auf allen Seiten, Hinweisbanner schließen (data-schliessen="<id>").
-document.addEventListener('click', e => {
+if (typeof document !== 'undefined') document.addEventListener('click', e => {
   if (e.target.closest('.btn-auth-logout')) { authLogout(); return; }
   const schliessen = e.target.closest('[data-schliessen]');
   if (schliessen) {
@@ -164,3 +189,7 @@ document.addEventListener('click', e => {
     if (ziel) ziel.style.display = 'none';
   }
 });
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { _anmeldungNoetig };
+}

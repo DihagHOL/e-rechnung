@@ -59,4 +59,30 @@ gleich(gespeichert._app, cfg._app, '_app wird mitgespeichert');
 gleich(A.zugriffBereinigen({ wgc: ['a@beispiel.de'], _rollen: { wgc: { 'a@beispiel.de': 'vertrieb', 'b@beispiel.de': 'vertrieb' } } })._rollen,
   { wgc: { 'a@beispiel.de': 'vertrieb' } }, 'nur Personen im Werk');
 
-console.log(`access: ${n} Prüfungen grün`);
+// 5) Laden scheitert: Grund merken statt „kein Werk“, beim nächsten Aufruf neu versuchen
+(async () => {
+  A._zugriffSetzen(null);
+  global.spLoadAccessConfig = async () => { throw new Error('kein Zugriff auf E-Rechnung/access-config.json in sites/IT'); };
+  await A.loadRuntimeAccessConfig();
+  gleich(A.zugriffLadeFehler(), 'kein Zugriff auf E-Rechnung/access-config.json in sites/IT', 'Grund gemerkt');
+  gleich(A.getAccessFor('max.probe@beispiel.de'), [], 'ohne Config kein Werk');
+  gleich(/neu anmelden/.test(A.zugriffLadeHinweis()) && A.zugriffLadeHinweis().includes('access-config.json'), true, 'Hinweis nennt Grund und Abhilfe');
+  global.spLoadAccessConfig = async () => null;   // Weiterleitung zur Anmeldung läuft
+  await A.loadRuntimeAccessConfig();
+  gleich(/Anmeldung/.test(A.zugriffLadeFehler()), true, 'Weiterleitung als Grund');
+  global.spLoadAccessConfig = async () => cfg;
+  await A.loadRuntimeAccessConfig();
+  gleich(A.zugriffLadeFehler(), '', 'zweiter Versuch lädt, kein Fehler mehr');
+  gleich(A.getAccessFor('max.probe@beispiel.de'), ['wgc', 'shb'], 'Werke nach erneutem Laden');
+
+  // 6) Abgelaufene Anmeldung erkennen (js/auth.js)
+  const { _anmeldungNoetig } = require('../js/auth.js');
+  gleich(_anmeldungNoetig({ errorCode: 'invalid_grant', message: 'AADSTS700084: The refresh token was issued to a single page app' }), true, 'Refresh-Token abgelaufen');
+  gleich(_anmeldungNoetig({ errorCode: 'monitor_window_timeout', message: 'Token acquisition in iframe failed due to timeout.' }), true, 'iframe ohne Cookies (Firefox)');
+  gleich(_anmeldungNoetig({ errorCode: 'login_required' }), true, 'login_required');
+  gleich(_anmeldungNoetig({ errorCode: 'interaction_in_progress' }), false, 'laufende Anmeldung nicht noch einmal');
+  gleich(_anmeldungNoetig({ errorCode: 'no_network_connectivity', message: 'timed_out' }), false, 'Netzwerkfehler');
+  gleich(_anmeldungNoetig(new Error('Failed to fetch')), false, 'sonstiger Fehler');
+
+  console.log(`access: ${n} Prüfungen grün`);
+})().catch(e => { console.error(e); process.exit(1); });
