@@ -1,7 +1,7 @@
 # Prozessmodelle (BPMN 2.0)
 
 Die Prozesse der E-Rechnung als BPMN 2.0 im Hausschema des RMS: drei Hauptprozesse und
-sechs Unterprozesse, die per Aufrufaktivität (⊞) eingebunden sind.
+acht Unterprozesse, die per Aufrufaktivität (⊞) eingebunden sind.
 
 **Führend sind die Modelle im RMS** (rms.dihag.de, Reiter Prozesse, Ablage KONZERN).
 `prozess.html` liest sie live von dort, sobald das angemeldete Konto Zugriff auf die
@@ -13,9 +13,11 @@ Ansicht des Modells.
 
 | Datei | Modell im RMS | Bindet ein |
 |-------|---------------|------------|
-| `01-rechnungseingang.bpmn` | E-Rechnung Rechnungseingang | Eingangsprüfung, Nebendateien ablegen |
+| `01-rechnungseingang.bpmn` | E-Rechnung Rechnungseingang | Eingangsprüfung, Nebendateien ablegen, Sonstige Rechnung einschätzen, Eingangsrechnung freigeben |
 | `01a-eingangspruefung.bpmn` | E-Rechnung Eingangsprüfung | |
 | `01b-nebendateien.bpmn` | E-Rechnung Nebendateien ablegen | |
+| `01c-einschaetzung.bpmn` | E-Rechnung Sonstige Rechnung einschätzen | |
+| `01d-freigabe.bpmn` | E-Rechnung Eingangsrechnung freigeben | |
 | `02-rechnungsausgang.bpmn` | E-Rechnung Rechnungsausgang | Erkennen und erfassen, Prüfen und erzeugen |
 | `02a-erkennen-und-erfassen.bpmn` | E-Rechnung Erkennen und erfassen | |
 | `02b-pruefen-und-erzeugen.bpmn` | E-Rechnung Prüfen und erzeugen | |
@@ -29,7 +31,7 @@ Kennungen nach dem Import fest.
 
 ## Hausschema
 
-Alle neun Modelle bestehen die Prüfung des RMS (`prozessSchemaPruefen`) ohne Befund:
+Alle elf Modelle bestehen die Prüfung des RMS (`prozessSchemaPruefen`) ohne Befund:
 ein Auslöser, benannte Ergebnisse, nur 👤 Mensch, ⚙ Automatik oder ✋ Handgriff, jeder
 Knoten in einer Bahn, beschriftete Entscheidungen, nichts hängt lose, Aufgaben enden auf
 einem Verb, Unterprozesse als ⊞ mit Marker `[[rms:modell=<Kennung>]]`. Externe Partner
@@ -56,7 +58,7 @@ Im Alltag im RMS: Modell öffnen, bearbeiten, speichern. Die E-Rechnungs-Seite z
 neuen Stand beim nächsten Laden.
 
 Für größere Umbauten gibt es den Generator `scripts/bpmn/generate-bpmn.js` (Knoten im
-Raster, Flüsse, Notizen). Er schreibt die neun Dateien und `modelle.json` neu und setzt die
+Raster, Flüsse, Notizen). Er schreibt die elf Dateien und `modelle.json` neu und setzt die
 Marker aus `rms-ids.json`:
 
 ```bash
@@ -73,6 +75,11 @@ beim Speichern im Editor in die Dokumentation der Kollaboration, der Import in d
 Prozesses. Beides muss erhalten bleiben (`procXmlDokuNeu` für den Prozess, die
 Kollaborations-Doku unverändert übernehmen).
 
-Letzte Übernahme: 07.10.2026 (Rechnungseingang, Eingangsprüfung, Preflight). Vorher hatte
+Stand 04.11.2026: Rechnungseingang, Eingangsprüfung, Rechnungsausgang, Erkennen und erfassen,
+Prüfen und erzeugen neu erzeugt, Einschätzung und Freigabe neu. Noch nicht ins RMS übernommen, bis
+dahin zeigt die Seite für Konten mit RMS-Zugriff die alte Fassung und für die zwei neuen Modelle die Kopie
+aus dem Repository.
+
+Letzte Übernahme ins RMS: 07.10.2026 (Rechnungseingang, Eingangsprüfung, Preflight). Vorher hatte
 „Admin DIHAG“ am Eingang und an der Eingangsprüfung nur die Prozessmanagement-Angaben ergänzt,
 die sind übernommen.

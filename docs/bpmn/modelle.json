@@ -16,7 +16,9 @@
       "von": "",
       "unter": [
         "intake",
-        "neben"
+        "neben",
+        "einschaetzung",
+        "freigabe"
       ],
       "itemId": "01NH6NP5FOMYJENOIZBVCJ3YRDMYS6TLCK"
     },
@@ -41,6 +43,28 @@
       "von": "eingang",
       "unter": [],
       "itemId": "01NH6NP5G7V3KZMFQIXJF23PZ25WTOJAXE"
+    },
+    {
+      "key": "einschaetzung",
+      "name": "E-Rechnung Sonstige Rechnung einschätzen",
+      "kennung": "Process_ERechnung_Einschaetzung",
+      "datei": "docs/bpmn/01c-einschaetzung.bpmn",
+      "tab": "eingang",
+      "haupt": false,
+      "von": "eingang",
+      "unter": [],
+      "itemId": ""
+    },
+    {
+      "key": "freigabe",
+      "name": "E-Rechnung Eingangsrechnung freigeben",
+      "kennung": "Process_ERechnung_Freigabe",
+      "datei": "docs/bpmn/01d-freigabe.bpmn",
+      "tab": "eingang",
+      "haupt": false,
+      "von": "eingang",
+      "unter": [],
+      "itemId": ""
     },
     {
       "key": "ausgang",

@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="Definitions_freigabe" targetNamespace="https://e-rechnung.dihag-extern.com/bpmn" exporter="DIHAG BPMN-Generator (scripts/bpmn/generate-bpmn.js)" exporterVersion="2.0">
+  <bpmn:collaboration id="Collab_freigabe">
+    <bpmn:participant id="P_Frei" name="Eingangsrechnung freigeben (Monitoring und Genehmigungs-Flow je Werk)" processRef="Process_ERechnung_Freigabe" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_ERechnung_Freigabe" name="E-Rechnung Eingangsrechnung freigeben" isExecutable="false">
+    <bpmn:documentation>Die Kreditorenbuchhaltung trägt im Monitoring Varialnummer, Kontierung und Bestellnummer ein und fordert die Genehmigung an. Ein Flow je Werk schickt die Rechnung mit PDF an den Genehmiger und schreibt die Antwort an die Rechnung. Bei Genehmigung geht auf Wunsch eine Info an die Adresse zum Austragen im abas, bei Ablehnung eine Mail an den, der angefordert hat. Das ersetzt die Eingangsrechnungsliste auf gruppe_wgc.
+Eingebunden in: E-Rechnung Rechnungseingang.
+Anwender-Ansicht: https://e-rechnung.dihag-extern.com/prozess.html#eingang
+Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflichten
+[[rms:policies=119]]</bpmn:documentation>
+    <bpmn:laneSet id="LaneSet_P_Frei">
+      <bpmn:lane id="LB9" name="Kreditorenbuchhaltung"><bpmn:flowNodeRef>G_start</bpmn:flowNodeRef><bpmn:flowNodeRef>G_gwWerk</bpmn:flowNodeRef><bpmn:flowNodeRef>G_endOhne</bpmn:flowNodeRef><bpmn:flowNodeRef>G_edit</bpmn:flowNodeRef><bpmn:flowNodeRef>G_anf</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="LS9" name="SharePoint &amp; Monitoring"><bpmn:flowNodeRef>G_set</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="LF9" name="Power Automate"><bpmn:flowNodeRef>G_quit</bpmn:flowNodeRef><bpmn:flowNodeRef>G_send</bpmn:flowNodeRef><bpmn:flowNodeRef>G_gw</bpmn:flowNodeRef><bpmn:flowNodeRef>G_ja</bpmn:flowNodeRef><bpmn:flowNodeRef>G_gwAbas</bpmn:flowNodeRef><bpmn:flowNodeRef>G_abas</bpmn:flowNodeRef><bpmn:flowNodeRef>G_vermerk</bpmn:flowNodeRef><bpmn:flowNodeRef>G_endJa</bpmn:flowNodeRef><bpmn:flowNodeRef>G_nein</bpmn:flowNodeRef><bpmn:flowNodeRef>G_neinMail</bpmn:flowNodeRef><bpmn:flowNodeRef>G_endNein</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="LG9" name="Genehmiger"><bpmn:flowNodeRef>G_pruef</bpmn:flowNodeRef></bpmn:lane>
+    </bpmn:laneSet>
+      <bpmn:startEvent id="G_start" name="Rechnung zum Buchen bereit"><bpmn:outgoing>Flow_G_start_G_gwWerk</bpmn:outgoing></bpmn:startEvent>
+      <bpmn:exclusiveGateway id="G_gwWerk" name="Freigabe im Werk eingerichtet?"><bpmn:incoming>Flow_G_start_G_gwWerk</bpmn:incoming><bpmn:outgoing>Flow_G_gwWerk_G_edit</bpmn:outgoing><bpmn:outgoing>Flow_G_gwWerk_G_endOhne</bpmn:outgoing></bpmn:exclusiveGateway>
+      <bpmn:endEvent id="G_endOhne" name="ohne Freigabe weiter"><bpmn:incoming>Flow_G_gwWerk_G_endOhne</bpmn:incoming></bpmn:endEvent>
+      <bpmn:userTask id="G_edit" name="Varialnummer, Kontierung und Bestellnummer eintragen"><bpmn:incoming>Flow_G_gwWerk_G_edit</bpmn:incoming><bpmn:outgoing>Flow_G_edit_G_anf</bpmn:outgoing></bpmn:userTask>
+      <bpmn:userTask id="G_anf" name="Genehmiger wählen und Genehmigung anfordern"><bpmn:incoming>Flow_G_edit_G_anf</bpmn:incoming><bpmn:outgoing>Flow_G_anf_G_set</bpmn:outgoing></bpmn:userTask>
+      <bpmn:serviceTask id="G_set" name="Anforderung an der Rechnung speichern (Status „In Genehmigung“)"><bpmn:incoming>Flow_G_anf_G_set</bpmn:incoming><bpmn:outgoing>Flow_G_set_G_quit</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:serviceTask id="G_quit" name="Anforderung quittieren"><bpmn:incoming>Flow_G_set_G_quit</bpmn:incoming><bpmn:outgoing>Flow_G_quit_G_send</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:serviceTask id="G_send" name="Genehmigung mit PDF an den Genehmiger senden"><bpmn:incoming>Flow_G_quit_G_send</bpmn:incoming><bpmn:outgoing>Flow_G_send_G_pruef</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:userTask id="G_pruef" name="Rechnung prüfen und genehmigen oder ablehnen"><bpmn:incoming>Flow_G_send_G_pruef</bpmn:incoming><bpmn:outgoing>Flow_G_pruef_G_gw</bpmn:outgoing></bpmn:userTask>
+      <bpmn:exclusiveGateway id="G_gw" name="Genehmigt?"><bpmn:incoming>Flow_G_pruef_G_gw</bpmn:incoming><bpmn:outgoing>Flow_G_gw_G_ja</bpmn:outgoing><bpmn:outgoing>Flow_G_gw_G_nein</bpmn:outgoing></bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="G_ja" name="Genehmigt, Genehmiger und Kommentar speichern"><bpmn:incoming>Flow_G_gw_G_ja</bpmn:incoming><bpmn:outgoing>Flow_G_ja_G_gwAbas</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:exclusiveGateway id="G_gwAbas" name="Info zum Austragen im abas angegeben?"><bpmn:incoming>Flow_G_ja_G_gwAbas</bpmn:incoming><bpmn:outgoing>Flow_G_gwAbas_G_abas</bpmn:outgoing><bpmn:outgoing>Flow_G_gwAbas_G_endJa</bpmn:outgoing></bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="G_abas" name="Info mit PDF an die abas-Adresse senden"><bpmn:incoming>Flow_G_gwAbas_G_abas</bpmn:incoming><bpmn:outgoing>Flow_G_abas_G_vermerk</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:serviceTask id="G_vermerk" name="Info abas gesendet vermerken"><bpmn:incoming>Flow_G_abas_G_vermerk</bpmn:incoming><bpmn:outgoing>Flow_G_vermerk_G_endJa</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:endEvent id="G_endJa" name="genehmigt"><bpmn:incoming>Flow_G_gwAbas_G_endJa</bpmn:incoming><bpmn:incoming>Flow_G_vermerk_G_endJa</bpmn:incoming></bpmn:endEvent>
+      <bpmn:serviceTask id="G_nein" name="Abgelehnt und Kommentar speichern"><bpmn:incoming>Flow_G_gw_G_nein</bpmn:incoming><bpmn:outgoing>Flow_G_nein_G_neinMail</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:serviceTask id="G_neinMail" name="Ablehnung an den Anfordernden melden"><bpmn:incoming>Flow_G_nein_G_neinMail</bpmn:incoming><bpmn:outgoing>Flow_G_neinMail_G_endNein</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:endEvent id="G_endNein" name="abgelehnt"><bpmn:incoming>Flow_G_neinMail_G_endNein</bpmn:incoming></bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_G_start_G_gwWerk" sourceRef="G_start" targetRef="G_gwWerk" />
+      <bpmn:sequenceFlow id="Flow_G_gwWerk_G_edit" sourceRef="G_gwWerk" targetRef="G_edit" name="ja" />
+      <bpmn:sequenceFlow id="Flow_G_gwWerk_G_endOhne" sourceRef="G_gwWerk" targetRef="G_endOhne" name="nein" />
+      <bpmn:sequenceFlow id="Flow_G_edit_G_anf" sourceRef="G_edit" targetRef="G_anf" />
+      <bpmn:sequenceFlow id="Flow_G_anf_G_set" sourceRef="G_anf" targetRef="G_set" />
+      <bpmn:sequenceFlow id="Flow_G_set_G_quit" sourceRef="G_set" targetRef="G_quit" />
+      <bpmn:sequenceFlow id="Flow_G_quit_G_send" sourceRef="G_quit" targetRef="G_send" />
+      <bpmn:sequenceFlow id="Flow_G_send_G_pruef" sourceRef="G_send" targetRef="G_pruef" />
+      <bpmn:sequenceFlow id="Flow_G_pruef_G_gw" sourceRef="G_pruef" targetRef="G_gw" />
+      <bpmn:sequenceFlow id="Flow_G_gw_G_ja" sourceRef="G_gw" targetRef="G_ja" name="ja" />
+      <bpmn:sequenceFlow id="Flow_G_gw_G_nein" sourceRef="G_gw" targetRef="G_nein" name="nein" />
+      <bpmn:sequenceFlow id="Flow_G_ja_G_gwAbas" sourceRef="G_ja" targetRef="G_gwAbas" />
+      <bpmn:sequenceFlow id="Flow_G_gwAbas_G_abas" sourceRef="G_gwAbas" targetRef="G_abas" name="ja" />
+      <bpmn:sequenceFlow id="Flow_G_gwAbas_G_endJa" sourceRef="G_gwAbas" targetRef="G_endJa" name="nein" />
+      <bpmn:sequenceFlow id="Flow_G_abas_G_vermerk" sourceRef="G_abas" targetRef="G_vermerk" />
+      <bpmn:sequenceFlow id="Flow_G_vermerk_G_endJa" sourceRef="G_vermerk" targetRef="G_endJa" />
+      <bpmn:sequenceFlow id="Flow_G_nein_G_neinMail" sourceRef="G_nein" targetRef="G_neinMail" />
+      <bpmn:sequenceFlow id="Flow_G_neinMail_G_endNein" sourceRef="G_neinMail" targetRef="G_endNein" />
+      <bpmn:textAnnotation id="GN_ohne"><bpmn:text>Werke ohne Bearbeitung im Monitoring, zum Beispiel ZAI.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:association id="Assoc_GN_ohne" associationDirection="None" sourceRef="G_endOhne" targetRef="GN_ohne" />
+      <bpmn:textAnnotation id="GN_anf"><bpmn:text>Mehrere Genehmiger mit „;“, dann gilt die erste Antwort. Die abas-Adresse ist je Werk vorbelegt.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:association id="Assoc_GN_anf" associationDirection="None" sourceRef="G_anf" targetRef="GN_anf" />
+      <bpmn:textAnnotation id="GN_send"><bpmn:text>Ein Flow je Werk, zum Beispiel „Genehmigung WGC (Monitoring)“. Er startet nur, wenn „Genehmigung anfordern“ gesetzt ist. Eine Genehmigung wartet höchstens 30 Tage.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:association id="Assoc_GN_send" associationDirection="None" sourceRef="G_send" targetRef="GN_send" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_freigabe">
+    <bpmndi:BPMNPlane id="Plane_freigabe" bpmnElement="Collab_freigabe">
+      <bpmndi:BPMNShape id="P_Frei_di" bpmnElement="P_Frei" isHorizontal="true" bioc:stroke="#1A2644" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1A2644"><dc:Bounds x="100" y="60" width="2490" height="920" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="LB9_di" bpmnElement="LB9" isHorizontal="true" bioc:stroke="#C2410C" bioc:fill="#FFF8F1" color:background-color="#FFF8F1" color:border-color="#C2410C"><dc:Bounds x="130" y="60" width="2460" height="260" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="LS9_di" bpmnElement="LS9" isHorizontal="true" bioc:stroke="#0F766E" bioc:fill="#F1FAF8" color:background-color="#F1FAF8" color:border-color="#0F766E"><dc:Bounds x="130" y="320" width="2460" height="140" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="LF9_di" bpmnElement="LF9" isHorizontal="true" bioc:stroke="#17509E" bioc:fill="#F3F8FE" color:background-color="#F3F8FE" color:border-color="#17509E"><dc:Bounds x="130" y="460" width="2460" height="380" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="LG9_di" bpmnElement="LG9" isHorizontal="true" bioc:stroke="#C2410C" bioc:fill="#FFF8F1" color:background-color="#FFF8F1" color:border-color="#C2410C"><dc:Bounds x="130" y="840" width="2460" height="140" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_start_di" bpmnElement="G_start" bioc:stroke="#1E7B3A" bioc:fill="#DDF3E4" color:background-color="#DDF3E4" color:border-color="#1E7B3A"><dc:Bounds x="247" y="112" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="205" y="153" width="120" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_gwWerk_di" bpmnElement="G_gwWerk" isMarkerVisible="true" bioc:stroke="#8A6100" bioc:fill="#FFF8DB" color:background-color="#FFF8DB" color:border-color="#8A6100"><dc:Bounds x="410" y="105" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="335" y="73" width="96" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_endOhne_di" bpmnElement="G_endOhne" bioc:stroke="#1E7B3A" bioc:fill="#DDF3E4" color:background-color="#DDF3E4" color:border-color="#1E7B3A"><dc:Bounds x="417" y="232" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="375" y="273" width="120" height="15" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_edit_di" bpmnElement="G_edit" bioc:stroke="#C2410C" bioc:fill="#FFE3C8" color:background-color="#FFE3C8" color:border-color="#C2410C"><dc:Bounds x="539" y="88" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_anf_di" bpmnElement="G_anf" bioc:stroke="#C2410C" bioc:fill="#FFE3C8" color:background-color="#FFE3C8" color:border-color="#C2410C"><dc:Bounds x="709" y="88" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_set_di" bpmnElement="G_set" bioc:stroke="#0F766E" bioc:fill="#D2EEE8" color:background-color="#D2EEE8" color:border-color="#0F766E"><dc:Bounds x="879" y="348" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_quit_di" bpmnElement="G_quit" bioc:stroke="#17509E" bioc:fill="#D8E8F8" color:background-color="#D8E8F8" color:border-color="#17509E"><dc:Bounds x="1049" y="488" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_send_di" bpmnElement="G_send" bioc:stroke="#17509E" bioc:fill="#D8E8F8" color:background-color="#D8E8F8" color:border-color="#17509E"><dc:Bounds x="1219" y="488" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_pruef_di" bpmnElement="G_pruef" bioc:stroke="#C2410C" bioc:fill="#FFE3C8" color:background-color="#FFE3C8" color:border-color="#C2410C"><dc:Bounds x="1389" y="868" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_gw_di" bpmnElement="G_gw" isMarkerVisible="true" bioc:stroke="#8A6100" bioc:fill="#FFF8DB" color:background-color="#FFF8DB" color:border-color="#8A6100"><dc:Bounds x="1600" y="505" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="1525" y="486" width="96" height="15" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_ja_di" bpmnElement="G_ja" bioc:stroke="#17509E" bioc:fill="#D8E8F8" color:background-color="#D8E8F8" color:border-color="#17509E"><dc:Bounds x="1729" y="488" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_gwAbas_di" bpmnElement="G_gwAbas" isMarkerVisible="true" bioc:stroke="#8A6100" bioc:fill="#FFF8DB" color:background-color="#FFF8DB" color:border-color="#8A6100"><dc:Bounds x="1940" y="505" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="1865" y="460" width="96" height="41" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_abas_di" bpmnElement="G_abas" bioc:stroke="#17509E" bioc:fill="#D8E8F8" color:background-color="#D8E8F8" color:border-color="#17509E"><dc:Bounds x="2069" y="608" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_vermerk_di" bpmnElement="G_vermerk" bioc:stroke="#17509E" bioc:fill="#D8E8F8" color:background-color="#D8E8F8" color:border-color="#17509E"><dc:Bounds x="2239" y="608" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_endJa_di" bpmnElement="G_endJa" bioc:stroke="#1E7B3A" bioc:fill="#DDF3E4" color:background-color="#DDF3E4" color:border-color="#1E7B3A"><dc:Bounds x="2457" y="512" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2415" y="553" width="120" height="15" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_nein_di" bpmnElement="G_nein" bioc:stroke="#17509E" bioc:fill="#D8E8F8" color:background-color="#D8E8F8" color:border-color="#17509E"><dc:Bounds x="1729" y="728" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_neinMail_di" bpmnElement="G_neinMail" bioc:stroke="#17509E" bioc:fill="#D8E8F8" color:background-color="#D8E8F8" color:border-color="#17509E"><dc:Bounds x="1899" y="728" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_endNein_di" bpmnElement="G_endNein" bioc:stroke="#B42318" bioc:fill="#FDE2E1" color:background-color="#FDE2E1" color:border-color="#B42318"><dc:Bounds x="2117" y="752" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2075" y="793" width="120" height="15" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_G_start_G_gwWerk_di" bpmnElement="Flow_G_start_G_gwWerk"><di:waypoint x="283" y="130" /><di:waypoint x="410" y="130" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_gwWerk_G_edit_di" bpmnElement="Flow_G_gwWerk_G_edit"><di:waypoint x="460" y="130" /><di:waypoint x="539" y="130" /><bpmndi:BPMNLabel><dc:Bounds x="466" y="113" width="25" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_gwWerk_G_endOhne_di" bpmnElement="Flow_G_gwWerk_G_endOhne"><di:waypoint x="435" y="155" /><di:waypoint x="435" y="232" /><bpmndi:BPMNLabel><dc:Bounds x="441" y="187" width="38" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_edit_G_anf_di" bpmnElement="Flow_G_edit_G_anf"><di:waypoint x="671" y="130" /><di:waypoint x="709" y="130" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_anf_G_set_di" bpmnElement="Flow_G_anf_G_set"><di:waypoint x="841" y="130" /><di:waypoint x="860" y="130" /><di:waypoint x="860" y="390" /><di:waypoint x="879" y="390" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_set_G_quit_di" bpmnElement="Flow_G_set_G_quit"><di:waypoint x="1011" y="390" /><di:waypoint x="1030" y="390" /><di:waypoint x="1030" y="530" /><di:waypoint x="1049" y="530" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_quit_G_send_di" bpmnElement="Flow_G_quit_G_send"><di:waypoint x="1181" y="530" /><di:waypoint x="1219" y="530" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_send_G_pruef_di" bpmnElement="Flow_G_send_G_pruef"><di:waypoint x="1351" y="530" /><di:waypoint x="1370" y="530" /><di:waypoint x="1370" y="910" /><di:waypoint x="1389" y="910" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_pruef_G_gw_di" bpmnElement="Flow_G_pruef_G_gw"><di:waypoint x="1521" y="910" /><di:waypoint x="1561" y="910" /><di:waypoint x="1561" y="530" /><di:waypoint x="1600" y="530" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_gw_G_ja_di" bpmnElement="Flow_G_gw_G_ja"><di:waypoint x="1650" y="530" /><di:waypoint x="1729" y="530" /><bpmndi:BPMNLabel><dc:Bounds x="1656" y="513" width="25" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_gw_G_nein_di" bpmnElement="Flow_G_gw_G_nein"><di:waypoint x="1625" y="555" /><di:waypoint x="1625" y="770" /><di:waypoint x="1729" y="770" /><bpmndi:BPMNLabel><dc:Bounds x="1633" y="753" width="38" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_ja_G_gwAbas_di" bpmnElement="Flow_G_ja_G_gwAbas"><di:waypoint x="1861" y="530" /><di:waypoint x="1940" y="530" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_gwAbas_G_abas_di" bpmnElement="Flow_G_gwAbas_G_abas"><di:waypoint x="1965" y="555" /><di:waypoint x="1965" y="650" /><di:waypoint x="2069" y="650" /><bpmndi:BPMNLabel><dc:Bounds x="1973" y="633" width="25" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_gwAbas_G_endJa_di" bpmnElement="Flow_G_gwAbas_G_endJa"><di:waypoint x="1990" y="530" /><di:waypoint x="2457" y="530" /><bpmndi:BPMNLabel><dc:Bounds x="1996" y="513" width="38" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_abas_G_vermerk_di" bpmnElement="Flow_G_abas_G_vermerk"><di:waypoint x="2201" y="650" /><di:waypoint x="2239" y="650" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_vermerk_G_endJa_di" bpmnElement="Flow_G_vermerk_G_endJa"><di:waypoint x="2371" y="650" /><di:waypoint x="2414" y="650" /><di:waypoint x="2414" y="530" /><di:waypoint x="2457" y="530" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_nein_G_neinMail_di" bpmnElement="Flow_G_nein_G_neinMail"><di:waypoint x="1861" y="770" /><di:waypoint x="1899" y="770" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G_neinMail_G_endNein_di" bpmnElement="Flow_G_neinMail_G_endNein"><di:waypoint x="2031" y="770" /><di:waypoint x="2117" y="770" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="GN_ohne_di" bpmnElement="GN_ohne" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="190" y="214" width="150" height="72" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_GN_ohne_di" bpmnElement="Assoc_GN_ohne"><di:waypoint x="417" y="250" /><di:waypoint x="340" y="250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="GN_anf_di" bpmnElement="GN_anf" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="530" y="208" width="220" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_GN_anf_di" bpmnElement="Assoc_GN_anf"><di:waypoint x="775" y="172" /><di:waypoint x="738" y="208" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="GN_send_di" bpmnElement="GN_send" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="1040" y="608" width="300" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_GN_send_di" bpmnElement="Assoc_GN_send"><di:waypoint x="1285" y="572" /><di:waypoint x="1285" y="608" /></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="Definitions_einschaetzung" targetNamespace="https://e-rechnung.dihag-extern.com/bpmn" exporter="DIHAG BPMN-Generator (scripts/bpmn/generate-bpmn.js)" exporterVersion="2.0">
+  <bpmn:collaboration id="Collab_einschaetzung">
+    <bpmn:participant id="P_Ein8" name="Sonstige Rechnung einschätzen (800k-Dialog im Monitoring)" processRef="Process_ERechnung_Einschaetzung" />
+    <bpmn:participant id="P_Lief8" name="Lieferant" />
+    <bpmn:messageFlow id="Msg_E8_send_P_Lief8" name="Ankündigung, Rücksendung oder Akzeptanz" sourceRef="E8_send" targetRef="P_Lief8" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_ERechnung_Einschaetzung" name="E-Rechnung Sonstige Rechnung einschätzen" isExecutable="false">
+    <bpmn:documentation>Für eine sonstige Rechnung (PDF ohne E-Rechnung) klärt die Kreditorenbuchhaltung im 800k-Dialog des Monitorings, ob der Lieferant eine E-Rechnung schicken muss. Ausgenommen sind Kleinbeträge bis 250 € brutto und Lieferanten im Ausland. Sonst schätzt sie den Vorjahresumsatz des Lieferanten gegen die Grenze von 800.000 € ein, und ein Flow schickt die passende Mail aus dem Werks-Postfach. Einschätzung, Bestätigungen und Mailaufträge stehen im Lieferantenregister und in der Liste KreditorMails.
+Eingebunden in: E-Rechnung Rechnungseingang.
+Anwender-Ansicht: https://e-rechnung.dihag-extern.com/prozess.html#eingang
+Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflichten
+[[rms:policies=119]]</bpmn:documentation>
+    <bpmn:laneSet id="LaneSet_P_Ein8">
+      <bpmn:lane id="LM8" name="SharePoint &amp; Monitoring"><bpmn:flowNodeRef>E8_start</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_reg</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_aus</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_vorl</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_auftrag</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_status</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_gwVar</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_endRueck</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_endOk</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="LK8" name="Kreditorenbuchhaltung"><bpmn:flowNodeRef>E8_lief</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_gwKlein</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_klein</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_endKlein</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_gwAus</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_ausBest</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_endAus</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_umsatz</bpmn:flowNodeRef><bpmn:flowNodeRef>E8_mail</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="LP8" name="Power Automate (Werks-Postfach)"><bpmn:flowNodeRef>E8_send</bpmn:flowNodeRef></bpmn:lane>
+    </bpmn:laneSet>
+      <bpmn:startEvent id="E8_start" name="Sonstige Rechnung unter Vorbehalt"><bpmn:outgoing>Flow_E8_start_E8_reg</bpmn:outgoing></bpmn:startEvent>
+      <bpmn:serviceTask id="E8_reg" name="Lieferant im Lieferantenregister nachschlagen"><bpmn:incoming>Flow_E8_start_E8_reg</bpmn:incoming><bpmn:outgoing>Flow_E8_reg_E8_aus</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:serviceTask id="E8_aus" name="Hinweise auf Ausland prüfen (Land im Kopf, IBAN, USt-IdNr.)"><bpmn:incoming>Flow_E8_reg_E8_aus</bpmn:incoming><bpmn:outgoing>Flow_E8_aus_E8_lief</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:userTask id="E8_lief" name="Lieferant prüfen und bestätigen"><bpmn:incoming>Flow_E8_aus_E8_lief</bpmn:incoming><bpmn:outgoing>Flow_E8_lief_E8_gwKlein</bpmn:outgoing></bpmn:userTask>
+      <bpmn:exclusiveGateway id="E8_gwKlein" name="Kleinbetrag bis 250 € brutto?"><bpmn:incoming>Flow_E8_lief_E8_gwKlein</bpmn:incoming><bpmn:outgoing>Flow_E8_gwKlein_E8_klein</bpmn:outgoing><bpmn:outgoing>Flow_E8_gwKlein_E8_gwAus</bpmn:outgoing></bpmn:exclusiveGateway>
+      <bpmn:userTask id="E8_klein" name="Kleinbetrag bestätigen"><bpmn:incoming>Flow_E8_gwKlein_E8_klein</bpmn:incoming><bpmn:outgoing>Flow_E8_klein_E8_endKlein</bpmn:outgoing></bpmn:userTask>
+      <bpmn:endEvent id="E8_endKlein" name="ausgenommen: Kleinbetrag"><bpmn:incoming>Flow_E8_klein_E8_endKlein</bpmn:incoming></bpmn:endEvent>
+      <bpmn:exclusiveGateway id="E8_gwAus" name="Lieferant im Ausland?"><bpmn:incoming>Flow_E8_gwKlein_E8_gwAus</bpmn:incoming><bpmn:outgoing>Flow_E8_gwAus_E8_ausBest</bpmn:outgoing><bpmn:outgoing>Flow_E8_gwAus_E8_umsatz</bpmn:outgoing></bpmn:exclusiveGateway>
+      <bpmn:userTask id="E8_ausBest" name="Ausland bestätigen"><bpmn:incoming>Flow_E8_gwAus_E8_ausBest</bpmn:incoming><bpmn:outgoing>Flow_E8_ausBest_E8_endAus</bpmn:outgoing></bpmn:userTask>
+      <bpmn:endEvent id="E8_endAus" name="ausgenommen: Lieferant im Ausland"><bpmn:incoming>Flow_E8_ausBest_E8_endAus</bpmn:incoming></bpmn:endEvent>
+      <bpmn:userTask id="E8_umsatz" name="Vorjahresumsatz des Lieferanten einschätzen (über oder bis 800.000 €)"><bpmn:incoming>Flow_E8_gwAus_E8_umsatz</bpmn:incoming><bpmn:outgoing>Flow_E8_umsatz_E8_vorl</bpmn:outgoing></bpmn:userTask>
+      <bpmn:serviceTask id="E8_vorl" name="Vorlage nach Rechnungsjahr und Einschätzung vorschlagen"><bpmn:incoming>Flow_E8_umsatz_E8_vorl</bpmn:incoming><bpmn:outgoing>Flow_E8_vorl_E8_mail</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:userTask id="E8_mail" name="Mail prüfen und „Speichern und senden“ wählen"><bpmn:incoming>Flow_E8_vorl_E8_mail</bpmn:incoming><bpmn:outgoing>Flow_E8_mail_E8_auftrag</bpmn:outgoing></bpmn:userTask>
+      <bpmn:serviceTask id="E8_auftrag" name="Mailauftrag in der Liste KreditorMails anlegen"><bpmn:incoming>Flow_E8_mail_E8_auftrag</bpmn:incoming><bpmn:outgoing>Flow_E8_auftrag_E8_send</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:serviceTask id="E8_send" name="Mail aus dem Werks-Postfach senden"><bpmn:incoming>Flow_E8_auftrag_E8_send</bpmn:incoming><bpmn:outgoing>Flow_E8_send_E8_status</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:serviceTask id="E8_status" name="Status setzen, „Lieferant informiert“ an der Rechnung zeigen"><bpmn:incoming>Flow_E8_send_E8_status</bpmn:incoming><bpmn:outgoing>Flow_E8_status_E8_gwVar</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:exclusiveGateway id="E8_gwVar" name="Vorlage Variante 1 (Rücksendung)?"><bpmn:incoming>Flow_E8_status_E8_gwVar</bpmn:incoming><bpmn:outgoing>Flow_E8_gwVar_E8_endRueck</bpmn:outgoing><bpmn:outgoing>Flow_E8_gwVar_E8_endOk</bpmn:outgoing></bpmn:exclusiveGateway>
+      <bpmn:endEvent id="E8_endRueck" name="Rechnung zurückgesandt"><bpmn:incoming>Flow_E8_gwVar_E8_endRueck</bpmn:incoming></bpmn:endEvent>
+      <bpmn:endEvent id="E8_endOk" name="Rechnung angenommen, Lieferant informiert"><bpmn:incoming>Flow_E8_gwVar_E8_endOk</bpmn:incoming></bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_E8_start_E8_reg" sourceRef="E8_start" targetRef="E8_reg" />
+      <bpmn:sequenceFlow id="Flow_E8_reg_E8_aus" sourceRef="E8_reg" targetRef="E8_aus" />
+      <bpmn:sequenceFlow id="Flow_E8_aus_E8_lief" sourceRef="E8_aus" targetRef="E8_lief" />
+      <bpmn:sequenceFlow id="Flow_E8_lief_E8_gwKlein" sourceRef="E8_lief" targetRef="E8_gwKlein" />
+      <bpmn:sequenceFlow id="Flow_E8_gwKlein_E8_klein" sourceRef="E8_gwKlein" targetRef="E8_klein" name="ja" />
+      <bpmn:sequenceFlow id="Flow_E8_klein_E8_endKlein" sourceRef="E8_klein" targetRef="E8_endKlein" />
+      <bpmn:sequenceFlow id="Flow_E8_gwKlein_E8_gwAus" sourceRef="E8_gwKlein" targetRef="E8_gwAus" name="nein" />
+      <bpmn:sequenceFlow id="Flow_E8_gwAus_E8_ausBest" sourceRef="E8_gwAus" targetRef="E8_ausBest" name="ja" />
+      <bpmn:sequenceFlow id="Flow_E8_ausBest_E8_endAus" sourceRef="E8_ausBest" targetRef="E8_endAus" />
+      <bpmn:sequenceFlow id="Flow_E8_gwAus_E8_umsatz" sourceRef="E8_gwAus" targetRef="E8_umsatz" name="nein" />
+      <bpmn:sequenceFlow id="Flow_E8_umsatz_E8_vorl" sourceRef="E8_umsatz" targetRef="E8_vorl" />
+      <bpmn:sequenceFlow id="Flow_E8_vorl_E8_mail" sourceRef="E8_vorl" targetRef="E8_mail" />
+      <bpmn:sequenceFlow id="Flow_E8_mail_E8_auftrag" sourceRef="E8_mail" targetRef="E8_auftrag" />
+      <bpmn:sequenceFlow id="Flow_E8_auftrag_E8_send" sourceRef="E8_auftrag" targetRef="E8_send" />
+      <bpmn:sequenceFlow id="Flow_E8_send_E8_status" sourceRef="E8_send" targetRef="E8_status" />
+      <bpmn:sequenceFlow id="Flow_E8_status_E8_gwVar" sourceRef="E8_status" targetRef="E8_gwVar" />
+      <bpmn:sequenceFlow id="Flow_E8_gwVar_E8_endRueck" sourceRef="E8_gwVar" targetRef="E8_endRueck" name="ja" />
+      <bpmn:sequenceFlow id="Flow_E8_gwVar_E8_endOk" sourceRef="E8_gwVar" targetRef="E8_endOk" name="nein" />
+      <bpmn:textAnnotation id="EN8_aus"><bpmn:text>Aus dem Text der Rechnung, bei Scans per Texterkennung. Die IBAN zählt nur mit gültiger Prüfziffer und hinter „IBAN“.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:association id="Assoc_EN8_aus" associationDirection="None" sourceRef="E8_aus" targetRef="EN8_aus" />
+      <bpmn:textAnnotation id="EN8_vorl"><bpmn:text>Rechnungsjahr 2026: Ankündigung oder Hinweis. 2027: über 800.000 € Variante 1 (Rücksendung), bis 800.000 € Variante 2 (Akzeptanz). Ab 2028 gilt die Pflicht für alle.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:association id="Assoc_EN8_vorl" associationDirection="None" sourceRef="E8_mail" targetRef="EN8_vorl" />
+      <bpmn:textAnnotation id="EN8_send"><bpmn:text>Flow „Kreditor-Mail senden“. Das Postfach je Werk steht im Flow, nicht in der Liste.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:association id="Assoc_EN8_send" associationDirection="None" sourceRef="E8_send" targetRef="EN8_send" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_einschaetzung">
+    <bpmndi:BPMNPlane id="Plane_einschaetzung" bpmnElement="Collab_einschaetzung">
+      <bpmndi:BPMNShape id="P_Ein8_di" bpmnElement="P_Ein8" isHorizontal="true" bioc:stroke="#1A2644" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1A2644"><dc:Bounds x="100" y="60" width="2490" height="900" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="LM8_di" bpmnElement="LM8" isHorizontal="true" bioc:stroke="#0F766E" bioc:fill="#F1FAF8" color:background-color="#F1FAF8" color:border-color="#0F766E"><dc:Bounds x="130" y="60" width="2460" height="260" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="LK8_di" bpmnElement="LK8" isHorizontal="true" bioc:stroke="#C2410C" bioc:fill="#FFF8F1" color:background-color="#FFF8F1" color:border-color="#C2410C"><dc:Bounds x="130" y="320" width="2460" height="380" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="LP8_di" bpmnElement="LP8" isHorizontal="true" bioc:stroke="#17509E" bioc:fill="#F3F8FE" color:background-color="#F3F8FE" color:border-color="#17509E"><dc:Bounds x="130" y="700" width="2460" height="260" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="P_Lief8_di" bpmnElement="P_Lief8" isHorizontal="true" bioc:stroke="#5B6472" bioc:fill="#F6F7F9" color:background-color="#F6F7F9" color:border-color="#5B6472"><dc:Bounds x="100" y="1030" width="2490" height="70" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_start_di" bpmnElement="E8_start" bioc:stroke="#1E7B3A" bioc:fill="#DDF3E4" color:background-color="#DDF3E4" color:border-color="#1E7B3A"><dc:Bounds x="247" y="112" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="205" y="153" width="120" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_reg_di" bpmnElement="E8_reg" bioc:stroke="#0F766E" bioc:fill="#D2EEE8" color:background-color="#D2EEE8" color:border-color="#0F766E"><dc:Bounds x="369" y="88" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_aus_di" bpmnElement="E8_aus" bioc:stroke="#0F766E" bioc:fill="#D2EEE8" color:background-color="#D2EEE8" color:border-color="#0F766E"><dc:Bounds x="539" y="88" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_lief_di" bpmnElement="E8_lief" bioc:stroke="#C2410C" bioc:fill="#FFE3C8" color:background-color="#FFE3C8" color:border-color="#C2410C"><dc:Bounds x="709" y="348" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_gwKlein_di" bpmnElement="E8_gwKlein" isMarkerVisible="true" bioc:stroke="#8A6100" bioc:fill="#FFF8DB" color:background-color="#FFF8DB" color:border-color="#8A6100"><dc:Bounds x="920" y="365" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="845" y="333" width="96" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_klein_di" bpmnElement="E8_klein" bioc:stroke="#C2410C" bioc:fill="#FFE3C8" color:background-color="#FFE3C8" color:border-color="#C2410C"><dc:Bounds x="879" y="468" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_endKlein_di" bpmnElement="E8_endKlein" bioc:stroke="#1E7B3A" bioc:fill="#DDF3E4" color:background-color="#DDF3E4" color:border-color="#1E7B3A"><dc:Bounds x="927" y="612" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="885" y="653" width="120" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_gwAus_di" bpmnElement="E8_gwAus" isMarkerVisible="true" bioc:stroke="#8A6100" bioc:fill="#FFF8DB" color:background-color="#FFF8DB" color:border-color="#8A6100"><dc:Bounds x="1090" y="365" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="1015" y="333" width="96" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_ausBest_di" bpmnElement="E8_ausBest" bioc:stroke="#C2410C" bioc:fill="#FFE3C8" color:background-color="#FFE3C8" color:border-color="#C2410C"><dc:Bounds x="1049" y="468" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_endAus_di" bpmnElement="E8_endAus" bioc:stroke="#1E7B3A" bioc:fill="#DDF3E4" color:background-color="#DDF3E4" color:border-color="#1E7B3A"><dc:Bounds x="1097" y="612" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1055" y="653" width="120" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_umsatz_di" bpmnElement="E8_umsatz" bioc:stroke="#C2410C" bioc:fill="#FFE3C8" color:background-color="#FFE3C8" color:border-color="#C2410C"><dc:Bounds x="1219" y="348" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_vorl_di" bpmnElement="E8_vorl" bioc:stroke="#0F766E" bioc:fill="#D2EEE8" color:background-color="#D2EEE8" color:border-color="#0F766E"><dc:Bounds x="1389" y="88" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_mail_di" bpmnElement="E8_mail" bioc:stroke="#C2410C" bioc:fill="#FFE3C8" color:background-color="#FFE3C8" color:border-color="#C2410C"><dc:Bounds x="1559" y="348" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_auftrag_di" bpmnElement="E8_auftrag" bioc:stroke="#0F766E" bioc:fill="#D2EEE8" color:background-color="#D2EEE8" color:border-color="#0F766E"><dc:Bounds x="1729" y="88" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_send_di" bpmnElement="E8_send" bioc:stroke="#17509E" bioc:fill="#D8E8F8" color:background-color="#D8E8F8" color:border-color="#17509E"><dc:Bounds x="1899" y="728" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_status_di" bpmnElement="E8_status" bioc:stroke="#0F766E" bioc:fill="#D2EEE8" color:background-color="#D2EEE8" color:border-color="#0F766E"><dc:Bounds x="2069" y="88" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_gwVar_di" bpmnElement="E8_gwVar" isMarkerVisible="true" bioc:stroke="#8A6100" bioc:fill="#FFF8DB" color:background-color="#FFF8DB" color:border-color="#8A6100"><dc:Bounds x="2280" y="105" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="2205" y="60" width="96" height="41" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_endRueck_di" bpmnElement="E8_endRueck" bioc:stroke="#A65F00" bioc:fill="#FFF1CC" color:background-color="#FFF1CC" color:border-color="#A65F00"><dc:Bounds x="2457" y="232" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2415" y="273" width="120" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E8_endOk_di" bpmnElement="E8_endOk" bioc:stroke="#1E7B3A" bioc:fill="#DDF3E4" color:background-color="#DDF3E4" color:border-color="#1E7B3A"><dc:Bounds x="2457" y="112" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2415" y="153" width="120" height="41" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_E8_start_E8_reg_di" bpmnElement="Flow_E8_start_E8_reg"><di:waypoint x="283" y="130" /><di:waypoint x="369" y="130" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_reg_E8_aus_di" bpmnElement="Flow_E8_reg_E8_aus"><di:waypoint x="501" y="130" /><di:waypoint x="539" y="130" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_aus_E8_lief_di" bpmnElement="Flow_E8_aus_E8_lief"><di:waypoint x="671" y="130" /><di:waypoint x="690" y="130" /><di:waypoint x="690" y="390" /><di:waypoint x="709" y="390" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_lief_E8_gwKlein_di" bpmnElement="Flow_E8_lief_E8_gwKlein"><di:waypoint x="841" y="390" /><di:waypoint x="920" y="390" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_gwKlein_E8_klein_di" bpmnElement="Flow_E8_gwKlein_E8_klein"><di:waypoint x="945" y="415" /><di:waypoint x="945" y="468" /><bpmndi:BPMNLabel><dc:Bounds x="951" y="435" width="25" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_klein_E8_endKlein_di" bpmnElement="Flow_E8_klein_E8_endKlein"><di:waypoint x="945" y="552" /><di:waypoint x="945" y="612" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_gwKlein_E8_gwAus_di" bpmnElement="Flow_E8_gwKlein_E8_gwAus"><di:waypoint x="970" y="390" /><di:waypoint x="1090" y="390" /><bpmndi:BPMNLabel><dc:Bounds x="976" y="373" width="38" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_gwAus_E8_ausBest_di" bpmnElement="Flow_E8_gwAus_E8_ausBest"><di:waypoint x="1115" y="415" /><di:waypoint x="1115" y="468" /><bpmndi:BPMNLabel><dc:Bounds x="1121" y="435" width="25" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_ausBest_E8_endAus_di" bpmnElement="Flow_E8_ausBest_E8_endAus"><di:waypoint x="1115" y="552" /><di:waypoint x="1115" y="612" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_gwAus_E8_umsatz_di" bpmnElement="Flow_E8_gwAus_E8_umsatz"><di:waypoint x="1140" y="390" /><di:waypoint x="1219" y="390" /><bpmndi:BPMNLabel><dc:Bounds x="1146" y="373" width="38" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_umsatz_E8_vorl_di" bpmnElement="Flow_E8_umsatz_E8_vorl"><di:waypoint x="1351" y="390" /><di:waypoint x="1370" y="390" /><di:waypoint x="1370" y="130" /><di:waypoint x="1389" y="130" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_vorl_E8_mail_di" bpmnElement="Flow_E8_vorl_E8_mail"><di:waypoint x="1521" y="130" /><di:waypoint x="1540" y="130" /><di:waypoint x="1540" y="390" /><di:waypoint x="1559" y="390" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_mail_E8_auftrag_di" bpmnElement="Flow_E8_mail_E8_auftrag"><di:waypoint x="1691" y="390" /><di:waypoint x="1710" y="390" /><di:waypoint x="1710" y="130" /><di:waypoint x="1729" y="130" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_auftrag_E8_send_di" bpmnElement="Flow_E8_auftrag_E8_send"><di:waypoint x="1861" y="130" /><di:waypoint x="1880" y="130" /><di:waypoint x="1880" y="770" /><di:waypoint x="1899" y="770" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_send_E8_status_di" bpmnElement="Flow_E8_send_E8_status"><di:waypoint x="2031" y="770" /><di:waypoint x="2050" y="770" /><di:waypoint x="2050" y="130" /><di:waypoint x="2069" y="130" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_status_E8_gwVar_di" bpmnElement="Flow_E8_status_E8_gwVar"><di:waypoint x="2201" y="130" /><di:waypoint x="2280" y="130" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_gwVar_E8_endRueck_di" bpmnElement="Flow_E8_gwVar_E8_endRueck"><di:waypoint x="2305" y="155" /><di:waypoint x="2305" y="250" /><di:waypoint x="2457" y="250" /><bpmndi:BPMNLabel><dc:Bounds x="2313" y="233" width="25" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E8_gwVar_E8_endOk_di" bpmnElement="Flow_E8_gwVar_E8_endOk"><di:waypoint x="2330" y="130" /><di:waypoint x="2457" y="130" /><bpmndi:BPMNLabel><dc:Bounds x="2336" y="113" width="38" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="EN8_aus_di" bpmnElement="EN8_aus" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="360" y="214" width="300" height="72" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_EN8_aus_di" bpmnElement="Assoc_EN8_aus"><di:waypoint x="605" y="172" /><di:waypoint x="605" y="214" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="EN8_vorl_di" bpmnElement="EN8_vorl" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="1210" y="462" width="320" height="96" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_EN8_vorl_di" bpmnElement="Assoc_EN8_vorl"><di:waypoint x="1625" y="432" /><di:waypoint x="1518" y="462" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="EN8_send_di" bpmnElement="EN8_send" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="2060" y="859" width="280" height="62" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_EN8_send_di" bpmnElement="Assoc_EN8_send"><di:waypoint x="1965" y="812" /><di:waypoint x="2072" y="859" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Msg_E8_send_P_Lief8_di" bpmnElement="Msg_E8_send_P_Lief8"><di:waypoint x="1965" y="812" /><di:waypoint x="1965" y="1030" /><bpmndi:BPMNLabel><dc:Bounds x="1973" y="981" width="170" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

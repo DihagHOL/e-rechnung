@@ -207,14 +207,14 @@
         <button type="button" class="pmap-row" data-go="eingang">
           <span class="pmap-ext"><b>🚚</b>Lieferant</span>
           <span class="pmap-arrow">➜</span>
-          <span class="pmap-core in"><h4>📥 Rechnungseingang</h4><p>Postfach je Werk, automatische Prüfung, Ablage in ERAR_&lt;Werk&gt;, Buchungsweg für die Buchhaltung</p></span>
+          <span class="pmap-core in"><h4>📥 Rechnungseingang</h4><p>Postfach je Werk, automatische Prüfung, Ablage in ERAR_&lt;Werk&gt;, Einschätzung und Freigabe im Monitoring</p></span>
           <span class="pmap-arrow">➜</span>
           <span class="pmap-ext"><b>📒</b>Kreditorenbuchhaltung</span>
         </button>
         <button type="button" class="pmap-row" data-go="ausgang">
           <span class="pmap-ext"><b>🧾</b>Vertrieb / ERP</span>
           <span class="pmap-arrow">➜</span>
-          <span class="pmap-core out"><h4>📤 Rechnungsausgang</h4><p>PDF in den Konverter, Daten prüfen, ZUGFeRD oder XRechnung erzeugen, Ablage in AR_&lt;Werk&gt;</p></span>
+          <span class="pmap-core out"><h4>📤 Rechnungsausgang</h4><p>PDF aus dem ERP oder Rechnung aus einer Vorlage, Daten prüfen, ZUGFeRD oder XRechnung erzeugen, Ablage in AR_&lt;Werk&gt;</p></span>
           <span class="pmap-arrow">➜</span>
           <span class="pmap-ext"><b>🏢</b>Kunde</span>
         </button>
@@ -226,7 +226,8 @@
           <span class="pmap-ext"><b>🏛️</b>Hausbank</span>
         </button>
         <div class="pmap-base">🗄️ <strong>Überall dabei:</strong> SharePoint-Ablage je Werk, GoBD-Aufbewahrung und das
-          <a href="monitoring.html">Monitoring</a> mit Filtern, Dubletten und Fälligkeiten.</div>
+          <a href="monitoring.html">Monitoring</a> mit Filtern, Dubletten und Fälligkeiten. Was jemand sieht, regeln Werk und
+          Rolle: FIBU sieht Ein- und Ausgang, Vertrieb nur den Ausgang.</div>
       </div>
     </div>
   </div>
@@ -244,7 +245,7 @@
           <span class="chip a-auto">Postfach &amp; Power Automate</span>
           <span class="chip a-api">Prüfdienst (Azure)</span>
           <span class="chip a-archiv">SharePoint &amp; Monitoring</span>
-          <span class="chip a-mensch">Menschen: Buchhaltung, Vertrieb, Treasury</span>
+          <span class="chip a-mensch">Menschen: Buchhaltung, Genehmiger, Vertrieb, Treasury</span>
           <span class="chip a-app">Browser-Apps</span>
           <span class="chip a-erp">ERP, MultiCash, Versand</span>
           <span class="chip a-extern">Extern: Lieferant, Kunde, Bank</span>
@@ -292,7 +293,8 @@
           <h2>📥 Rechnungseingang</h2>
           <p class="proc-lead">Lieferanten schicken Rechnungen an das Postfach ihres Werks. Ein Power-Automate-Flow
             gibt jeden PDF- oder XML-Anhang an den Prüfdienst, legt das Ergebnis GoBD-sicher in SharePoint ab
-            und sagt der Buchhaltung, wie gebucht wird.</p>
+            und sagt der Buchhaltung, wie gebucht wird. Im Monitoring schätzt die Buchhaltung sonstige
+            Rechnungen ein und holt die Freigabe ein.</p>
         </div>
         <div class="bpmn-actions" data-actions="eingang"></div>
       </div>
@@ -305,14 +307,14 @@
         <div>
           <h4 class="box-title">Schritt für Schritt</h4>
           <ol class="steps">
-            <li><span class="chip a-extern">Lieferant</span>schickt die Rechnung an das Rechnungspostfach seines Werks. Damit steht das Werk schon fest. Jedes Werk hat einen eigenen Flow, heute WGC und ZAI.</li>
-            <li><span class="chip a-auto">Power Automate</span>schaut sich jede neue Mail an. Bei ZAI kommt zuerst der Schleifenschutz: Eine Mail vom eigenen Postfach ist eine Archiv-Mail und wird nur in den Unterordner „Verarbeitet“ gelegt. Alle anderen Mails laufen weiter, und zwar für jeden PDF- und XML-Anhang einzeln.</li>
-            <li><span class="chip a-api">Prüfdienst</span>erkennt die Art (ZUGFeRD, XRechnung oder sonstige Rechnung), prüft mit Mustang oder KoSIT, liest die Kopfdaten und wendet das 8-Punkte-Regelwerk an. Bei einer PDF ohne XML liest er Lieferant, USt-IdNr., Nummer und Datum aus dem Text. Heraus kommen der Buchungsweg, Prüf-Flags, ein Prüfbericht und bei Bedarf ein lesbares PDF.</li>
-            <li><span class="chip a-archiv">SharePoint</span>bekommt das Original in ERAR_&lt;Werk&gt;. Der Dateiname aus Rechnungsnummer und USt-IdNr verhindert, dass sich zwei Lieferanten gegenseitig überschreiben. Daneben liegen lesbares PDF, Prüfbericht und XML, alle Metadaten sind gesetzt.</li>
-            <li><span class="chip a-auto">Power Automate</span>meldet rote Ergebnisse oder ein falsches Werk an die Werks-Adresse aus den Einstellungen.</li>
-            <li><span class="chip a-auto">Power Automate</span>übergibt an die Buchhaltung des Werks. WGC legt einen Eintrag in der Eingangsrechnungsliste auf gruppe_wgc an und hängt Original und lesbares PDF an. ZAI schickt die lesbare Fassung als Archiv-Mail ins eigene Postfach und verschiebt die Original-Mail nach „Verarbeitet“.</li>
-            <li><span class="chip a-mensch">Buchhaltung</span>arbeitet nach dem Buchungsweg aus der Tabelle rechts. Bei einer sonstigen Rechnung schätzt sie im Monitoring ein, ob der Lieferant über oder bis 800.000 € Umsatz liegt, und nimmt die passende Mailvorlage. Berichtigung, Rückfrage oder Zurückweisung gehen per Kreditor-Mail an den Lieferanten.</li>
-            <li><span class="chip a-archiv">Monitoring</span>zeigt alles auf einen Blick: Kennzahlen, Schnellfilter, Dubletten, überfällige Rechnungen und offene 800k-Einschätzungen.</li>
+            <li><span class="chip a-extern">Lieferant</span>schickt die Rechnung an das Rechnungspostfach seines Werks. Damit steht das Werk schon fest. Jedes Werk hat einen eigenen Flow, heute WGC, ZAI, HOL, LEG und EWA.</li>
+            <li><span class="chip a-auto">Power Automate</span>schaut sich jede neue Mail an. Steht „[ARCHIV]“ im Betreff, ist es die eigene Archiv-Mail. Sie kommt nur in den Ordner „ArchiviertUndGeprueft“. Alle anderen Mails laufen weiter, für jeden PDF- und XML-Anhang einzeln.</li>
+            <li><span class="chip a-api">Prüfdienst</span>erkennt die Art (ZUGFeRD, XRechnung oder sonstige Rechnung), prüft mit Mustang oder KoSIT, liest die Kopfdaten und wendet das Regelwerk an. Rot wird zurückgewiesen, gelb unter Vorbehalt gebucht. Bei einer PDF ohne XML liest er Lieferant, USt-IdNr., Nummer und Datum aus dem Text. Heraus kommen der Buchungsweg, Prüf-Flags, ein Prüfbericht und bei Bedarf ein lesbares PDF.</li>
+            <li><span class="chip a-archiv">SharePoint</span>bekommt das Original in ERAR_&lt;Werk&gt;. Der Dateiname aus Rechnungsnummer und USt-IdNr verhindert, dass sich zwei Lieferanten gegenseitig überschreiben. Daneben liegen lesbares PDF, Prüfbericht und XML. Alle Anhänge einer Mail tragen dieselbe Vorgangskennung, das Monitoring zeigt sie als einen Vorgang.</li>
+            <li><span class="chip a-auto">Power Automate</span>meldet rote Ergebnisse oder ein falsches Werk an die Werks-Adresse aus den Einstellungen. Die Mail an den Lieferanten bei Zurückweisung oder Abweichung ist eingebaut, der Schalter „Lieferantenmails“ steht aber noch auf aus.</li>
+            <li><span class="chip a-auto">Power Automate</span>übergibt an die Buchhaltung des Werks. WGC legt bis zur Umstellung auf das Monitoring einen Eintrag in der Eingangsrechnungsliste auf gruppe_wgc an. ZAI, HOL, LEG und EWA schicken eine Archiv-Mail ins eigene Postfach. HOL, LEG und EWA schicken eine je E-Rechnung, die übrigen PDFs der Mail kommen mit. Die Originalmail bleibt im Posteingang.</li>
+            <li><span class="chip a-mensch">Buchhaltung</span>prüft die Rechnung im Monitoring, markiert sie als geprüft und folgt dem Buchungsweg aus der Tabelle rechts. Sonstige Rechnungen schätzt sie ein, Rechnungen zum Buchen gibt sie frei. Beides steht weiter unten.</li>
+            <li><span class="chip a-archiv">Monitoring</span>zeigt alles auf einen Blick: Kennzahlen, Schnellfilter, Dubletten, überfällige Rechnungen, offene Einschätzungen und Genehmigungen. Jeder sieht nur die Werke, die ihm zugewiesen sind.</li>
           </ol>
         </div>
         <div class="side-box">
@@ -320,12 +322,61 @@
           <table class="rules">
             <tr><td><span class="chip t-ok">Automatik</span></td><td>Echte E-Rechnung, Prüfung grün, normaler Inlandsumsatz. Direkt aus der XML buchen.</td></tr>
             <tr><td><span class="chip t-man">Manuell</span></td><td>Reverse-Charge, innergemeinschaftlich, Ausfuhr, steuerfrei oder nicht steuerbar (AE, K, G, E, O). Erst Vier-Augen-Prüfung, dann buchen.</td></tr>
-            <tr><td><span class="chip t-warn">Unter Vorbehalt</span></td><td>PDF ohne E-Rechnung, fremde XML wie openTRANS oder PDF/A-3 fehlt. Im Monitoring über oder bis 800.000 € einschätzen. Ab 2027 gilt dann Variante 1 (Rücksendung, E-Rechnung anfordern) oder Variante 2 (Akzeptanz, Hinweis auf 2028). Außerdem E-Rechnungen mit Warnungen (gelb): gültig, aber vor dem Buchen ansehen.</td></tr>
+            <tr><td><span class="chip t-warn">Unter Vorbehalt</span></td><td>PDF ohne E-Rechnung, fremde XML wie openTRANS oder PDF/A-3 fehlt. Im Monitoring einschätzen, siehe unten. Außerdem E-Rechnungen mit Warnungen (gelb): gültig, aber vor dem Buchen ansehen.</td></tr>
             <tr><td><span class="chip t-err">Zurückgewiesen</span></td><td>Profil MINIMUM oder BASIC-WL, oder die Prüfung ist rot, zum Beispiel weil die Summen nicht zusammenpassen. Das ist keine gültige E-Rechnung, also nicht buchen und eine korrigierte anfordern.</td></tr>
             <tr><td><span class="chip t-warn">Rückfrage</span></td><td>Das sichtbare PDF weicht bei Steuer, Betrag oder Nummer von der XML ab. Gebucht wird aus der XML, der Lieferant bekommt eine Rückfrage.</td></tr>
             <tr><td><span class="chip t-plan">Nur Hinweis</span></td><td>Rein formale Fehler, etwa eine fehlende Leitweg-ID. Kein Abwerten, nur ein Vermerk im Monitoring.</td></tr>
           </table>
           <p class="note">Das Regelwerk folgt der steuerlichen Einordnung nach UStAE und GoBD. Details stehen in der Verfahrensdokumentation.</p>
+        </div>
+      </div>
+
+      <div class="steps-wrap" id="einschaetzung">
+        <div>
+          <h4 class="box-title">⊞ Sonstige Rechnung einschätzen (800k-Dialog im Monitoring)</h4>
+          <ol class="steps">
+            <li><span class="chip a-archiv">Monitoring</span>schlägt den Lieferanten im Lieferantenregister nach und sucht Hinweise auf das Ausland: Land in der Anschrift im Kopf, IBAN eines anderen Landes, ausländische USt-IdNr. Bei Scans liest es den Text per Texterkennung.</li>
+            <li><span class="chip a-mensch">Buchhaltung</span>prüft den Lieferanten und bestätigt ihn. Bestätigte Lieferanten tragen in der Tabelle ein grünes ✓.</li>
+            <li><span class="chip a-mensch">Buchhaltung</span>bestätigt einen Kleinbetrag bis 250 € brutto oder einen Lieferanten im Ausland. Dann braucht es keine E-Rechnung und keine Mail.</li>
+            <li><span class="chip a-mensch">Buchhaltung</span>schätzt sonst den Vorjahresumsatz des Lieferanten ein, über oder bis 800.000 €. Das Monitoring schlägt die passende Vorlage vor.</li>
+            <li><span class="chip a-mensch">Buchhaltung</span>prüft die Mail und wählt „Speichern und senden“. Der Auftrag landet in der Liste KreditorMails.</li>
+            <li><span class="chip a-auto">Power Automate</span>schickt die Mail aus dem Postfach des Werks. An der Rechnung steht danach „Lieferant informiert“.</li>
+          </ol>
+        </div>
+        <div class="side-box">
+          <h4 class="box-title">Welche Vorlage?</h4>
+          <table class="rules">
+            <tr><td><span class="chip t-ok">Ausgenommen</span></td><td>Kleinbetrag bis 250 € brutto oder Lieferant im Ausland. Keine Mail.</td></tr>
+            <tr><td><span class="chip t-plan">Rechnung 2026</span></td><td>Ankündigung bzw. Hinweis. Bis Ende 2026 darf jeder Lieferant noch PDF schicken.</td></tr>
+            <tr><td><span class="chip t-err">2027, über 800.000 €</span></td><td>Variante 1, Rücksendung. Die PDF wird nicht als Eingangsrechnung angenommen, der Lieferant schickt eine E-Rechnung.</td></tr>
+            <tr><td><span class="chip t-warn">2027, bis 800.000 €</span></td><td>Variante 2, Akzeptanz. Die Rechnung wird gebucht, der Lieferant bekommt den Hinweis auf 2028.</td></tr>
+            <tr><td><span class="chip t-err">ab 2028</span></td><td>Pflicht für alle. Eine PDF reicht dann nicht mehr.</td></tr>
+          </table>
+          <p class="note">Einschätzung und Bestätigungen gelten je Lieferant und stehen im Lieferantenregister. Rückfragen und Zurückweisungen schickt die Buchhaltung heute selbst.</p>
+        </div>
+      </div>
+
+      <div class="steps-wrap" id="freigabe">
+        <div>
+          <h4 class="box-title">⊞ Eingangsrechnung freigeben (Genehmigung)</h4>
+          <ol class="steps">
+            <li><span class="chip a-mensch">Buchhaltung</span>trägt im Monitoring unter „Bearbeiten“ Varialnummer, Kontierung und Bestellnummer ein.</li>
+            <li><span class="chip a-mensch">Buchhaltung</span>wählt den Genehmiger, schreibt einen Kommentar und fordert die Genehmigung an. Die Rechnung steht dann auf „In Genehmigung“.</li>
+            <li><span class="chip a-auto">Power Automate</span>schickt die Genehmigung mit dem PDF an den Genehmiger. Dafür gibt es einen Flow je Werk.</li>
+            <li><span class="chip a-mensch">Genehmiger</span>genehmigt oder lehnt ab, in Teams oder per Mail.</li>
+            <li><span class="chip a-auto">Power Automate</span>schreibt Antwort, Name und Zeitpunkt an die Rechnung. Bei Genehmigung geht auf Wunsch eine Info mit PDF an die Adresse zum Austragen im abas, bei Ablehnung eine Mail an den, der angefordert hat.</li>
+            <li><span class="chip a-mensch">Buchhaltung</span>bucht die genehmigte Rechnung. Eine abgelehnte klärt sie mit dem Genehmiger.</li>
+          </ol>
+        </div>
+        <div class="side-box">
+          <h4 class="box-title">Gut zu wissen</h4>
+          <table class="rules">
+            <tr><td><span class="chip t-ok">Je Werk</span></td><td>Bearbeiten und Freigabe stellt der Admin je Werk ein. ZAI bucht ohne Freigabe.</td></tr>
+            <tr><td><span class="chip t-gate">Mehrere</span></td><td>Genehmiger mit „;“ trennen. Die erste Antwort gilt.</td></tr>
+            <tr><td><span class="chip a-auto">abas</span></td><td>Die Adresse ist je Werk vorbelegt. Eine andere gilt nur für diese Rechnung.</td></tr>
+            <tr><td><span class="chip t-warn">30 Tage</span></td><td>So lange wartet eine Genehmigung. Danach muss sie neu angefordert werden.</td></tr>
+          </table>
+          <p class="note">Das Monitoring löst damit die Eingangsrechnungsliste auf gruppe_wgc ab. Anleitung: Genehmigung im Monitoring.</p>
         </div>
       </div>
     </section>
@@ -335,9 +386,9 @@
       <div class="bpmn-head">
         <div>
           <h2>📤 Rechnungsausgang</h2>
-          <p class="proc-lead">Ausgangsrechnungen entstehen im ERP als PDF. SAP-Werke senden über EDIzone, alle anderen
-            machen daraus im Konverter eine E-Rechnung. Das Tool prüft vor und nach dem Erzeugen und legt alles
-            mit Prüfpfad ab.</p>
+          <p class="proc-lead">Ausgangsrechnungen entstehen im ERP als PDF oder im Reiter „Manuelle Rechnung“ aus einer
+            Vorlage. Der Konverter macht daraus eine E-Rechnung, prüft vor und nach dem Erzeugen und legt alles
+            mit Prüfpfad ab. Werke, die über EDIzone senden, haben einen eigenen SAP-Prozess.</p>
         </div>
         <div class="bpmn-actions" data-actions="ausgang"></div>
       </div>
@@ -350,12 +401,13 @@
         <div>
           <h4 class="box-title">Schritt für Schritt</h4>
           <ol class="steps">
-            <li><span class="chip a-erp">Versand</span>bucht den Warenausgang.</li>
-            <li><span class="chip a-mensch">Vertrieb</span>legt die Faktura im ERP an und erzeugt das PDF. SAP-Werke senden über EDIzone, das ist ein eigener Prozess.</li>
-            <li><span class="chip a-app">Konverter</span>bekommt das PDF. Er erkennt Werk und Layout (WGC, SHB, ZAI), liest die Felder aus, bei Scans per Texterkennung, und sperrt die Verkäufer-Stammdaten.</li>
-            <li><span class="chip a-mensch">Vertrieb</span>prüft und ergänzt die Daten. Bei Kunden im EU-Ausland läuft eine qualifizierte USt-IdNr-Prüfung beim BZSt. Dann das Format wählen: ZUGFeRD als Standard, XRechnung für öffentliche Auftraggeber.</li>
-            <li><span class="chip a-app">Konverter</span>prüft vor dem Erzeugen Pflichtfelder, IBAN, Summen und den Abgleich mit dem Original. Danach liest er die XML zurück und vergleicht sie (Selbstprüfung). Bei einem Fehler geht es zurück zur Korrektur.</li>
-            <li><span class="chip a-archiv">SharePoint</span>bekommt E-Rechnung, lesbares PDF und Prüfpfad (Hash, Änderungen, Prüfer) in AR_&lt;Werk&gt;.</li>
+            <li><span class="chip a-erp">Versand</span>bucht den Warenausgang, wenn Ware geliefert wird.</li>
+            <li><span class="chip a-mensch">Vertrieb</span>legt die Faktura im ERP an und erzeugt das PDF. Werke, die über EDIzone senden, haben einen eigenen SAP-Prozess. EIS, EWA und LEG drucken aus SAP und nutzen den Konverter.</li>
+            <li><span class="chip a-mensch">Vertrieb</span>legt Rechnungen ohne ERP im Reiter „Manuelle Rechnung“ aus einer Vorlage an, zum Beispiel Umlagen und Weiterbelastungen bei HOL und EIS. Die Nummer kommt aus dem Nummernkreis des Werks.</li>
+            <li><span class="chip a-app">Konverter</span>bekommt das PDF. Er erkennt Werk und Layout (WGC, SHB, ZAI, EIS, EWA, LEG, MEG), liest die Felder aus, bei Scans per Texterkennung, sperrt die Verkäufer-Stammdaten und schlägt die gemerkte Rechnungsadresse des Kunden vor.</li>
+            <li><span class="chip a-mensch">Vertrieb</span>prüft und ergänzt die Daten, etwa Belegart und Zahlungsart. Bei Kunden im EU-Ausland läuft eine qualifizierte USt-IdNr-Prüfung beim BZSt. Dann das Format wählen: ZUGFeRD als Standard, XRechnung für öffentliche Auftraggeber.</li>
+            <li><span class="chip a-app">Konverter</span>prüft vor dem Erzeugen Pflichtfelder, IBAN, Summen und den Abgleich mit dem Original. EIS, EWA und LEG fragen bei Kunden im Ausland nach, ob statt der E-Rechnung das PDF gehen soll. Danach liest der Konverter die XML zurück und vergleicht sie (Selbstprüfung). Bei einem Fehler geht es zurück zur Korrektur.</li>
+            <li><span class="chip a-archiv">SharePoint</span>bekommt E-Rechnung, lesbares PDF und Prüfpfad (Hash, Änderungen, Prüfer) in AR_&lt;Werk&gt;. Ablegen kann, wer im Werk FIBU oder Vertrieb ist.</li>
             <li><span class="chip a-mensch">Vertrieb</span>erstellt den Mail-Entwurf direkt im Tool und schickt die Rechnung an den Kunden.</li>
           </ol>
         </div>
@@ -365,7 +417,8 @@
             <tr><td><span class="chip t-err">Stopp</span></td><td>IBAN-Prüfziffer falsch, Gesamtbetrag nicht plausibel, Netto plus MwSt ergibt nicht Brutto.</td></tr>
             <tr><td><span class="chip t-warn">Warnung</span></td><td>Werte fehlen im Original-PDF oder die USt-IdNr sieht ungewöhnlich aus. Du entscheidest: fortfahren oder abbrechen.</td></tr>
             <tr><td><span class="chip t-err">Selbstprüfung</span></td><td>Weicht die erzeugte XML von der Anzeige ab, entsteht keine Datei.</td></tr>
-            <tr><td><span class="chip t-ok">Standard</span></td><td>Das PDF wird aus den Rechnungsdaten erzeugt. So sind PDF und XML garantiert gleich und PDF/A-3b-konform.</td></tr>
+            <tr><td><span class="chip t-warn">Ausland</span></td><td>EIS, EWA und LEG senden E-Rechnungen nur an Kunden im Inland. Sonst fragt das Tool nach, bei EIS ins Drittland geht das PDF unterschrieben.</td></tr>
+            <tr><td><span class="chip t-ok">Standard</span></td><td>Das PDF wird aus den Rechnungsdaten erzeugt. So sind PDF und XML garantiert gleich und PDF/A-3b-konform. Im Inland im ZUGFeRD-Profil XRECHNUNG, ins Ausland EN 16931.</td></tr>
           </table>
           <p class="note">Die Konformität des Generators prüfen KoSIT, veraPDF und Mustang bei jeder Änderung automatisch.</p>
         </div>
@@ -424,7 +477,7 @@
     <div class="card-body">
       <div class="law">
         <div class="t-ok"><b>Empfang</b>Seit 01.01.2025 muss jedes Unternehmen E-Rechnungen empfangen können.</div>
-        <div class="t-warn"><b>Ausstellung</b>Bis 31.12.2026 sind sonstige Rechnungen noch erlaubt. Bis 31.12.2027 gilt das für Unternehmen mit höchstens 800.000 € Vorjahresumsatz. Ab 01.01.2028 nur noch E-Rechnungen.</div>
+        <div class="t-warn"><b>Ausstellung</b>Bis 31.12.2026 sind sonstige Rechnungen noch erlaubt. Bis 31.12.2027 gilt das für Unternehmen mit höchstens 800.000 € Vorjahresumsatz. Ab 01.01.2028 nur noch E-Rechnungen. Ausgenommen sind Kleinbetragsrechnungen bis 250 € brutto.</div>
         <div class="a-auto"><b>ZUGFeRD</b>Die XML ist maßgeblich (BMF-Schreiben vom 15.10.2024). Weicht das sichtbare PDF ab, gilt die XML.</div>
         <div class="a-archiv"><b>Aufbewahrung</b>Rechnungen sind Buchungsbelege und werden GoBD-konform 8 Jahre aufbewahrt, unveränderbar über ein Purview-Label.</div>
       </div>
@@ -445,6 +498,8 @@
           <li><strong>Eingangsprüfung</strong> mit Mustang und KoSIT, Prüfbericht als Nachweis.</li>
           <li><strong>Dublettenschutz</strong> über Dateiname aus Nummer und USt-IdNr.</li>
           <li><strong>Prüfpfad</strong> je Export: Hash, Änderungen, Prüfer.</li>
+          <li><strong>Werk und Rolle</strong> je Person, dazu passende SharePoint-Rechte. Werke und Rollen ändern nur Admins.</li>
+          <li><strong>Freigabe</strong> mit Genehmiger, Zeitpunkt und Kommentar an der Rechnung.</li>
           <li><strong>Kein CDN</strong>, alle Bibliotheken liegen lokal.</li>
         </ul>
       </div>
@@ -456,11 +511,13 @@
       </div>
       <div class="card-body">
         <ul class="status-list">
-          <li><span class="status-dot dot-live"></span><span><strong>Live:</strong> Rechnungseingang je Werk über Power Automate mit Prüfdienst, Regelwerk und Ablage. WGC übergibt über die Eingangsrechnungsliste, ZAI über die Archiv-Mail.</span></li>
-          <li><span class="status-dot dot-live"></span><span><strong>Live:</strong> Konverter für Ausgangsrechnungen (WGC, SHB, ZAI) mit Vorab- und Selbstprüfung, Ablage und Mail-Entwurf.</span></li>
-          <li><span class="status-dot dot-live"></span><span><strong>Live:</strong> MC-Converter für SEPA und Auslandszahlungen (DTAZV zu AXZ) mit Preflight, Monitoring mit Schnellfiltern.</span></li>
-          <li><span class="status-dot dot-plan"></span><span><strong>Geplant:</strong> automatischer Versand der Kreditor-Mails.</span></li>
-          <li><span class="status-dot dot-plan"></span><span><strong>Geplant:</strong> Rechnungs-Parser für EIS, DSO, LEG, EWA, HOL, MEG und SCH.</span></li>
+          <li><span class="status-dot dot-live"></span><span><strong>Live:</strong> Rechnungseingang je Werk (WGC, ZAI, HOL, LEG, EWA) über Power Automate mit Prüfdienst, Regelwerk und Ablage. WGC übergibt über die Eingangsrechnungsliste, die anderen über die Archiv-Mail.</span></li>
+          <li><span class="status-dot dot-live"></span><span><strong>Live:</strong> Monitoring mit Einschätzung sonstiger Rechnungen, Mails an Lieferanten aus dem Werks-Postfach, Freigabe per Genehmigungs-Flow und den Rollen FIBU und Vertrieb.</span></li>
+          <li><span class="status-dot dot-live"></span><span><strong>Live:</strong> Konverter für Ausgangsrechnungen (WGC, SHB, ZAI, EIS, EWA, LEG, MEG) und manuelle Rechnungen aus Vorlagen (HOL, EIS), mit Vorab- und Selbstprüfung, Ablage und Mail-Entwurf.</span></li>
+          <li><span class="status-dot dot-live"></span><span><strong>Live:</strong> MC-Converter für SEPA und Auslandszahlungen (DTAZV zu AXZ) mit Preflight.</span></li>
+          <li><span class="status-dot dot-plan"></span><span><strong>Geplant:</strong> Mails an Lieferanten bei Zurückweisung und Abweichung direkt aus dem Eingangs-Flow (Schalter steht noch auf aus).</span></li>
+          <li><span class="status-dot dot-plan"></span><span><strong>Geplant:</strong> WGC ganz auf das Monitoring umstellen und die Eingangsrechnungsliste ablösen.</span></li>
+          <li><span class="status-dot dot-plan"></span><span><strong>Geplant:</strong> Rechnungs-Parser für DSO und SCH.</span></li>
         </ul>
       </div>
     </div>
@@ -473,7 +530,7 @@
       <h3>Prozessmodelle herunterladen</h3>
     </div>
     <div class="card-body">
-      <p class="proc-lead" style="margin-bottom:12px;">BPMN 2.0 mit Farben, drei Hauptprozesse und sechs eingebundene Unterprozesse.
+      <p class="proc-lead" style="margin-bottom:12px;">BPMN 2.0 mit Farben, drei Hauptprozesse und acht eingebundene Unterprozesse.
         Gepflegt werden sie im <a href="https://rms.dihag.de" target="_blank" rel="noopener">RMS</a> (Reiter Prozesse, Ablage Konzern).
         Hier liegt die Kopie aus dem Repository; den aktuellen Stand eines Modells speichert der Knopf „⬇ BPMN“ am Diagramm.
         Öffnen im Camunda Modeler, auf bpmn.io oder in Signavio.</p>
@@ -481,6 +538,8 @@
         <a href="docs/bpmn/01-rechnungseingang.bpmn" download>📥 Rechnungseingang <small>01-rechnungseingang.bpmn</small></a>
         <a href="docs/bpmn/01a-eingangspruefung.bpmn" download>⊞ Eingangsprüfung <small>01a-eingangspruefung.bpmn</small></a>
         <a href="docs/bpmn/01b-nebendateien.bpmn" download>⊞ Nebendateien ablegen <small>01b-nebendateien.bpmn</small></a>
+        <a href="docs/bpmn/01c-einschaetzung.bpmn" download>⊞ Sonstige Rechnung einschätzen <small>01c-einschaetzung.bpmn</small></a>
+        <a href="docs/bpmn/01d-freigabe.bpmn" download>⊞ Eingangsrechnung freigeben <small>01d-freigabe.bpmn</small></a>
         <a href="docs/bpmn/02-rechnungsausgang.bpmn" download>📤 Rechnungsausgang <small>02-rechnungsausgang.bpmn</small></a>
         <a href="docs/bpmn/02a-erkennen-und-erfassen.bpmn" download>⊞ Erkennen und erfassen <small>02a-erkennen-und-erfassen.bpmn</small></a>
         <a href="docs/bpmn/02b-pruefen-und-erzeugen.bpmn" download>⊞ Prüfen und erzeugen <small>02b-pruefen-und-erzeugen.bpmn</small></a>
