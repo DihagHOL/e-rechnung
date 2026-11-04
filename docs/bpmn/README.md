@@ -75,11 +75,12 @@ beim Speichern im Editor in die Dokumentation der Kollaboration, der Import in d
 Prozesses. Beides muss erhalten bleiben (`procXmlDokuNeu` für den Prozess, die
 Kollaborations-Doku unverändert übernehmen).
 
-Stand 04.11.2026: Rechnungseingang, Eingangsprüfung, Rechnungsausgang, Erkennen und erfassen,
-Prüfen und erzeugen neu erzeugt, Einschätzung und Freigabe neu. Noch nicht ins RMS übernommen, bis
-dahin zeigt die Seite für Konten mit RMS-Zugriff die alte Fassung und für die zwei neuen Modelle die Kopie
-aus dem Repository.
+Letzte Übernahme: 04.11.2026. Rechnungseingang, Eingangsprüfung, Rechnungsausgang, Erkennen und
+erfassen, Prüfen und erzeugen als neue Version, Einschätzung und Freigabe neu (Kennungen in
+`rms-ids.json`). Die Prozessmanagement-Angaben aus dem RMS (Eigner, POC, Kriterien, IST-Vergleich)
+sind übernommen. Die Graph-Kennung einer Datei ist `01` plus Base32 aus dem Präfix der Bibliothek
+und der SharePoint-Kennung (UniqueId, Bytes in Windows-Reihenfolge).
 
-Letzte Übernahme ins RMS: 07.10.2026 (Rechnungseingang, Eingangsprüfung, Preflight). Vorher hatte
+Davor: 07.10.2026 (Rechnungseingang, Eingangsprüfung, Preflight). Vorher hatte
 „Admin DIHAG“ am Eingang und an der Eingangsprüfung nur die Prozessmanagement-Angaben ergänzt,
 die sind übernommen.
