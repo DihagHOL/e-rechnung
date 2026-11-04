@@ -98,8 +98,15 @@ async function loadMonitoring(accessList, optionen) {
     // Einschaetzungen zur 800k-Umsatzgrenze (js/umsatzgrenze.js) und Mailaufträge
     // (Liste KreditorMails) zuerst: beide sind klein, und die Zeilen zeigen Badges und
     // Lieferantennamen dann schon beim ersten Zeichnen. Fehler sind nicht fatal.
-    if (typeof ugLaden === 'function') await ugLaden(siteId, token);
-    if (typeof ugMailsLaden === 'function') await ugMailsLaden(siteId, token, listsRes.value || []);
+    // Beides gehört zum Eingang: Wer nur den Ausgang sieht (Vertrieb), lädt es nicht und
+    // bekommt auch keinen Hinweis, dass das Register fehlt.
+    const nurAusgang = !!richtungen && !Object.values(richtungen).some(r => r.includes('Eingang'));
+    if (nurAusgang) {
+      if (typeof _ug !== 'undefined') { _ug.fehler = ''; _ug.mails = {}; _ug.mailListId = null; }
+    } else {
+      if (typeof ugLaden === 'function') await ugLaden(siteId, token);
+      if (typeof ugMailsLaden === 'function') await ugMailsLaden(siteId, token, listsRes.value || []);
+    }
     // Vorgaben für die Bearbeitung (abas-Info je Werk, js/bearbeitung.js)
     if (typeof bhLaden === 'function') await bhLaden(siteId, token);
     _monLibs = libs;
@@ -151,7 +158,6 @@ async function loadMonitoring(accessList, optionen) {
     _monUpdate(recs);
     const einstFehler = typeof _bh !== 'undefined' && _bh.einstFehler;
     const registerFehler = typeof _ug !== 'undefined' && _ug.fehler;
-    const nurAusgang = richtungen && !Object.values(richtungen).some(r => r.includes('Eingang'));
     if (sub) sub.textContent =
       `${_monRecords.length} Rechnung(en) (${recs.length} Datei(en)) aus ${libs.length - fehlerLibs.length} Bibliothek(en) · Stand ${new Date().toLocaleString('de-DE')}`
       + (nurAusgang ? ' · Rolle Vertrieb: nur Ausgangsrechnungen' : '')

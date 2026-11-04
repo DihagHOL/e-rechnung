@@ -26,9 +26,16 @@ Je Werk und Person gibt es eine **Rolle**: **FIBU** sieht Eingangs- und Ausgangs
 gilt FIBU, so wie vor den Rollen. Gespeichert wird nur der Vertrieb, in `access-config.json`
 unter `_rollen` (`{ "wgc": { "name@…": "vertrieb" } }`). Die zentrale `Rechnungseingang`-Stufe
 sieht, wer in mindestens einem Werk FIBU ist. Für eine Person, die nur Vertrieb ist, nennt der
-Untertitel „Rolle Vertrieb: nur Ausgangsrechnungen“. Werk und Rolle steuern die Anzeige, den
-tatsächlichen Zugriff regeln die SharePoint-Rechte: Der Vertrieb braucht Rechte auf
-`AR_<Werk>`, auf `ERAR_<Werk>` und `Rechnungseingang` keine.
+Untertitel „Rolle Vertrieb: nur Ausgangsrechnungen“. Lieferantenregister und Liste
+`KreditorMails` gehören zum Eingang und werden für so eine Person nicht geladen. Werk und Rolle
+steuern die Anzeige, den tatsächlichen Zugriff regeln die SharePoint-Rechte:
+
+| Rolle | `AR_<Werk>` | `ERAR_<Werk>` | Lieferantenregister, `KreditorMails` | `monitoring-einstellungen.json` |
+|---|---|---|---|---|
+| FIBU | Mitwirken | Lesen oder Mitwirken | Lesen oder Mitwirken | Lesen |
+| Vertrieb | Mitwirken (für den Export aus dem Konverter) | keine | keine | Lesen |
+
+Bibliotheken, die noch die Site-Rechte erben, bekommen dafür eigene Rechte (Kopie der bisherigen).
 
 ## Laden
 
