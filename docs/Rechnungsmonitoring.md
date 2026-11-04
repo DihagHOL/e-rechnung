@@ -17,10 +17,18 @@ der Eingangs-Flow steht in [`Eingangsrechnungen-Flow.md`](Eingangsrechnungen-Flo
 Welche Werke ein Benutzer sieht, steht in den **Einstellungen** (`einstellungen.html`, nur
 Admins): Dort werden Werke angelegt und Benutzer (UPN) je Werk eingetragen. Die Zuweisung
 gilt für Exportverlauf, Monitoring und die Werkauswahl im Konverter (`erlaubteWerke` in
-`js/access.js`). Wer keinem Werk zugewiesen ist, sieht im Monitoring und im Konverter alle
-Werke, Admins immer. Beim Öffnen ist das zugewiesene Werk im Filter vorgewählt (bei mehreren
-das erste), „Alle Werke“ bleibt wählbar. Die zentrale `Rechnungseingang`-Stufe ist werkübergreifend sichtbar,
-den tatsächlichen Zugriff regeln die SharePoint-Rechte.
+`js/access.js`). Wer keinem Werk zugewiesen ist, sieht keins, Admins sehen alles. Beim Öffnen
+ist das zugewiesene Werk im Filter vorgewählt (bei mehreren das erste), „Alle Werke“ bleibt
+wählbar.
+
+Je Werk und Person gibt es eine **Rolle**: **FIBU** sieht Eingangs- und Ausgangsrechnungen
+(`ERAR_<Werk>` und `AR_<Werk>`), **Vertrieb** nur Ausgangsrechnungen (`AR_<Werk>`). Ohne Angabe
+gilt FIBU, so wie vor den Rollen. Gespeichert wird nur der Vertrieb, in `access-config.json`
+unter `_rollen` (`{ "wgc": { "name@…": "vertrieb" } }`). Die zentrale `Rechnungseingang`-Stufe
+sieht, wer in mindestens einem Werk FIBU ist. Für eine Person, die nur Vertrieb ist, nennt der
+Untertitel „Rolle Vertrieb: nur Ausgangsrechnungen“. Werk und Rolle steuern die Anzeige, den
+tatsächlichen Zugriff regeln die SharePoint-Rechte: Der Vertrieb braucht Rechte auf
+`AR_<Werk>`, auf `ERAR_<Werk>` und `Rechnungseingang` keine.
 
 ## Laden
 

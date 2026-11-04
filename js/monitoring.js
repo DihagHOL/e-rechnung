@@ -66,7 +66,9 @@ async function loadMonitoring(accessList, optionen) {
     const listsRes = await _get(
       `${SP.graphBase}/sites/${siteId}/lists?$select=id,name,displayName,list&$top=200`, token);
 
-    const allow = new Set((accessList || []).map(s => String(s).toLowerCase()));
+    // Was der Benutzer je Werk sehen darf (Rolle FIBU oder Vertrieb, js/access.js), null = alles
+    const richtungen = optionen && 'richtungen' in optionen ? optionen.richtungen
+      : (accessList && accessList.length ? Object.fromEntries(accessList.map(w => [String(w).toLowerCase(), ['Eingang', 'Ausgang']])) : null);
     const libs = (listsRes.value || [])
       .map(l => {
         const nm = l.name || l.displayName || '';
@@ -85,9 +87,7 @@ async function loadMonitoring(accessList, optionen) {
         return null;
       })
       .filter(Boolean)
-      // Werkzuweisung aus den Einstellungen (leer = alle). Gilt nur fuer Werk-Bibliotheken;
-      // die Eingangsstufe ist werkuebergreifend und immer sichtbar (SharePoint-Rechte gaten den Zugriff).
-      .filter(l => l.intake || allow.size === 0 || allow.has(l.werk.toLowerCase()));
+      .filter(l => _monLibErlaubt(l, richtungen));
 
     if (!libs.length) {
       return _monShowSetup('Keine Rechnungsbibliotheken vorhanden',
@@ -151,8 +151,10 @@ async function loadMonitoring(accessList, optionen) {
     _monUpdate(recs);
     const einstFehler = typeof _bh !== 'undefined' && _bh.einstFehler;
     const registerFehler = typeof _ug !== 'undefined' && _ug.fehler;
+    const nurAusgang = richtungen && !Object.values(richtungen).some(r => r.includes('Eingang'));
     if (sub) sub.textContent =
       `${_monRecords.length} Rechnung(en) (${recs.length} Datei(en)) aus ${libs.length - fehlerLibs.length} Bibliothek(en) · Stand ${new Date().toLocaleString('de-DE')}`
+      + (nurAusgang ? ' · Rolle Vertrieb: nur Ausgangsrechnungen' : '')
       + (fehlerLibs.length ? ` · nicht geladen: ${fehlerLibs.join(', ')}` : '')
       + (einstFehler ? ` · Spalten-Einstellungen nicht lesbar (${einstFehler}), es gelten die Standardspalten` : '')
       + (registerFehler ? ` · Lieferantenregister nicht lesbar (${registerFehler}), Bestätigen und Merken gehen nicht` : '');
@@ -162,6 +164,18 @@ async function loadMonitoring(accessList, optionen) {
     _monLaedt = false;
     _monShowSetup('Fehler beim Laden', e.message || String(e));
   }
+}
+
+/**
+ * Darf die Bibliothek geladen werden? richtungen: null = alles (Admin), sonst je Werk die
+ * erlaubten Richtungen, z. B. { shb: ['Ausgang'] } für den Vertrieb. Die zentrale
+ * Eingangsstufe ist werkübergreifend und nur für den, der irgendwo Eingangsrechnungen sieht.
+ * Das steuert nur die Oberfläche, lesen darf man, was SharePoint erlaubt.
+ */
+function _monLibErlaubt(lib, richtungen) {
+  if (!richtungen) return true;
+  if (lib.intake) return Object.values(richtungen).some(r => r.includes('Eingang'));
+  return (richtungen[String(lib.werk || '').toLowerCase()] || []).includes(lib.richtung);
 }
 
 // Geladene Dateien zu Rechnungen zusammenfassen und neu zeichnen. Läuft nach jeder
@@ -2026,5 +2040,5 @@ function _esc(s) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
-    _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMitNeuenSpalten };
+    _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMitNeuenSpalten, _monLibErlaubt };
 }

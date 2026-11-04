@@ -14,7 +14,8 @@ onAuthReady(async () => {
   }
   const standardWerk = (WERKE_ALLE.map(w => w[0]).find(c => zugewiesen.includes(c.toLowerCase()))
     || (zugewiesen[0] || '')).toUpperCase();
-  loadMonitoring(isCurrentUserAdmin() ? [] : zugewiesen, { standardWerk });
+  // Rolle je Werk: FIBU sieht Ein- und Ausgang, Vertrieb nur den Ausgang
+  loadMonitoring(isCurrentUserAdmin() ? [] : zugewiesen, { standardWerk, richtungen: erlaubteRichtungen() });
 });
 
 authInit();

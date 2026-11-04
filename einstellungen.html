@@ -60,11 +60,14 @@
     <div class="settings-info-banner">
       <span>ℹ️</span>
       <span>
-        Legen Sie fest, welche Werke es gibt und welche Benutzer (per UPN / Microsoft-Login-E-Mail)
-        welchem Werk zugewiesen sind. Zugewiesene Benutzer sehen nur ihre Werke: im Exportverlauf,
-        im Monitoring und bei der Auswahl im Konverter. Wer keinem Werk zugewiesen ist, sieht im
-        Monitoring und im Konverter weiter alle Werke, Admins immer. Änderungen werden direkt in
-        SharePoint gespeichert und gelten sofort für alle.
+        Legen Sie fest, welche Werke es gibt, welche Benutzer (per UPN / Microsoft-Login-E-Mail)
+        welchem Werk zugewiesen sind und welche Rolle sie dort haben: <strong>FIBU</strong> sieht
+        Eingangs- und Ausgangsrechnungen, <strong>Vertrieb</strong> nur Ausgangsrechnungen.
+        Zugewiesene Benutzer sehen nur ihre Werke: im Exportverlauf, im Monitoring und bei der
+        Auswahl im Konverter. Wer keinem Werk zugewiesen ist, sieht keins, Admins sehen alles.
+        Rolle und Werk steuern die Anzeige. Damit der Vertrieb Eingangsrechnungen auch in
+        SharePoint nicht öffnen kann, braucht er auf ERAR_&lt;Werk&gt; keine Rechte. Änderungen
+        werden direkt in SharePoint gespeichert und gelten sofort für alle.
       </span>
     </div>
 
@@ -155,7 +158,7 @@
 
 <!-- App Scripts -->
 <script src="js/auth.js?v=e1dbc4ecac"></script>
-<script src="js/access.js?v=a0ad989f17"></script>
+<script src="js/access.js?v=40b65f51f1"></script>
 <script src="js/sharepoint.js?v=459265a055"></script>
 <script src="js/kundenmail.js?v=d006e7d8d6"></script>
 
@@ -176,9 +179,12 @@
   .km-import summary { cursor: pointer; font-size: 13px; color: var(--primary, #17509E); }
   .km-import textarea { width: 100%; margin: 6px 0; font-family: Consolas, monospace; font-size: 12px; }
   .km-hinweis { font-size: 12px; color: var(--gray-600, #475569); margin: 8px 0 0; }
+  .upn-rolle { font: inherit; font-size: 12px; padding: 4px 6px; border: 1px solid var(--gray-300, #cbd5e1);
+    border-radius: 6px; background: #fff; color: var(--gray-700, #334155); flex-shrink: 0; cursor: pointer; }
+  .upn-rolle.vertrieb { border-color: #F08300; color: #8a4b00; background: #fff7ed; }
 </style>
 
-<script src="js/seite-einstellungen.js?v=3df79963c3"></script>
+<script src="js/seite-einstellungen.js?v=79b25eba04"></script>
 
 
 </body>

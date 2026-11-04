@@ -1,7 +1,7 @@
 /* Seiten-Skript von einstellungen.html. Stand früher inline in der Seite; die Content-Security-Policy
    erlaubt nur Skripte aus eigenen Dateien. */
 /* ── In-Memory Arbeitskopie der Config ── */
-let _editConfig = {};   // { wgc: ['user@…'], shb: [], zai: [] }; Schlüssel = zugewiesene Werke
+let _editConfig = {};   // { wgc: ['user@…'], shb: [], _rollen: {…}, _app: {…} }; Werk-Schlüssel = zugewiesene Werke
 
 /* ── Fehler-Benachrichtigung: E-Mail je Werk ── */
 const WERKE_ALL = WERKE_ALLE;   // js/access.js
@@ -20,7 +20,8 @@ onAuthReady(async () => {
   }
 
   document.getElementById('settings-content').style.display = 'block';
-  _editConfig = _kopie(_runtimeConfig);
+  // Ganze Config inklusive _app (Admins, Function) und _rollen, sonst gingen sie beim Speichern verloren
+  _editConfig = zugriffKopie(_runtimeConfig);
 
   renderLists();
 
@@ -136,10 +137,11 @@ function renderFehlerGrid() {
 }
 
 /* ── Werk-Karten mit UPN-Listen rendern ── */
-function _kopie(cfg) {
-  const out = {};
-  for (const [k, v] of Object.entries(cfg || {})) if (Array.isArray(v)) out[k.toLowerCase()] = [...v];
-  return out;
+/** Auswahl der Rolle (FIBU, Vertrieb) für eine Person oder für „Hinzufügen“. */
+function _rolleAuswahl(rolle, attribute) {
+  return `<select class="upn-rolle${rolle === 'vertrieb' ? ' vertrieb' : ''}" ${attribute} title="${esc(ROLLEN[rolle].titel)}">`
+    + Object.entries(ROLLEN).map(([k, r]) => `<option value="${k}"${k === rolle ? ' selected' : ''}>${esc(r.label)}</option>`).join('')
+    + '</select>';
 }
 
 function _werkName(code) {
@@ -167,11 +169,13 @@ function renderLists() {
             <div class="upn-row">
               <span class="upn-avatar">${esc(upn.slice(0, 1).toUpperCase())}</span>
               <span class="upn-text">${esc(upn)}</span>
+              ${_rolleAuswahl(rolleIn(_editConfig, g, upn), `data-rolle-werk="${g}" data-idx="${idx}" aria-label="Rolle von ${esc(upn)}"`)}
               <button class="btn btn-danger btn-sm" title="Entfernen" data-upn-entfernen="${g}" data-idx="${idx}">✕</button>
             </div>`).join('') : '<div class="upn-empty">Noch keine Benutzer eingetragen.</div>'}</div>
           <div class="upn-add-row">
             <input type="email" id="upn-input-${g}" placeholder="name@dihag.com" class="upn-input"
                    data-werk="${g}">
+            ${_rolleAuswahl(ROLLE_STANDARD, `id="rolle-neu-${g}" aria-label="Rolle der neuen Person"`)}
             <button class="btn btn-primary btn-sm" data-upn-hinzufuegen="${g}">+ Hinzufügen</button>
           </div>
         </div>
@@ -212,6 +216,8 @@ function addUpn(gesellschaft) {
   }
   if (!_editConfig[gesellschaft]) _editConfig[gesellschaft] = [];
   _editConfig[gesellschaft].push(upn);
+  const rolle = document.getElementById(`rolle-neu-${gesellschaft}`);
+  rolleSetzen(_editConfig, gesellschaft, upn, rolle ? rolle.value : ROLLE_STANDARD);
   input.value = '';
   renderLists();
   updateHint('ungespeicherte Änderungen');
@@ -219,7 +225,8 @@ function addUpn(gesellschaft) {
 
 /* ── UPN entfernen ── */
 function removeUpn(gesellschaft, idx) {
-  _editConfig[gesellschaft].splice(idx, 1);
+  const [upn] = _editConfig[gesellschaft].splice(idx, 1);
+  if (upn) rolleSetzen(_editConfig, gesellschaft, upn, ROLLE_STANDARD);
   renderLists();
   updateHint('ungespeicherte Änderungen');
 }
@@ -228,8 +235,12 @@ function removeUpn(gesellschaft, idx) {
 async function saveSettings() {
   showOverlay(true, 'Wird in SharePoint gespeichert…');
   try {
-    await spSaveAccessConfig(_editConfig);
-    _runtimeConfig = JSON.parse(JSON.stringify(_editConfig)); // Cache aktualisieren
+    // Rollen von Personen, die nicht mehr im Werk stehen, fallen weg; _app bleibt unverändert
+    const neu = zugriffBereinigen(_editConfig);
+    if (_runtimeConfig && _runtimeConfig._app && !neu._app) throw new Error('Die App-Einstellungen (_app) fehlen, nichts gespeichert.');
+    await spSaveAccessConfig(neu);
+    _runtimeConfig = zugriffKopie(neu);   // Cache aktualisieren
+    _editConfig = zugriffKopie(neu);
 
     // Fehler-Benachrichtigungs-E-Mails einsammeln + speichern
     const fehler = {};
@@ -313,6 +324,17 @@ _werkGrid.addEventListener('click', e => {
   if (b.dataset.werkEntfernen) removeWerk(b.dataset.werkEntfernen);
   else if (b.dataset.upnEntfernen) removeUpn(b.dataset.upnEntfernen, Number(b.dataset.idx));
   else if (b.dataset.upnHinzufuegen) addUpn(b.dataset.upnHinzufuegen);
+});
+_werkGrid.addEventListener('change', e => {
+  const s = e.target.closest('select[data-rolle-werk]');
+  if (!s) return;
+  const werk = s.dataset.rolleWerk;
+  const upn = (_editConfig[werk] || [])[Number(s.dataset.idx)];
+  if (!upn) return;
+  rolleSetzen(_editConfig, werk, upn, s.value);
+  s.classList.toggle('vertrieb', s.value === 'vertrieb');
+  s.title = ROLLEN[s.value].titel;
+  updateHint('ungespeicherte Änderungen');
 });
 _werkGrid.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.dataset && e.target.dataset.werk) addUpn(e.target.dataset.werk);
