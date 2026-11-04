@@ -1327,6 +1327,12 @@ function _mailSubjectBody(data, grossTotal, useZugferd) {
   const formatLabel = useZugferd ? 'ZUGFeRD (PDF mit eingebettetem XML)' : 'XRechnung (XML)';
 
   const subject = `Rechnung ${data.rechnungsnummer} – ${data.verkaeufer}`;
+  // Werke mit eigenem Gruß (Registry _mailGruss, z. B. ZAI): Team statt Ansprechpartner,
+  // die Kontakt-Mail aus der Rechnung bleibt darunter.
+  const gruss = typeof werkMailGruss === 'function' ? werkMailGruss(data.gesellschaft) : [];
+  const unterschrift = gruss.length
+    ? gruss.join('\n') + (data.verkaeuferemail ? '\n' + data.verkaeuferemail : '')
+    : `${data.verkaeufkontakt || ''}\n${data.verkaeufer}${data.verkaeuftel ? '\nTel.: ' + data.verkaeuftel : ''}${data.verkaeuferemail ? '\n' + data.verkaeuferemail : ''}`;
   const body =
 `Sehr geehrte Damen und Herren,
 
@@ -1335,8 +1341,7 @@ anbei erhalten Sie unsere Rechnung ${data.rechnungsnummer}${datum ? ' vom ' + da
 Die Rechnung liegt als ${formatLabel} gemäß EN 16931 bei.
 
 Mit freundlichen Grüßen
-${data.verkaeufkontakt || ''}
-${data.verkaeufer}${data.verkaeuftel ? '\nTel.: ' + data.verkaeuftel : ''}${data.verkaeuferemail ? '\n' + data.verkaeuferemail : ''}`;
+${unterschrift}`;
 
   return { subject, body };
 }

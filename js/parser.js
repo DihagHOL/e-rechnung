@@ -103,6 +103,10 @@ const _COMPANY_REGISTRY = {
     geschaeftsfuehrung: 'Viktor Babushchak',
     // detect: E-Mail-Domain/AGB-URL „dihag-zaigler.com" oder Firmenname im PDF
     _detect: /dihag-zaigler|zaigler/i,
+    // Rechnungsmail (Denis, 04.11.2026): aus dem Vertriebspostfach, Gruß vom Team statt vom
+    // Ansprechpartner. Die Kontakt-Mail aus dem PDF steht weiter darunter.
+    _versandPostfach: 'vertrieb@dihag-zaigler.com',
+    _mailGruss: ['Ihr Team von der', 'DIHAG Zaigler GmbH', 'Tel.: +49 9221 944-0'],
     _aktiv: true,
   },
 
@@ -1966,6 +1970,12 @@ function werkNurInland(werk) {
 function werkVersandPostfach(werk) {
   const e = _COMPANY_REGISTRY[String(werk || '').toUpperCase()];
   return (e && e._versandPostfach) || '';
+}
+
+/** Grußzeilen der Rechnungsmail des Werks (Registry _mailGruss), sonst [] = Ansprechpartner aus der Rechnung. */
+function werkMailGruss(werk) {
+  const e = _COMPANY_REGISTRY[String(werk || '').toUpperCase()];
+  return (e && Array.isArray(e._mailGruss)) ? e._mailGruss.slice() : [];
 }
 
 /** Braucht eine Drittlandrechnung des Werks das unterschriebene Original (Registry _drittlandUnterschrift)? */

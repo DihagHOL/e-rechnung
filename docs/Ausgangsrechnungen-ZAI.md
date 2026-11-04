@@ -39,6 +39,8 @@ Fehlt die Zeile (ältere Belege), greift die gemerkte Adresse: Die App merkt sic
 
 Trägt jemand eine Adresse der eigenen Firma ein (gleiche Domain wie die Verkäufer-Mail oder die eigene Anmeldung), fragt der Export nach. Solche Adressen merkt sich die App nicht. Kunden mit Leitweg-ID brauchen keine Mail und werden nicht gemerkt.
 
+Die Rechnungsmail („Mail erstellen“) geht als Outlook-Entwurf aus dem Vertriebspostfach von ZAI (Registry `_versandPostfach`). Senden klappt nur mit „Senden als“ oder „Senden im Auftrag von“ auf dieses Postfach. Gegrüßt wird vom Team statt vom Ansprechpartner (`_mailGruss`: „Ihr Team von der“, Firma, Zentrale), darunter steht die Kontakt-Mail aus der Rechnung. Die .eml-Datei, die ohne Outlook-Zugriff entsteht, hat keinen festen Absender.
+
 Admins pflegen die Liste unter Einstellungen, Abschnitt „Rechnungsadressen der Kunden". Dort lassen sich Einträge suchen, anlegen und löschen. Mehrere Kunden auf einmal gehen über „Mehrere auf einmal einfügen", eine Zeile je Kunde im Format `Werk;Kunden-Nr.;Kunde;Mail`. Mit Tabulator getrennte Zeilen aus Excel gehen auch.
 
 ## Prüfung
