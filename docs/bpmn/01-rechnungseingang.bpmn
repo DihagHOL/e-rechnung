@@ -106,6 +106,8 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:association id="Assoc_N_wgc" associationDirection="None" sourceRef="A_gwWerk" targetRef="N_wgc" />
       <bpmn:textAnnotation id="N_check"><bpmn:text>„Als geprüft markieren“ speichert, wer wann geprüft hat.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_check" associationDirection="None" sourceRef="D_check" targetRef="N_check" />
+      <bpmn:textAnnotation id="N_status"><bpmn:text>WGC und SHB: Spalte „Status“ hinter dem Steller. Ohne Eintrag „Offen“ (hell, automatisch), „In Genehmigung“ durch die Anforderung ebenfalls hell. Von der Buchhaltung gesetzt: kräftig.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:association id="Assoc_N_status" associationDirection="None" sourceRef="D_check" targetRef="N_status" />
       <bpmn:textAnnotation id="N_800"><bpmn:text>Kleinbetrag bis 250 € und Lieferant im Ausland sind ausgenommen. Die Mail an den Lieferanten geht aus dem Werks-Postfach.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_800" associationDirection="None" sourceRef="D_800" targetRef="N_800" />
       <bpmn:textAnnotation id="N_wo"><bpmn:text>Im SAP wird erfasst und genehmigt, im Monitoring ist danach nichts zu tun. Im SAP: ZAI, HOL, LEG, EWA, EIS und DSO. Im Monitoring: WGC und SHB.</bpmn:text></bpmn:textAnnotation>
@@ -204,6 +206,8 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNEdge id="Assoc_N_wgc_di" bpmnElement="Assoc_N_wgc"><di:waypoint x="2475" y="295" /><di:waypoint x="2582" y="354" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_check_di" bpmnElement="N_check" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="3420" y="1019" width="220" height="62" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_N_check_di" bpmnElement="Assoc_N_check"><di:waypoint x="3495" y="972" /><di:waypoint x="3495" y="1019" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="N_status_di" bpmnElement="N_status" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="3080" y="1002" width="250" height="96" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_N_status_di" bpmnElement="Assoc_N_status"><di:waypoint x="3495" y="972" /><di:waypoint x="3318" y="1002" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_800_di" bpmnElement="N_800" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="3420" y="1248" width="220" height="84" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_N_800_di" bpmnElement="Assoc_N_800"><di:waypoint x="3835" y="1212" /><di:waypoint x="3628" y="1248" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_wo_di" bpmnElement="N_wo" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="4100" y="1002" width="160" height="96" /></bpmndi:BPMNShape>

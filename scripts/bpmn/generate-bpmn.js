@@ -191,6 +191,8 @@ const EINGANG = {
           text: 'WGC und SHB: seit 05.11.2026 ohne die alte Eingangsrechnungsliste. Die Buchhaltung arbeitet im Monitoring.' },
         { id: 'N_check', of: 'D_check', lane: 'LD', c: 19, r: 1, w: 220, h: 62,
           text: '„Als geprüft markieren“ speichert, wer wann geprüft hat.' },
+        { id: 'N_status', of: 'D_check', lane: 'LD', c: 17, r: 1, w: 250, h: 96,
+          text: 'WGC und SHB: Spalte „Status“ hinter dem Steller. Ohne Eintrag „Offen“ (hell, automatisch), „In Genehmigung“ durch die Anforderung ebenfalls hell. Von der Buchhaltung gesetzt: kräftig.' },
         { id: 'N_800', of: 'D_800', lane: 'LD', c: 19, r: 3, w: 220, h: 84,
           text: 'Kleinbetrag bis 250 € und Lieferant im Ausland sind ausgenommen. Die Mail an den Lieferanten geht aus dem Werks-Postfach.' },
         { id: 'N_wo', of: 'D_gwWo', lane: 'LD', c: 23, r: 1, w: 160, h: 96,
