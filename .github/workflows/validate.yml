@@ -16,6 +16,7 @@ on:
       - 'js/xrechnung.js'
       - 'js/xml2pdf.js'
       - 'js/zugferd.js'
+      - 'js/vendor/font-*.js'
       - 'validation/**'
       - '.github/workflows/validate.yml'
 

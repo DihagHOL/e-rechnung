@@ -14,8 +14,9 @@ headless und schreibt vier repräsentative Fälle nach `validation/out/`:
 | `shb_standard_19` | SHB, Inland, 19 % |
 | `wgc_innergemeinschaftlich_K` | WGC → AT, 0 %, Kategorie K (VATEX-EU-IC) |
 | `wgc_ausfuhr_CH_G` | WGC → CH, 0 %, Ausfuhr, Kategorie G (VATEX-EU-G) |
+| `erp_original_helvetica` | Original aus dem ERP nachgestellt: nicht eingebettete Helvetica wie im SAP-Formular von LEG und EWA. Der Konverter bettet beim ZUGFeRD Liberation Sans ein. |
 
-Je Fall: `*_xrechnung.xml` (reines XML) und `*_zugferd.pdf` (PDF aus Daten + eingebettetes XML).
+Je Fall: `*_xrechnung.xml` (reines XML) und `*_zugferd.pdf` (PDF aus Daten + eingebettetes XML, bei `erp_original_helvetica` das Original + XML).
 
 ```bash
 cd api && npm install && cd ..

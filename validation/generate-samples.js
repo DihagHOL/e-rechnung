@@ -21,17 +21,45 @@ const OUT = path.join(__dirname, 'out');
 const PDFLib = require(path.join(ROOT, 'api/node_modules/pdf-lib'));
 const fontkit = require(path.join(ROOT, 'api/node_modules/@pdf-lib/fontkit'));
 const EMBED_FONTS = require(path.join(ROOT, 'js/vendor/font-embed.js'));
+const HELVETICA_ERSATZ = require(path.join(ROOT, 'js/vendor/font-helvetica.js'));
 
 fs.mkdirSync(OUT, { recursive: true });
 
-/* ── Konverter-Module im Host-Realm laden (fontkit + Schrift injiziert) ── */
+/* ── Konverter-Module im Host-Realm laden (fontkit + Schriften injiziert) ── */
 function loadHost(file, wanted) {
   const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
   const ret = wanted.map(n => `${n}:(typeof ${n}!=='undefined')?${n}:undefined`).join(', ');
   // eslint-disable-next-line no-new-func
-  const factory = new Function('PDFLib', 'fontkit', 'EMBED_FONTS', 'console', 'atob', 'TextEncoder',
+  const factory = new Function('PDFLib', 'fontkit', 'EMBED_FONTS', 'HELVETICA_ERSATZ', 'console', 'atob', 'TextEncoder',
     `${src}\n;return { ${ret} };`);
-  return factory(PDFLib, fontkit, EMBED_FONTS, console, globalThis.atob, globalThis.TextEncoder);
+  return factory(PDFLib, fontkit, EMBED_FONTS, HELVETICA_ERSATZ, console, globalThis.atob, globalThis.TextEncoder);
+}
+
+/* ── Original aus dem ERP nachgestellt: Standardschrift Helvetica, nicht eingebettet,
+      WinAnsi (so liefern SAP-Adobe-Formulare ihre PDFs, z. B. LEG). Der Konverter bettet
+      beim Einbetten der XML Liberation Sans ein (js/zugferd.js). ── */
+async function erpOriginal(d, totals) {
+  const doc = await PDFLib.PDFDocument.create();
+  const f = await doc.embedFont(PDFLib.StandardFonts.Helvetica);
+  const fb = await doc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+  const s = doc.addPage([595.28, 841.89]);
+  const eur = v => v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' €';
+  let y = 790;
+  const z = (t, font = f, size = 9, x = 56) => { s.drawText(t, { x, y, size, font }); y -= size + 6; };
+  z(d.verkaeufer, fb, 12);
+  z(`${d.verkaeufstrasse} · ${d.verkaeufplz} ${d.verkaeufstadt}`);
+  y -= 20;
+  z(d.kaeufer, fb); z(d.kaeuferstrasse); z(`${d.kaeuferplz} ${d.kaeuferstadt}`);
+  y -= 20;
+  z(`Rechnung Nr. ${d.rechnungsnummer}`, fb, 14);
+  z(`Rechnungsdatum ${d.rechnungsdatum} · Lieferdatum ${d.lieferdatum}`);
+  y -= 10;
+  for (const p of d.positionen) z(`${p.posnr}  ${p.beschreibung}  ${p.menge} ${p.einheit} × ${eur(p.einzelpreis)}`);
+  y -= 10;
+  z(`Nettobetrag ${eur(totals.netTotal)} · Umsatzsteuer 19 % ${eur(totals.vatTotal)}`);
+  z(`Gesamtbetrag ${eur(totals.grossTotal)}`, fb, 11);
+  z('Zahlungsbedingungen: 30 Tage ohne Abzug. Größe, Gewicht und Übergabe laut Lieferschein.');
+  return doc.save();
 }
 
 const xr = loadHost('js/xrechnung.js', ['buildXML', 'calcTotals']);
@@ -368,6 +396,19 @@ const SAMPLES = [
     fs.writeFileSync(path.join(OUT, `${s.name}_readable_pdfa.pdf`), Buffer.from(readablePdf));
 
     results.push({ name: s.name, gross: totals.grossTotal, kat: s.data.steuerkategorie,
+      xmlBytes: Buffer.byteLength(xml), pdfBytes: zugferdPdf.length });
+  }
+
+  // Original-PDF aus dem ERP (nicht eingebettete Helvetica) + XML: muss ebenfalls PDF/A-3b sein
+  {
+    const s = SAMPLES[0];
+    const name = 'erp_original_helvetica';
+    const totals = xr.calcTotals(s.data.positionen);
+    const xml = xr.buildXML(s.data, 'xrechnung');
+    fs.writeFileSync(path.join(OUT, `${name}_xrechnung.xml`), '﻿' + xml, 'utf8');
+    const zugferdPdf = await zf.embedXMLIntoPDF(await erpOriginal(s.data, totals), xr.buildXML(s.data, 'zugferd'), 'zugferd');
+    fs.writeFileSync(path.join(OUT, `${name}_zugferd.pdf`), Buffer.from(zugferdPdf));
+    results.push({ name, gross: totals.grossTotal, kat: s.data.steuerkategorie,
       xmlBytes: Buffer.byteLength(xml), pdfBytes: zugferdPdf.length });
   }
   console.table(results);

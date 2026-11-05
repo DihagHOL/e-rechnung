@@ -10,8 +10,14 @@
  *   – DefaultRGB / DefaultGray CalRGB colour spaces on all pages
  *     (belt-and-suspenders fallback for content-stream colours)
  *
+ *   – Nicht eingebettete Helvetica / Helvetica-Bold (WinAnsi) werden durch
+ *     Liberation Sans mit gleichen Laufweiten ersetzt und eingebettet
+ *     (§ 6.2.11.4.1, SAP-Adobe-Formulare wie LEG)
+ *
  * Known limitation: CIDSet font-descriptor errors in the source PDF
  *   cannot be repaired without re-rendering the original document.
+ *   Andere nicht eingebettete Schriften bleiben; dann erzeugt der Konverter
+ *   nach der veraPDF-Prüfung das PDF aus den Rechnungsdaten.
  *
  * GuidelineID: urn:cen.eu:en16931:2017 (Mustang Profiles.java / ZUGFeRD 2.4 / Factur-X 1.08)
  */
@@ -121,6 +127,9 @@ async function embedXMLIntoPDF(pdfBytes, xmlString, profile, extraAttachments) {
   }
 
   if (isZugferd) {
+    // 0. Nicht eingebettete Standardschrift Helvetica einbetten (§6.2.11.4.1), z. B. SAP-Adobe-Formulare
+    _standardSchriftenEinbetten(pdfDoc);
+
     // 1. sRGB ICC OutputIntent — satisfies ISO 19005-3 §6.2.4.3 for all DeviceRGB/DeviceGray
     _addOutputIntent(pdfDoc);
 
@@ -158,6 +167,63 @@ function _setTrailerId(pdfDoc) {
   } catch (e) {
     console.warn('Trailer-ID nicht gesetzt:', e.message);
   }
+}
+
+/* ── PDF/A: Standardschrift Helvetica einbetten (§6.2.11.4.1) ────────────
+   SAP-Adobe-Formulare (z. B. LEG) verweisen nur auf Helvetica und Helvetica-Bold
+   und betten die Schrift nicht ein. PDF/A verlangt eingebettete Schriften.
+   Liberation Sans (js/vendor/font-helvetica.js) hat die Laufweiten von Helvetica,
+   das Layout bleibt also gleich. Aus der Standardschrift wird eine TrueType-Schrift
+   mit WinAnsiEncoding. Die Breiten stammen aus der eingebetteten Schrift (§6.2.11.5).
+   Andere Kodierungen und kursive Schnitte bleiben, wie sie sind; dann greift im
+   Konverter die Prüfung mit veraPDF. Gibt die Zahl der ersetzten Schriften zurück. */
+const _HELV_SCHNITT = {
+  'Helvetica': 'regular', 'Helvetica-Bold': 'bold',
+  'Arial': 'regular', 'ArialMT': 'regular', 'Arial,Bold': 'bold', 'Arial-BoldMT': 'bold',
+};
+
+function _standardSchriftenEinbetten(pdfDoc) {
+  const ersatz = typeof HELVETICA_ERSATZ !== 'undefined' ? HELVETICA_ERSATZ : null;
+  if (!ersatz || !ersatz.metrik) return 0;
+  const PDFName = PDFLib.PDFName;
+  const PDFDict = PDFLib.PDFDict;
+  const ctx = pdfDoc.context;
+  const N = n => PDFName.of(n);
+  const name = x => (x instanceof PDFName ? x.asString().slice(1) : '');
+  const beschreibung = {};
+  let n = 0;
+  try {
+    for (const [, obj] of ctx.enumerateIndirectObjects()) {
+      if (!(obj instanceof PDFDict) || name(obj.get(N('Type'))) !== 'Font') continue;
+      const art = name(obj.get(N('Subtype')));
+      if (art !== 'Type1' && art !== 'TrueType') continue;
+      const schnitt = _HELV_SCHNITT[name(obj.get(N('BaseFont')))];
+      if (!schnitt || name(obj.lookup(N('Encoding'))) !== 'WinAnsiEncoding') continue;
+      const fd = obj.lookup(N('FontDescriptor'));
+      if (fd instanceof PDFDict && ['FontFile', 'FontFile2', 'FontFile3'].some(k => fd.has(N(k)))) continue;
+      const m = ersatz.metrik[schnitt];
+      if (!m || !ersatz[schnitt]) continue;
+      if (!beschreibung[schnitt]) {
+        const bytes = _base64ToBytes(ersatz[schnitt]);
+        const datei = ctx.register(ctx.flateStream(bytes, { Length1: bytes.length }));
+        beschreibung[schnitt] = ctx.register(ctx.obj({
+          Type: 'FontDescriptor', FontName: m.name, Flags: 32, FontBBox: m.bbox, ItalicAngle: 0,
+          Ascent: m.ascent, Descent: m.descent, CapHeight: m.capHeight, StemV: m.stemV, FontFile2: datei,
+        }));
+      }
+      obj.set(N('Subtype'), N('TrueType'));
+      obj.set(N('BaseFont'), N(m.name));
+      obj.set(N('Encoding'), N('WinAnsiEncoding'));
+      obj.set(N('FirstChar'), ctx.obj(32));
+      obj.set(N('LastChar'), ctx.obj(255));
+      obj.set(N('Widths'), ctx.obj(m.breiten));
+      obj.set(N('FontDescriptor'), beschreibung[schnitt]);
+      n++;
+    }
+  } catch (e) {
+    console.warn('Schriften nicht eingebettet:', e.message);
+  }
+  return n;
 }
 
 /* ── ICC OutputIntent ────────────────────────────────────────────────── */

@@ -84,6 +84,7 @@ Diese drei Teile gelten für alle Werke:
 - KoSIT: alle elf XRechnungen ohne Fehler und ohne Warnung, darunter GBP, CZK und die Skonto-Zeile.
 - Im Browser über den normalen Upload geprüft: GBP-Rechnung mit Rechnungsmail aus dem Anschriftfeld und GBP-Konto, EUR-Rechnung mit Lieferanschrift und Skonto.
 - Test im Repo: `node tests/ewa-ausgang.test.js` (erfundene Belege in drei Sprachen als Textstücke mit Position).
+- PDF/A beim ZUGFeRD (05.11.2026): Das Formular bettet Helvetica nicht ein. Der Konverter bettet Liberation Sans mit denselben Laufweiten ein, das SAP-Layout bleibt. Ein EWA-Beleg besteht danach veraPDF ohne Fehler, Einzelheiten in [Ausgangsrechnungen-LEG.md](Ausgangsrechnungen-LEG.md).
 
 ## Grenzen
 

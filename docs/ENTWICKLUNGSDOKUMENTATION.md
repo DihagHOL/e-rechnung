@@ -416,6 +416,19 @@ höchstens 15 MB). Ist es nicht PDF/A-3b oder lässt es sich nicht prüfen, erze
 aus den Rechnungsdaten und sagt das per Hinweis. So entsteht bei keinem Werk ein Formatfehler beim
 Empfänger. Tests: `tests/pdfa-api.test.js`, `tests/pdfa-konverter.test.js`.
 
+**Nachtrag (05.11.2026): SAP-Formulare von LEG und EWA**  
+Die Originale aus dem SAP-Adobe-Formular (LiveCycle Designer 11) verweisen nur auf Helvetica und
+Helvetica-Bold, ohne die Schrift einzubetten. veraPDF lehnte sie deshalb mit Regel 6.2.11.4.1 ab, und
+der Konverter erzeugte jede LEG-Rechnung aus den Daten. Sonst erfüllen die Formulare PDF/A-3b.
+`embedXMLIntoPDF` (js/zugferd.js) ersetzt jetzt nicht eingebettete Helvetica und Helvetica-Bold mit
+WinAnsiEncoding durch Liberation Sans (`js/vendor/font-helvetica.js`, Lizenz in
+`js/vendor/LiberationSans-LICENSE.txt`) und bettet sie ein. Liberation Sans hat die Laufweiten von
+Helvetica, die Breiten in der PDF kommen aus der eingebetteten Schrift (Regel 6.2.11.5). Bei zehn
+LEG-Rechnungen und einer EWA-Rechnung steht danach jedes Zeichen an derselben Stelle wie im Original,
+und alle bestehen veraPDF. Kursive Schnitte und andere Schriften bleiben, wie sie sind. Für sie greift
+weiter die Prüfung mit Ausweichen auf „aus Daten“. Tests: `tests/pdfa-schriften.test.js`, CI-Fall
+`erp_original_helvetica` in `validation/generate-samples.js`.
+
 ---
 
 ## 8. Betrieb & Support

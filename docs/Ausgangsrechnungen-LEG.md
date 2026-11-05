@@ -1,6 +1,6 @@
 # Ausgangsrechnungen LEG (Lintorfer Eisengießerei) im Konverter
 
-Stand: 27.10.2026
+Stand: 05.11.2026
 
 Die Lintorfer Eisengießerei stellt ihre Rechnungen mit demselben SAP Adobe-Formular wie das Eisenwerk Arnstadt. Der Konverter liest beide mit einem Parser. Wie der Beleg gelesen wird, welche Felder übernommen werden und wie Währung, Adresszusatz und Skonto behandelt werden, steht in [Ausgangsrechnungen-EWA.md](Ausgangsrechnungen-EWA.md). Hier stehen nur die Besonderheiten von LEG.
 
@@ -26,6 +26,12 @@ Der Anzahlungsbeleg hat deutsche Beschriftung, aber englische Zahlen (20,100.00)
 ## Umfang
 
 Wie bei EWA: Rechnungen an Kunden im Inland wandelt der Konverter ohne Rückfrage um. Bei EU-Ausland und Drittland weist er beim Laden darauf hin und fragt beim Export nach. Eine Erinnerung an ein unterschriebenes Original gibt es nicht.
+
+## PDF/A beim ZUGFeRD
+
+Das SAP-Formular verweist nur auf die Schriften Helvetica und Helvetica-Bold und bettet sie nicht ein. PDF/A-3b verlangt eingebettete Schriften (veraPDF-Regel 6.2.11.4.1), alles andere erfüllt das Formular schon. Bis zum 05.11.2026 fiel jedes LEG-Original deshalb bei der Prüfung durch, und der Konverter hat die ZUGFeRD-Rechnung aus den Daten im eigenen Layout erzeugt.
+
+Jetzt bettet der Konverter beim ZUGFeRD-Export Liberation Sans ein. Die Schrift hat dieselben Laufweiten wie Helvetica, das SAP-Layout bleibt also. Bei allen zehn Musterbelegen steht danach jedes Zeichen an derselben Stelle wie im Original, und veraPDF meldet PDF/A-3b ohne Fehler. Für EWA gilt dasselbe, das Formular ist das gleiche.
 
 ## Prüfung
 
