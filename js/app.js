@@ -1328,10 +1328,11 @@ function _mailSubjectBody(data, grossTotal, useZugferd) {
 
   const subject = `Rechnung ${data.rechnungsnummer} – ${data.verkaeufer}`;
   // Werke mit eigenem Gruß (Registry _mailGruss, z. B. ZAI): Team statt Ansprechpartner,
-  // die Kontakt-Mail aus der Rechnung bleibt darunter.
+  // darunter das Versandpostfach des Werks, ohne eines die Kontakt-Mail aus der Rechnung.
   const gruss = typeof werkMailGruss === 'function' ? werkMailGruss(data.gesellschaft) : [];
+  const grussMail = (typeof werkVersandPostfach === 'function' && werkVersandPostfach(data.gesellschaft)) || data.verkaeuferemail;
   const unterschrift = gruss.length
-    ? gruss.join('\n') + (data.verkaeuferemail ? '\n' + data.verkaeuferemail : '')
+    ? gruss.join('\n') + (grussMail ? '\n' + grussMail : '')
     : `${data.verkaeufkontakt || ''}\n${data.verkaeufer}${data.verkaeuftel ? '\nTel.: ' + data.verkaeuftel : ''}${data.verkaeuferemail ? '\n' + data.verkaeuferemail : ''}`;
   const body =
 `Sehr geehrte Damen und Herren,

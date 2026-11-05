@@ -112,7 +112,7 @@ gleich(x.calcTotals(pos, '180.00').steuerLautOriginal, false, 'zu große Abweich
 gleich(x.calcTotals([...pos, { menge: 1, einzelpreis: 10, mwst: 7 }], '186.69').steuerLautOriginal, false, 'zwei Steuersätze: eigene Rechnung');
 gleich(x.calcTotals(pos, '').steuerLautOriginal, false, 'leere Vorgabe');
 
-// Rechnungsmail ZAI: aus dem Vertriebspostfach, Gruß vom Team, Kontakt-Mail aus der Rechnung darunter
+// Rechnungsmail ZAI: aus dem Vertriebspostfach, Gruß vom Team, darunter das Vertriebspostfach
 {
   const app = fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8');
   const quelle = app.slice(app.indexOf('function _mailSubjectBody('), app.indexOf('/**', app.indexOf('function _mailSubjectBody(')));
@@ -121,8 +121,8 @@ gleich(x.calcTotals(pos, '').steuerLautOriginal, false, 'leere Vorgabe');
     verkaeufer: 'Dihag Zaigler GmbH', verkaeufkontakt: 'Muster Erika', verkaeuftel: '+49 9221 944-111', verkaeuferemail: 'erika.muster@beispiel.de' };
   const { body } = ctx.mail(daten, 1234.5, true);
   const gruss = body.slice(body.indexOf('Mit freundlichen Grüßen')).split(NL);
-  gleich(gruss, ['Mit freundlichen Grüßen', 'Ihr Team von der', 'DIHAG Zaigler GmbH', 'Tel.: +49 9221 944-0', 'erika.muster@beispiel.de'], 'ZAI: Gruß vom Team');
-  gleich(body.includes('Muster Erika') || body.includes('944-111'), false, 'ZAI: kein Ansprechpartner im Gruß');
+  gleich(gruss, ['Mit freundlichen Grüßen', 'Ihr Team von der', 'DIHAG Zaigler GmbH', 'Tel.: +49 9221 944-0', 'vertrieb@dihag-zaigler.com'], 'ZAI: Gruß vom Team');
+  gleich(body.includes('Muster Erika') || body.includes('944-111') || body.includes('erika.muster'), false, 'ZAI: kein Ansprechpartner und keine Kontakt-Mail im Gruß');
   gleich(/^anbei erhalten Sie unsere Rechnung 2026\.009001 vom 30\.10\.2026 über 1\.234,50 €\.$/m.test(body), true, 'ZAI: Text wie bisher');
   gleich(ctx.versand('ZAI'), 'vertrieb@dihag-zaigler.com', 'ZAI: Absender Vertriebspostfach');
   const shb = ctx.mail(Object.assign({}, daten, { gesellschaft: 'SHB', verkaeufer: 'Beispielwerk GmbH' }), 10, true).body;
