@@ -91,7 +91,7 @@ const ANSICHT = 'https://e-rechnung.dihag-extern.com/prozess.html';
 const EINGANG = {
   key: 'eingang', file: '01-rechnungseingang.bpmn', tab: 'eingang', haupt: true,
   name: 'E-Rechnung Rechnungseingang', kennung: 'Process_ERechnung_Eingang',
-  doku: 'Eingangsrechnungen kommen per Mail ins Rechnungspostfach des Werks. Ein Flow je Werk (WGC, SHB, ZAI, HOL, LEG, EWA) gibt jeden PDF- oder XML-Anhang an den Prüfdienst und legt Original und Prüfergebnis in ERAR_<Werk> ab. WGC und SHB übergeben an ihre Eingangsrechnungsliste, die anderen Werke schicken eine Archiv-Mail ins eigene Postfach. Die Kreditorenbuchhaltung prüft im Monitoring und schätzt sonstige Rechnungen ein. WGC holt die Freigabe im Monitoring ein und bucht dann. ZAI, HOL, LEG, EWA, EIS und DSO erfassen im SAP, dort läuft auch die Genehmigung, die Rechnung geht nicht noch einmal durchs Monitoring.',
+  doku: 'Eingangsrechnungen kommen per Mail ins Rechnungspostfach des Werks. Ein Flow je Werk (WGC, SHB, ZAI, HOL, LEG, EWA) gibt jeden PDF- oder XML-Anhang an den Prüfdienst und legt Original und Prüfergebnis in ERAR_<Werk> ab. Bei WGC und SHB arbeitet die Buchhaltung direkt im Monitoring (seit 05.11.2026 ohne die alte Eingangsrechnungsliste), die anderen Werke schicken eine Archiv-Mail ins eigene Postfach. Die Kreditorenbuchhaltung prüft im Monitoring und schätzt sonstige Rechnungen ein. WGC und SHB holen die Freigabe im Monitoring ein und buchen dann. ZAI, HOL, LEG, EWA, EIS und DSO erfassen im SAP, dort läuft auch die Genehmigung, die Rechnung geht nicht noch einmal durchs Monitoring.',
   pools: [
     { id: 'P_Lief', name: 'Lieferant', actor: 'extern', blackbox: true },
     {
@@ -119,10 +119,6 @@ const EINGANG = {
         // ZAI, HOL, LEG, EWA: Übergabe über das Postfach
         { id: 'A_merk', k: 'service', n: 'Datei für die Archiv-Mail vormerken', lane: 'LA', c: 14, r: 0 },
         { id: 'A_archSend', k: 'service', n: 'Archiv-Mail je E-Rechnung an das eigene Postfach senden', lane: 'LA', c: 18, r: 0 },
-        // WGC und SHB: Übergabe über die Eingangsrechnungsliste auf gruppe_wgc bzw. gruppe_shb
-        { id: 'W_item', k: 'service', n: 'Eintrag in der Rechnungsliste des Werks anlegen', lane: 'LC', c: 14, r: 0 },
-        { id: 'W_att', k: 'service', n: 'Original und lesbares PDF an den Eintrag anhängen', lane: 'LC', c: 15, r: 0 },
-        { id: 'W_upd', k: 'service', n: 'Eintrag mit dem Prüfergebnis aktualisieren', lane: 'LC', c: 16, r: 0 },
         // Kreditorenbuchhaltung
         { id: 'D_check', k: 'user', n: 'Rechnung prüfen und im Monitoring als geprüft markieren', lane: 'LD', c: 19, r: 0 },
         { id: 'D_gw', k: 'gw', n: 'Buchungsweg laut Prüfergebnis?', lane: 'LD', c: 20, r: 0, lp: 'below' },
@@ -158,12 +154,9 @@ const EINGANG = {
         F('A_liefMail', 'A_gwWerk', '', { via: 'joinLeft' }),
         F('A_gwErr', 'A_gwWerk', 'nein'),
         F('A_gwWerk', 'A_merk', 'ZAI, HOL, LEG, EWA'),
-        F('A_gwWerk', 'W_item', 'WGC, SHB'),
+        F('A_gwWerk', 'D_check', 'WGC, SHB'),
         F('A_merk', 'A_archSend', 'nach allen Anhängen'),
-        F('W_item', 'W_att'),
-        F('W_att', 'W_upd'),
         F('A_archSend', 'D_check'),
-        F('W_upd', 'D_check'),
         F('D_check', 'D_gw'),
         F('D_gw', 'D_gwWo', 'Automatik'),
         F('D_gw', 'D_4eyes', 'manuell'),
@@ -194,21 +187,21 @@ const EINGANG = {
           text: 'Bei Zurückweisung oder Abweichung. Empfänger aus der E-Rechnung. Der Schalter „Lieferantenmails“ steht noch auf aus.' },
         { id: 'N_archSend', of: 'A_archSend', lane: 'LA', c: 17, r: 1, w: 300, h: 72,
           text: 'HOL, LEG, EWA: eine Archiv-Mail je E-Rechnung, die übrigen PDFs der Mail kommen mit. ZAI noch je Anhang. Die Originalmail bleibt im Posteingang.' },
-        { id: 'N_wgc', of: 'W_item', lane: 'LC', c: 14, r: 1, w: 330, h: 72,
-          text: 'WGC und SHB: bis zur Umstellung auf das Monitoring über die Eingangsrechnungsliste auf gruppe_wgc bzw. gruppe_shb. Anhänge nur bei grün oder gelb.' },
+        { id: 'N_wgc', of: 'A_gwWerk', lane: 'LA', c: 14, r: 1, w: 260, h: 72,
+          text: 'WGC und SHB: seit 05.11.2026 ohne die alte Eingangsrechnungsliste. Die Buchhaltung arbeitet im Monitoring.' },
         { id: 'N_check', of: 'D_check', lane: 'LD', c: 19, r: 1, w: 220, h: 62,
           text: '„Als geprüft markieren“ speichert, wer wann geprüft hat.' },
         { id: 'N_800', of: 'D_800', lane: 'LD', c: 19, r: 3, w: 220, h: 84,
           text: 'Kleinbetrag bis 250 € und Lieferant im Ausland sind ausgenommen. Die Mail an den Lieferanten geht aus dem Werks-Postfach.' },
         { id: 'N_wo', of: 'D_gwWo', lane: 'LD', c: 23, r: 1, w: 160, h: 96,
-          text: 'Im SAP wird erfasst und genehmigt, im Monitoring ist danach nichts zu tun. Im SAP: ZAI, HOL, LEG, EWA, EIS und DSO. Im Monitoring: WGC.' },
+          text: 'Im SAP wird erfasst und genehmigt, im Monitoring ist danach nichts zu tun. Im SAP: ZAI, HOL, LEG, EWA, EIS und DSO. Im Monitoring: WGC und SHB.' },
         { id: 'N_kred', of: 'D_kred', lane: 'LD', c: 27, r: 2, w: 250, h: 72, tone: 'plan',
           text: 'Heute schickt die Buchhaltung die Rückfrage selbst. Mit dem Schalter „Lieferantenmails“ übernimmt das der Eingangs-Flow.' },
       ],
       groups: [
         { id: 'G_anhang', label: 'wiederholt sich je Anhang (PDF oder XML)',
           members: ['A_att', 'B_intake', 'C_orig', 'C_meta', 'C_side', 'A_gwErr', 'A_errMail', 'A_liefMail', 'A_gwWerk', 'A_merk',
-                    'W_item', 'W_att', 'W_upd', 'N_err', 'N_lief', 'N_wgc'] },
+                    'N_err', 'N_lief', 'N_wgc'] },
       ],
     },
   ],
@@ -518,7 +511,7 @@ const EINSCHAETZUNG = {
 const FREIGABE = {
   key: 'freigabe', file: '01d-freigabe.bpmn', tab: 'eingang', von: 'eingang',
   name: 'E-Rechnung Eingangsrechnung freigeben', kennung: 'Process_ERechnung_Freigabe',
-  doku: 'Die Kreditorenbuchhaltung trägt im Monitoring Varialnummer, Kontierung und Bestellnummer ein und fordert die Genehmigung an. Ein Flow je Werk schickt die Rechnung mit PDF an den Genehmiger und schreibt die Antwort an die Rechnung. Bei Genehmigung geht auf Wunsch eine Info an die Adresse zum Austragen im abas, bei Ablehnung eine Mail an den, der angefordert hat. Das ersetzt die Eingangsrechnungsliste auf gruppe_wgc. Gilt nur für WGC. ZAI, HOL, LEG, EWA, EIS und DSO genehmigen im SAP.',
+  doku: 'Die Kreditorenbuchhaltung trägt im Monitoring Varialnummer, Kontierung und Bestellnummer ein und fordert die Genehmigung an. Ein Flow je Werk schickt die Rechnung mit PDF an den Genehmiger und schreibt die Antwort an die Rechnung. Bei Genehmigung geht auf Wunsch eine Info an die Adresse zum Austragen im abas, bei Ablehnung eine Mail an den, der angefordert hat. Das ersetzt die Eingangsrechnungslisten auf gruppe_wgc und gruppe_shb. Gilt für WGC und SHB. ZAI, HOL, LEG, EWA, EIS und DSO genehmigen im SAP.',
   pools: [{
     id: 'P_Frei', name: 'Eingangsrechnung freigeben (Monitoring und Genehmigungs-Flow je Werk)', main: true,
     lanes: [
@@ -557,7 +550,7 @@ const FREIGABE = {
     ],
     annotations: [
       { id: 'GN_start', of: 'G_start', lane: 'LB9', c: 1, r: 1, w: 150, h: 84,
-        text: 'Nur WGC. ZAI, HOL, LEG, EWA, EIS und DSO genehmigen im SAP.' },
+        text: 'Nur WGC und SHB. ZAI, HOL, LEG, EWA, EIS und DSO genehmigen im SAP.' },
       { id: 'GN_anf', of: 'G_anf', lane: 'LB9', c: 2, r: 1, w: 220, h: 84,
         text: 'Mehrere Genehmiger mit „;“, dann gilt die erste Antwort. Die abas-Adresse ist je Werk vorbelegt.' },
       { id: 'GN_send', of: 'G_send', lane: 'LF9', c: 5, r: 1, w: 300, h: 84,

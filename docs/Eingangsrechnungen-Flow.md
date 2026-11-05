@@ -213,11 +213,11 @@ unterschiedlich an die Buchhaltung:
 
 | | WGC, SHB | ZAI, HOL, LEG, EWA |
 |---|---|---|
-| Flow | `E-R-Rechnung_WGC`, `E-R-Rechnung_SHB` (Kopie von WGC, seit 05.11.2026, löst „ER SHB“ ab) | `E-R-Rechnung_ZAI`, `_HOL`, `_LEG`, `_EWA` |
+| Flow | `E-R-Rechnung_WGC (nur Monitoring)`, `E-R-Rechnung_SHB (nur Monitoring)` (seit 05.11.2026; davor `E-R-Rechnung_WGC` und `E-R-Rechnung_SHB` mit der alten Liste, ausgeschaltet) | `E-R-Rechnung_ZAI`, `_HOL`, `_LEG`, `_EWA` |
 | Postfach | Rechnungspostfach des Werks | je Werk ein eigenes Rechnungspostfach (Adressen nicht im Repo, siehe Flow) |
 | Schleifenschutz am Anfang | nicht nötig | Betreff enthält „[ARCHIV]“ = eigene Archiv-Mail: nur in den Ordner `ArchiviertUndGeprueft` (Posteingang) verschieben, nicht verarbeiten |
-| Übergabe | Eintrag in der Eingangsrechnungsliste auf `gruppe_wgc` bzw. `gruppe_shb`, Original und lesbares PDF als Anlage (bei grün oder gelb), Eintrag danach mit dem Prüfergebnis aktualisiert | Archiv-Mail aus dem eigenen Postfach an sich selbst. HOL, LEG, EWA: **je E-Rechnung eine**, normale PDFs der Eingangsmail als Anlagen dabei, ohne E-Rechnung eine für die ganze Mail. Betreff „[ARCHIV] Rechnung <Nr> — <Lieferant> (N Dateien)“. ZAI: noch je Anhang, vom Admin-Konto |
-| Buchhaltung arbeitet in | der Liste auf `gruppe_wgc` bzw. `gruppe_shb` | dem Postfachordner `ArchiviertUndGeprueft` (WebVerify: eine Archiv-Mail = ein Vorgang) |
+| Übergabe | keine, die Rechnung liegt mit Prüfergebnis in `ERAR_<Werk>` und erscheint im Monitoring. Bis 05.11.2026: Eintrag in der Eingangsrechnungsliste auf `gruppe_wgc` bzw. `gruppe_shb` mit Anlagen | Archiv-Mail aus dem eigenen Postfach an sich selbst. HOL, LEG, EWA: **je E-Rechnung eine**, normale PDFs der Eingangsmail als Anlagen dabei, ohne E-Rechnung eine für die ganze Mail. Betreff „[ARCHIV] Rechnung <Nr> — <Lieferant> (N Dateien)“. ZAI: noch je Anhang, vom Admin-Konto |
+| Buchhaltung arbeitet in | dem Monitoring (Bearbeiten, Einschätzung, Genehmigung) | dem Postfachordner `ArchiviertUndGeprueft` (WebVerify: eine Archiv-Mail = ein Vorgang) |
 
 Aufbau in ZAI, HOL, LEG und EWA: oben `Archiv_pruefen` (bei ZAI `Bedingung_4`) mit dem
 Verschieben im Ja-Zweig und der Schleife über die Anlagen im Nein-Zweig. Die Archiv-Mail

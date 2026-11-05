@@ -180,6 +180,11 @@ Für ein weiteres Werk den Flow kopieren („Speichern unter“) und im Trigger 
 
 ### Schritt 6: Umschalten
 
+Erledigt am 05.11.2026 für WGC und SHB: `E-R-Rechnung_WGC (nur Monitoring)` und
+`E-R-Rechnung_SHB (nur Monitoring)` laufen, die Fassungen mit der alten Liste sind aus.
+Für SHB gibt es `Genehmigung SHB (Monitoring)`. Vorbereitet und noch aus: MEG und SCH
+(Eingangs-Flow „nur Monitoring“ und Genehmigungs-Flow je Werk).
+
 1. Im Eingangs-Flow `E-R-Rechnung_WGC` die Schritte entfernen, die den Eintrag in der
    Eingangsrechnungsliste auf gruppe_wgc anlegen, die Anlagen hinzufügen und den Eintrag
    aktualisieren. Die Ablage in `ERAR_WGC` bleibt.

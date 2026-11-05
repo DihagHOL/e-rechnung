@@ -294,7 +294,7 @@
           <p class="proc-lead">Lieferanten schicken Rechnungen an das Postfach ihres Werks. Ein Power-Automate-Flow
             gibt jeden PDF- oder XML-Anhang an den Prüfdienst, legt das Ergebnis GoBD-sicher in SharePoint ab
             und sagt der Buchhaltung, wie gebucht wird. Im Monitoring schätzt die Buchhaltung sonstige
-            Rechnungen ein. Die Freigabe holt sie dort nur bei WGC ein. Die anderen Werke erfassen im SAP,
+            Rechnungen ein. Die Freigabe holt sie dort bei WGC und SHB ein. Die anderen Werke erfassen im SAP,
             dort läuft auch die Genehmigung.</p>
         </div>
         <div class="bpmn-actions" data-actions="eingang"></div>
@@ -313,8 +313,8 @@
             <li><span class="chip a-api">Prüfdienst</span>erkennt die Art (ZUGFeRD, XRechnung oder sonstige Rechnung), prüft mit Mustang oder KoSIT, liest die Kopfdaten und wendet das Regelwerk an. Rot wird zurückgewiesen, gelb unter Vorbehalt gebucht. Bei einer PDF ohne XML liest er Lieferant, USt-IdNr., Nummer und Datum aus dem Text. Heraus kommen der Buchungsweg, Prüf-Flags, ein Prüfbericht und bei Bedarf ein lesbares PDF.</li>
             <li><span class="chip a-archiv">SharePoint</span>bekommt das Original in ERAR_&lt;Werk&gt;. Der Dateiname aus Rechnungsnummer und USt-IdNr verhindert, dass sich zwei Lieferanten gegenseitig überschreiben. Daneben liegen lesbares PDF, Prüfbericht und XML. Alle Anhänge einer Mail tragen dieselbe Vorgangskennung, das Monitoring zeigt sie als einen Vorgang.</li>
             <li><span class="chip a-auto">Power Automate</span>meldet rote Ergebnisse oder ein falsches Werk an die Werks-Adresse aus den Einstellungen. Die Mail an den Lieferanten bei Zurückweisung oder Abweichung ist eingebaut, der Schalter „Lieferantenmails“ steht aber noch auf aus.</li>
-            <li><span class="chip a-auto">Power Automate</span>übergibt an die Buchhaltung des Werks. WGC und SHB legen bis zur Umstellung auf das Monitoring einen Eintrag in ihrer Eingangsrechnungsliste an (gruppe_wgc bzw. gruppe_shb). ZAI, HOL, LEG und EWA schicken eine Archiv-Mail ins eigene Postfach. HOL, LEG und EWA schicken eine je E-Rechnung, die übrigen PDFs der Mail kommen mit. Die Originalmail bleibt im Posteingang.</li>
-            <li><span class="chip a-mensch">Buchhaltung</span>prüft die Rechnung im Monitoring, markiert sie als geprüft und folgt dem Buchungsweg aus der Tabelle rechts. Sonstige Rechnungen schätzt sie ein, Rechnungen zum Buchen gibt sie bei WGC im Monitoring frei. Beides steht weiter unten.</li>
+            <li><span class="chip a-auto">Power Automate</span>übergibt an die Buchhaltung des Werks. Bei WGC und SHB arbeitet die Buchhaltung seit 05.11.2026 direkt im Monitoring, die alten Eingangsrechnungslisten auf gruppe_wgc und gruppe_shb bekommen keine neuen Rechnungen mehr. ZAI, HOL, LEG und EWA schicken eine Archiv-Mail ins eigene Postfach. HOL, LEG und EWA schicken eine je E-Rechnung, die übrigen PDFs der Mail kommen mit. Die Originalmail bleibt im Posteingang.</li>
+            <li><span class="chip a-mensch">Buchhaltung</span>prüft die Rechnung im Monitoring, markiert sie als geprüft und folgt dem Buchungsweg aus der Tabelle rechts. Sonstige Rechnungen schätzt sie ein, Rechnungen zum Buchen gibt sie bei WGC und SHB im Monitoring frei. Beides steht weiter unten.</li>
             <li><span class="chip a-erp">ERP</span>erfasst und bucht die Rechnung. ZAI, HOL, LEG, EWA, EIS und DSO erfassen im SAP. Dorthin geht die Rechnung nach der Prüfung direkt, und die Genehmigung läuft im SAP. Im Monitoring ist dann nichts mehr zu tun.</li>
             <li><span class="chip a-archiv">Monitoring</span>zeigt alles auf einen Blick: Kennzahlen, Schnellfilter, Dubletten, überfällige Rechnungen, offene Einschätzungen und Genehmigungen. Jeder sieht nur die Werke, die ihm zugewiesen sind.</li>
           </ol>
@@ -373,13 +373,13 @@
         <div class="side-box">
           <h4 class="box-title">Gut zu wissen</h4>
           <table class="rules">
-            <tr><td><span class="chip t-ok">Je Werk</span></td><td>Bearbeiten und Freigabe stellt der Admin je Werk ein. Freigabe im Monitoring nur bei WGC. ZAI, HOL, LEG, EWA, EIS und DSO genehmigen im SAP.</td></tr>
+            <tr><td><span class="chip t-ok">Je Werk</span></td><td>Bearbeiten und Freigabe stellt der Admin je Werk ein. Freigabe im Monitoring bei WGC und SHB. ZAI, HOL, LEG, EWA, EIS und DSO genehmigen im SAP.</td></tr>
             <tr><td><span class="chip t-gate">Mehrere</span></td><td>Genehmiger mit „;“ trennen. Die erste Antwort gilt.</td></tr>
             <tr><td><span class="chip a-auto">abas</span></td><td>Die Adresse ist je Werk vorbelegt. Eine andere gilt nur für diese Rechnung.</td></tr>
             <tr><td><span class="chip t-warn">30 Tage</span></td><td>So lange wartet eine Genehmigung. Danach muss sie neu angefordert werden.</td></tr>
             <tr><td><span class="chip t-err">Zurückgewiesen</span></td><td>Keine Freigabe. Der Dialog bietet keine Genehmigung an, die Rechnung zählt nicht unter „In Genehmigung“.</td></tr>
           </table>
-          <p class="note">Das Monitoring löst damit die Eingangsrechnungsliste auf gruppe_wgc ab. Anleitung: Genehmigung im Monitoring.</p>
+          <p class="note">Das Monitoring löst damit die Eingangsrechnungslisten auf gruppe_wgc und gruppe_shb ab (seit 05.11.2026). Anleitung: Genehmigung im Monitoring.</p>
         </div>
       </div>
     </section>
