@@ -215,5 +215,21 @@ ok(ug._ugAbsenderWahl('noreply@lieferant.de;buchhaltung@lieferant.de') === 'buch
 ok(ug._ugAbsenderWahl('scanner@dihag.com') === '', 'nur interne Adresse: keine');
 delete global.istEigeneMail;
 
+// Ein Knopf für Bearbeiten und Einschätzung: in der Zelle nur der Stand, kein eigener Knopf
+global._esc = x => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+global._monDate = x => String(x || '').slice(0, 10);
+ug._ug.daten = { version: 1, lieferanten: {}, rechnungen: {} };
+const offen = { nummer: 'RE-30', werk: 'WGC', richtung: 'Eingang', formatmangel: true, baseKey: 'RE-30', brutto: 900, steller: 'Neu GmbH', datum: '2026-11-03' };
+ok(ug.ugDialogMoeglich(offen), 'offene Einschätzung hat den Dialog');
+ok(!ug.ugDialogMoeglich(Object.assign({}, offen, { brutto: 120 })), 'unbestätigter Kleinbetrag hat keinen Dialog');
+ok(!ug.ugDialogMoeglich(Object.assign({}, offen, { formatmangel: false })), 'E-Rechnung hat keinen Dialog');
+ok(/data-ug="7"/.test(ug.ugZelle(offen, 7)) && /800k einschätzen/.test(ug.ugZelle(offen, 7)), 'ohne Bearbeiten: eigener Knopf');
+const nurStand = ug.ugZelle(offen, 7, true);
+ok(!/data-ug=|<button/.test(nurStand) && /800k offen/.test(nurStand), 'mit Bearbeiten: nur der Stand');
+ug._ug.daten.lieferanten[ug.ugKey('Neu GmbH')] = { name: 'Neu GmbH', vermutung: 'bis', am: '2026-11-03T10:00:00Z', von: 'x@dihag.com' };
+ok(!/data-ug=|<button/.test(ug.ugZelle(offen, 7, true)) && /bis 800k/.test(ug.ugZelle(offen, 7, true)), 'eingeschätzt: Abzeichen ohne Knopf');
+ok(/data-ug="7"/.test(ug.ugZelle(offen, 7)), 'eingeschätzt ohne Bearbeiten: Abzeichen als Knopf');
+delete global._esc; delete global._monDate;
+
 console.log(`umsatzgrenze: ${n} Pruefungen gruen`);
 })().catch(err => { console.error(err); process.exit(1); });

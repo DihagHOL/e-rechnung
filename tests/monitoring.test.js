@@ -149,4 +149,9 @@ vg = M._monGroup([mv('a.pdf', { Format: 'PDF' }, '2026-11-02T09:00:00Z'), mv('b.
   datei('c.pdf', { Format: 'PDF' }), datei('d.pdf', { Format: 'PDF' })]);
 gleich(vg.length, 4, 'andere Mail oder ohne Kennung: eigene Zeilen');
 
+// Fehlermeldung nur mit Zeilenumbruch (WGC-Flow) ist keine Meldung, zählt nicht unter „Fehler / rot“
+gleich(datei('x.pdf', { Fehlermeldung: '\n', Konformitaet: 'Gruen' }).fehler, '', 'Zeilenumbruch als Fehlermeldung');
+gleich(M._monMatchFlag(datei('x.pdf', { Fehlermeldung: '\n', Konformitaet: 'Gruen', Verarbeitungsstatus: 'Validiert' }), 'fehler'), false, 'kein Fehler-Treffer');
+gleich(M._monMatchFlag(datei('x.pdf', { Fehlermeldung: 'Timeout', Konformitaet: 'Gruen' }), 'fehler'), true, 'echte Meldung zählt');
+
 console.log(`monitoring: ${n} Prüfungen grün`);

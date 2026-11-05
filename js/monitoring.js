@@ -308,7 +308,8 @@ function _monMap(it, f, lib) {
     format:   (f.Format || '').toString(),
     status:   (f.Verarbeitungsstatus || '').toString(),
     konform:  (f.Konformitaet || '').toString(),
-    fehler:   (f.Fehlermeldung || '').toString(),
+    // Der WGC-Flow schreibt ohne Fehler einen Zeilenumbruch, das ist keine Meldung
+    fehler:   (f.Fehlermeldung || '').toString().trim(),
     // KoSIT-Meldungen: entweder der fertige Klartext-Hinweis (API-Feld "hinweis")
     // oder der rohe meldungenText mit BR-Codes — _monHinweis macht daraus einen Satz.
     meldung:  (f.ValidierungsMeldung || '').toString(),
@@ -670,6 +671,11 @@ function _monMatchBase(r, f, q) {
       && (!q || (r.nummer + ' ' + _monPartner(r) + ' ' + r.steller + ' ' + r.empf + ' ' + (r.absenderMail || '') + ' ' + (r.anlagen || []).join(' ')
                  + (r.bh ? ' ' + r.bh.varial + ' ' + r.bh.kontierung + ' ' + r.bh.notiz + ' ' + r.bh.bestellnr : ''))
                  .toLowerCase().includes(q));
+}
+
+/** Bearbeiten und 800k-Einschätzung über einen Knopf (Werke mit Bearbeiten im Monitoring)? */
+function _monGemeinsam(r) {
+  return typeof bhMitEinschaetzung === 'function' && typeof bhGemeinsamOeffnen === 'function' && bhMitEinschaetzung(r);
 }
 
 function _monMatchFlag(r, flag) {
@@ -1063,7 +1069,8 @@ function _monZelle(id, r, idx) {
       if (r.konvertiert)      flags.push(['techn. konvertiert', '#334155', '#e2e8f0']);
       const badges = flags.map(([t, c, bgc]) =>
         `<div title="${_esc(t)}" style="display:inline-block;margin:3px 3px 0 0;font-size:11px;font-weight:600;color:${c};background:${bgc};border-radius:3px;padding:1px 6px;">${_esc(t.length > 28 ? t.slice(0, 26) + '…' : t)}</div>`).join('');
-      const ug = typeof ugZelle === 'function' ? ugZelle(r, idx) : '';
+      // Mit Bearbeiten im Monitoring öffnet „Bearbeiten“ auch die Einschätzung, hier steht nur der Stand
+      const ug = typeof ugZelle === 'function' ? ugZelle(r, idx, _monGemeinsam(r)) : '';
       const tipBuchung = r.buchungAlt ? ` title="Gespeichert ist ${_esc(r.buchungAlt)}. Nach dem Prüfergebnis gilt ${_esc(r.buchung)}."` : '';
       return `<td>${(r.buchung ? `<span class="pill pill-status"${tipBuchung}>${_esc(r.buchung)}</span>` : '')
         + (badges ? `<div>${badges}</div>` : '') + (ug ? `<div>${ug}</div>` : '') || '–'}</td>`;
@@ -1099,7 +1106,8 @@ function _monZelle(id, r, idx) {
       const dateien = [r.url ? chip(r.url, r.ext ? r.ext.toUpperCase() : 'Datei', 'Original öffnen') : '']
         .concat((r.dateien || []).filter(d => !d.anlage).map(d => chip(d.url, kurz[d.label] || d.label, d.label + ' öffnen')))
         .concat(anlChip).join('');
-      const bhTipp = typeof bhOhneGenehmigung === 'function' && bhOhneGenehmigung(r) ? 'Varialnummer, Kontierung, Notiz' : 'Varialnummer, Kontierung, Genehmigung';
+      const bhTipp = (_monGemeinsam(r) ? '800k-Einschätzung, ' : '')
+        + (typeof bhOhneGenehmigung === 'function' && bhOhneGenehmigung(r) ? 'Varialnummer, Kontierung, Notiz' : 'Varialnummer, Kontierung, Genehmigung');
       return `<td>${bh ? `<button type="button" class="bh-btn" data-bh="${idx}" title="${bhTipp}">Bearbeiten</button>` : ''}${dateien}</td>`;
     }
     default: return '<td></td>';
@@ -1210,7 +1218,7 @@ function _monDetail(r, idx) {
     .concat((r.dateien || []).map(d => `<a href="${_esc(d.url)}" target="_blank" rel="noopener">${_esc(d.label)} ↗</a>`))
     .filter(Boolean).join('<br>');
   const aktionen = (b ? `<button type="button" class="bh-btn" data-bh="${idx}">Bearbeiten</button>` : '')
-    + (sonstige && typeof ugZelle === 'function' ? ugZelle(r, idx) : '');
+    + (sonstige && typeof ugZelle === 'function' ? ugZelle(r, idx, _monGemeinsam(r)) : '');
   return `<div class="mon-det">`
     + block('Rechnung', [['Nummer', t(r.nummer) + (r.nummerAusDatei && r.nummer ? ' (aus dem Dateinamen)' : '')], ['Datum', t(_monDate(r.datum))],
         ['Erstellt am', t(_monZeit(r.erstellt))], ['Fällig am', t(_monDate(r.faelligkeit))],
@@ -1990,7 +1998,10 @@ function monInitFilterEvents() {
     if (bh && typeof bhDialogOeffnen === 'function') {
       const r = _monRows[Number(bh.getAttribute('data-bh'))];
       // Nach dem Speichern neu zusammenfassen: Nummer und Lieferant können sich geändert haben (Dubletten)
-      if (r) bhDialogOeffnen(r, () => { _monRecords = _monGroup(_monDateien); _monMarkDupes(_monRecords); _monBuildFilterOptions(_monLibs); _monSyncControls(); _monApply(); });
+      const nachBh = () => { _monRecords = _monGroup(_monDateien); _monMarkDupes(_monRecords); _monBuildFilterOptions(_monLibs); _monSyncControls(); _monApply(); };
+      const nachUg = () => { _monMarkDupes(_monRecords); _monApply(); };
+      if (r && _monGemeinsam(r)) bhGemeinsamOeffnen(r, { bh: nachBh, ug: nachUg });
+      else if (r) bhDialogOeffnen(r, nachBh);
       return;
     }
     const gp = e.target.closest('[data-geprueft]');
@@ -2049,5 +2060,5 @@ function _esc(s) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
-    _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMitNeuenSpalten, _monLibErlaubt };
+    _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMatchFlag, _monMitNeuenSpalten, _monLibErlaubt };
 }

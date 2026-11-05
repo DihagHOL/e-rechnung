@@ -196,6 +196,11 @@ Für ein weiteres Werk den Flow kopieren („Speichern unter“) und im Trigger 
    Bestellnummer und Notiz.
 2. „Bearbeiten“ in der letzten Spalte. Varialnummer, Bestellnummer, Bearbeitungsstatus,
    Kontierung, Genehmigt, GF gesehen und Notiz eintragen, „Speichern“.
+   - Bei einer sonstigen Rechnung (PDF ohne E-Rechnung) hat der Dialog oben zwei Reiter:
+     „800k-Einschätzung“ und „Bearbeitung“. Solange die Einschätzung offen ist, beginnt er dort
+     (Reiter mit „offen“). Einen eigenen Knopf „800k einschätzen“ gibt es dann nicht, die
+     Spalte „Buchung“ zeigt nur den Stand. Vor einem Reiterwechsel mit ungespeicherten
+     Änderungen fragt der Dialog nach.
    - Oben stehen **Rechnungsnummer** und **Lieferant**. Hat der Prüfdienst sie falsch aus dem
      PDF-Text gelesen, hier korrigieren. Ein geänderter Lieferant wird bestätigt und im
      Lieferantenregister gemerkt, die nächste Rechnung mit derselben USt-IdNr. oder

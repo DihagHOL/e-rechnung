@@ -580,15 +580,26 @@ function _ugMailStand(m) {
 
 const _UG_LABEL = { ueber: 'über 800k', bis: 'bis 800k' };
 
-/** HTML für die Buchungs-Spalte: Button bzw. Badge mit der Einschätzung. */
-function ugZelle(r, idx) {
+/** Gibt es zu der Rechnung den Einschätzungs-Dialog? (nicht bei unbestätigtem Kleinbetrag) */
+function ugDialogMoeglich(r) {
+  return ugSonstige(r) && (!!ugKleinBestaetigt(r) || !ugKleinbetrag(r));
+}
+
+/**
+ * HTML für die Buchungs-Spalte: Knopf oder Abzeichen der Einschätzung. nurAnzeige: nur der Stand ohne Knopf,
+ * wenn „Bearbeiten“ den Dialog mit öffnet (Werke mit Bearbeiten im Monitoring).
+ */
+function ugZelle(r, idx, nurAnzeige) {
   if (!ugSonstige(r)) return '';
+  const knopf = (cls, tip, text) => nurAnzeige
+    ? `<span class="${cls}" title="${_esc(tip)}">${text}</span>`
+    : `<button type="button" class="${cls}" data-ug="${idx}" title="${_esc(tip)}">${text}</button>`;
   // Bestätigte Ausnahmen öffnen den Dialog, dort lassen sie sich zurücknehmen
   const klein = ugKleinBestaetigt(r);
   if (klein) {
     const tip = `Kleinbetrag${klein.betrag != null ? ' ' + _ugBetragText(klein.betrag) + ' €' : ''} bestätigt von `
       + `${klein.vonName || klein.von} am ${_monDate(klein.am)}: als sonstige Rechnung immer zulässig`;
-    return `<button type="button" class="ug-badge ug-klein" data-ug="${idx}" title="${_esc(tip)}">Kleinbetrag ✓</button>`;
+    return knopf('ug-badge ug-klein', tip, 'Kleinbetrag ✓');
   }
   if (ugKleinbetrag(r)) {
     return `<div title="Kleinbetragsrechnung bis 250 € brutto: als sonstige Rechnung immer zulässig" class="ug-badge ug-klein">Kleinbetrag</div>`;
@@ -597,7 +608,7 @@ function ugZelle(r, idx) {
   if (aus) {
     const tip = `Lieferant ohne Sitz in Deutschland${aus.landName ? ' (' + aus.landName + ')' : ''}, bestätigt von `
       + `${aus.vonName || aus.von} am ${_monDate(aus.am)}: keine E-Rechnungspflicht`;
-    return `<button type="button" class="ug-badge ug-ausland" data-ug="${idx}" title="${_esc(tip)}">Ausland ✓</button>`;
+    return knopf('ug-badge ug-ausland', tip, 'Ausland ✓');
   }
   const e = ugFuer(r);
   const phase = ugPhase(r.datum);
@@ -607,13 +618,17 @@ function ugZelle(r, idx) {
       + `${mail.status === 'Gesendet' ? 'Mail gesendet' : mail.status === 'Fehler' ? 'Mail fehlgeschlagen' : 'Mail wartet'}</span></div>`
     : '';
   if (!e) {
+    if (nurAnzeige) {
+      return `<span class="bh-pill bh-wartet" title="Noch nicht eingeschätzt. „Bearbeiten“ öffnet die Einschätzung.">`
+        + `${phase === 'pflicht' ? 'E-Rechnung anfordern' : '800k offen'}</span>${mailBadge}`;
+    }
     const label = phase === 'pflicht' ? 'E-Rechnung anfordern' : '800k einschätzen';
     return `<button type="button" class="ug-btn" data-ug="${idx}" title="Lieferant über oder bis 800.000 € Umsatz? Mit Mailvorlage">${label}</button>${mailBadge}`;
   }
   const folge = ugFolge(e.vermutung, phase);
   const tip = `${_UG_LABEL[e.vermutung] || e.vermutung} vermutet von ${e.vonName || e.von} am ${_monDate(e.am)}. ${folge.folge}`;
-  return `<button type="button" class="ug-badge ug-${e.vermutung}${folge.zulaessig ? '' : ' ug-nicht'}" data-ug="${idx}" title="${_esc(tip)}">`
-    + `${_esc(_UG_LABEL[e.vermutung] || e.vermutung)}${folge.zulaessig ? '' : ' · E-Rechnung fehlt'}</button>${mailBadge}`;
+  return knopf(`ug-badge ug-${e.vermutung}${folge.zulaessig ? '' : ' ug-nicht'}`, tip,
+    `${_esc(_UG_LABEL[e.vermutung] || e.vermutung)}${folge.zulaessig ? '' : ' · E-Rechnung fehlt'}`) + mailBadge;
 }
 
 /* ── Dialog ──────────────────────────────────────────────────────────── */
@@ -645,16 +660,21 @@ function _ugAbsenderWahl(feld) {
   return String(feld || '').split(/[;,\s]+/).find(_ugAbsenderOk) || '';
 }
 
-function ugDialogOeffnen(r, onGespeichert) {
+/**
+ * wechsel: gesetzt, wenn der Dialog zusammen mit „Bearbeiten“ geöffnet wird (bhGemeinsamOeffnen).
+ * Dann stehen oben die Reiter „800k-Einschätzung“ und „Bearbeitung“.
+ */
+function ugDialogOeffnen(r, onGespeichert, wechsel) {
   const dlg = document.getElementById('ug-dialog');
   if (!dlg) return;
+  dlg.dataset.geaendert = '';
   const e = ugFuer(r);
   // gemerkter Lieferant, auch wenn er noch nicht eingeschätzt ist (bestätigt unter „Bearbeiten“)
   const l = ugLieferantFuer(r);
   const user = (typeof getAuthUser === 'function' && getAuthUser()) || {};
   const absender = _ugAbsenderWahl(r.absenderMail);
   _ugAktuell = {
-    r, onGespeichert, bisher: e,
+    r, onGespeichert, wechsel: wechsel || null, bisher: e,
     vermutung: e ? e.vermutung : '',
     name: ugLieferantName(r),
     nr: r.nummer || '',
@@ -695,6 +715,7 @@ function _ugRender() {
 
   dlg.innerHTML = `
     <form method="dialog" class="ug-form">
+      ${a.wechsel && typeof bhReiter === 'function' ? bhReiter('ug', a.r) : ''}
       <div class="ug-kopf">
         <h3>${phase === 'pflicht' ? 'E-Rechnung anfordern' : 'Lieferant über oder bis 800.000 € Umsatz?'}</h3>
         <button type="button" class="ug-x" data-ug-zu aria-label="Schließen">✕</button>
@@ -784,6 +805,7 @@ function _ugRender() {
     if (iso && ugPhase(iso) !== a.phase) { a.phase = ugPhase(iso); _ugRender(); }
   });
   dlg.querySelector('[data-ug-zu]').addEventListener('click', () => dlg.close());
+  if (a.wechsel && typeof bhReiterBinden === 'function') bhReiterBinden(dlg, a.r, a.wechsel, 'ug');
   dlg.querySelector('#ug-siegel').addEventListener('click', ev => {
     if (ev.target.closest('[data-ug-bestaetigen]')) _ugBestaetigenKlick();
   });
@@ -1202,7 +1224,7 @@ async function _ugAbschliessen(modus) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { UG, UG_MAIL_ART, ugKey, ugRechnungKey, ugPhase, ugSonstige, ugKleinbetrag, ugBraucht, ugFolge, ugVorlage,
+  module.exports = { UG, UG_MAIL_ART, ugKey, ugRechnungKey, ugPhase, ugSonstige, ugKleinbetrag, ugBraucht, ugDialogMoeglich, ugZelle, ugFolge, ugVorlage,
     ugMailOk, ugMailHtml, ugInformiert, ugSpeichern, ugBestaetigen, ugLieferantFuer, ugLieferantMerken, ugLieferantName,
     ugMitXml, ugFuer, ugLaden, ugKleinBestaetigt, ugAusland, ugGeprueft, ugRechnungSetzen, ugAuslandSetzen,
     _ugBetragZahl, _ugBetragText, _ugAbsenderOk, _ugAbsenderWahl, _ug };

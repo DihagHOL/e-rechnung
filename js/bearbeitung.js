@@ -353,11 +353,62 @@ function bhZelle(r) {
     `<div class="bh-pill ${cls}" title="${_esc(tip)}">${_esc(t.length > 26 ? t.slice(0, 24) + '…' : t)}</div>`).join('');
 }
 
+/* ── Ein Knopf für Bearbeiten und 800k-Einschätzung ─────────────────────── */
+// Bei Werken mit Bearbeiten im Monitoring (heute WGC) gehören beide zu derselben Rechnung.
+// Dann gibt es nur den Knopf „Bearbeiten“, und beide Dialoge tragen oben dieselben Reiter.
+
+/** Hat die Zeile beides: Bearbeitung im Monitoring und den Einschätzungs-Dialog? */
+function bhMitEinschaetzung(r) {
+  return !!(r && r.bh) && typeof ugDialogMoeglich === 'function' && ugDialogMoeglich(r);
+}
+
+/** Welcher Reiter zuerst: die Einschätzung, solange sie offen ist, sonst die Bearbeitung. */
+function bhStartReiter(r) {
+  return typeof ugBraucht === 'function' && ugBraucht(r) && !ugFuer(r) ? 'ug' : 'bh';
+}
+
+/** Reiterleiste über beiden Dialogen (aktiv: 'ug' oder 'bh'). */
+function bhReiter(aktiv, r) {
+  const offen = typeof ugBraucht === 'function' && ugBraucht(r) && !ugFuer(r);
+  const reiter = (id, text) => `<button type="button" role="tab" class="dlg-reiter-knopf${id === aktiv ? ' aktiv' : ''}"`
+    + ` data-dlg-reiter="${id}" aria-selected="${id === aktiv}">${text}</button>`;
+  return `<div class="dlg-reiter" role="tablist">${reiter('ug', '800k-Einschätzung' + (offen ? ' <span class="dlg-reiter-offen">offen</span>' : ''))}`
+    + `${reiter('bh', 'Bearbeitung')}</div>`;
+}
+
+/** Öffnet den gemeinsamen Dialog. nach: { bh, ug } = Rückrufe nach dem Speichern. */
+function bhGemeinsamOeffnen(r, nach, start) {
+  const wechsel = { nach };
+  if ((start || bhStartReiter(r)) === 'ug') ugDialogOeffnen(r, nach.ug, wechsel);
+  else bhDialogOeffnen(r, nach.bh, wechsel);
+}
+
+/**
+ * Reiter im offenen Dialog verdrahten. Ein Wechsel schließt ihn und öffnet den anderen,
+ * mit Rückfrage, wenn jemand etwas eingegeben hat (Merker am Dialog, übersteht Neuaufbau).
+ */
+function bhReiterBinden(dlg, r, wechsel, aktiv) {
+  const form = dlg.querySelector('form');
+  const merken = () => { dlg.dataset.geaendert = '1'; };
+  form.addEventListener('input', merken);
+  form.addEventListener('change', merken);
+  form.addEventListener('click', ev => { if (ev.target.closest('[role="radio"]')) merken(); });
+  dlg.querySelectorAll('[data-dlg-reiter]').forEach(k => k.addEventListener('click', () => {
+    const ziel = k.getAttribute('data-dlg-reiter');
+    if (ziel === aktiv) return;
+    if (dlg.dataset.geaendert && !window.confirm('Die Änderungen in diesem Reiter sind nicht gespeichert. Trotzdem wechseln?')) return;
+    dlg.close();
+    bhGemeinsamOeffnen(r, wechsel.nach, ziel);
+  }));
+}
+
 /* ── Dialog ─────────────────────────────────────────────────────────────── */
 
-function bhDialogOeffnen(r, onGespeichert) {
+/** wechsel: gesetzt beim gemeinsamen Öffnen mit der Einschätzung (Reiter oben). */
+function bhDialogOeffnen(r, onGespeichert, wechsel) {
   const dlg = document.getElementById('bh-dialog');
   if (!dlg) return;
+  dlg.dataset.geaendert = '';
   const b = Object.assign(bhAusFeldern({}), r.bh || {});
   const user = (typeof getAuthUser === 'function' && getAuthUser()) || {};
   _bhAktuell = { r, b, onGespeichert, user };
@@ -379,6 +430,7 @@ function bhDialogOeffnen(r, onGespeichert) {
 
   dlg.innerHTML = `
     <form method="dialog" class="ug-form">
+      ${wechsel ? bhReiter('bh', r) : ''}
       <div class="ug-kopf">
         <h3>Rechnung ${_esc(r.nummer)}</h3>
         <button type="button" class="ug-x" data-bh-zu aria-label="Schließen">✕</button>
@@ -448,6 +500,7 @@ function bhDialogOeffnen(r, onGespeichert) {
   });
   dlg.querySelectorAll('[data-bh-zu]').forEach(x => x.addEventListener('click', () => dlg.close()));
   dlg.querySelector('[data-bh-speichern]').addEventListener('click', _bhSpeichern);
+  if (wechsel) bhReiterBinden(dlg, r, wechsel, 'bh');
   _bhPersonenFeld(dlg.querySelector('#bh-genehmiger'), dlg.querySelector('#bh-genehmiger-vorschlaege'));
   _bhPersonenFeld(dlg.querySelector('#bh-abasan'), dlg.querySelector('#bh-abasan-vorschlaege'));
   if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
@@ -691,5 +744,5 @@ async function _bhSpeichern() {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { BH_FELDER, BH_STATUS, BH_GENEHMIGT, bhAusFeldern, bhZiel, bhZusammen, bhMails,
-    bhAenderungen, bhAnforderung, bhKopfdaten, bhKopfAenderungen, bhKopfHinweis, bhGenehmigungsStand, bhInGenehmigung, bhOhneGenehmigung, bhZelle };
+    bhAenderungen, bhAnforderung, bhKopfdaten, bhKopfAenderungen, bhKopfHinweis, bhGenehmigungsStand, bhInGenehmigung, bhOhneGenehmigung, bhZelle, bhMitEinschaetzung, bhStartReiter, bhReiter };
 }

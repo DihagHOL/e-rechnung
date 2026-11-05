@@ -239,6 +239,12 @@ in der Spalte „Buchung“ der Knopf **„800k einschätzen“** (bei Rechnunge
 „E-Rechnung anfordern“). Die Kachel **„800k-Einschätzung offen“** zeigt alle Rechnungen, bei
 denen das noch fehlt.
 
+Bei Werken mit Bearbeiten im Monitoring (heute WGC) gibt es dafür keinen eigenen Knopf. In der
+Spalte „Buchung“ steht dann nur der Stand („800k offen“, „bis 800k“ usw.), und **„Bearbeiten“**
+öffnet einen Dialog mit den Reitern „800k-Einschätzung“ und „Bearbeitung“. Ist die Einschätzung
+noch offen, beginnt er dort. Wer mit ungespeicherten Änderungen den Reiter wechselt, wird
+vorher gefragt.
+
 Keine Mail nötig:
 - Kleinbetragsrechnungen bis 250 € brutto. Ist der Betrag im Monitoring bekannt, tragen sie das
   Abzeichen „Kleinbetrag“. Bei PDF-Rechnungen fehlt er dort meist. Dann den Dialog öffnen: Er
@@ -255,7 +261,7 @@ Keine Mail nötig:
 
 1. **Monitoring öffnen** und die Kachel „800k-Einschätzung offen“ anklicken.
 
-2. Bei der Rechnung auf **„800k einschätzen“** klicken. Der Dialog liest das PDF und füllt
+2. Bei der Rechnung auf **„800k einschätzen“** klicken (bei WGC auf „Bearbeiten“). Der Dialog liest das PDF und füllt
    Lieferant, Rechnungsnummer und Datum vor. Die Werte prüfen und bei Bedarf überschreiben.
 
 3. **Lieferant**: Beim Tippen schlägt das Feld bekannte Lieferanten vor. Ist der Lieferant schon
