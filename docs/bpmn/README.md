@@ -75,8 +75,8 @@ beim Speichern im Editor in die Dokumentation der Kollaboration, der Import in d
 Prozesses. Beides muss erhalten bleiben (`procXmlDokuNeu` für den Prozess, die
 Kollaborations-Doku unverändert übernehmen).
 
-Letzte Übernahme: 05.11.2026 mittags, Rechnungseingang (v0.11, WGC und SHB ohne alte
-Eingangsrechnungsliste) und Eingangsrechnung freigeben (v0.3, WGC und SHB im Monitoring).
+Letzte Übernahme: 05.11.2026, Rechnungseingang v0.12 (Notiz zum Status). Davor mittags
+Rechnungseingang (v0.11, WGC und SHB ohne alte Eingangsrechnungsliste) und Eingangsrechnung freigeben (v0.3, WGC und SHB im Monitoring).
 Vormittags: v0.10 und v0.2 (Entscheidung „Wo wird genehmigt?“, ohne Abfrage je Werk).
 
 Davor: 04.11.2026. Rechnungseingang, Eingangsprüfung, Rechnungsausgang, Erkennen und
