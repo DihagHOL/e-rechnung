@@ -20,7 +20,13 @@ ok(!ug.ugSonstige({ richtung: 'Eingang', formatmangel: false }), 'E-Rechnung nic
 ok(!ug.ugSonstige(Object.assign({}, pdf, { mahnung: true })), 'Mahnung ist keine sonstige Rechnung');
 ok(!ug.ugBraucht(Object.assign({}, pdf, { mahnung: true })), 'Mahnung braucht keine Einschätzung');
 ok(ug.ugBraucht(pdf), 'ohne Betrag braucht Einschaetzung');
-ok(!ug.ugBraucht(Object.assign({}, pdf, { brutto: 249.99 })), 'Kleinbetrag braucht keine');
+ok(ug.ugBraucht(Object.assign({}, pdf, { brutto: 238 })), 'einzelner gelesener Betrag blendet nichts aus');
+ok(ug.ugKleinVermutet(Object.assign({}, pdf, { brutto: 238 })), 'aber er wird zum Bestätigen angeboten');
+ok(!ug.ugBraucht(Object.assign({}, pdf, { brutto: 238, netto: 200 })), 'Netto und Steuer sichern den gelesenen Kleinbetrag ab');
+ok(!ug.ugBraucht(Object.assign({}, pdf, { brutto: 214, netto: 200 })), 'auch mit 7 %');
+ok(ug.ugBraucht(Object.assign({}, pdf, { brutto: 238, netto: 150 })), 'Beträge passen nicht zusammen');
+ok(ug.ugBraucht(Object.assign({}, pdf, { brutto: 238, netto: 200, waehrung: 'CZK' })), 'Kleinbetrag gilt nur in Euro');
+ok(!ug.ugBraucht(Object.assign({}, pdf, { format: 'ZUGFeRD', brutto: 249.99 })), 'E-Rechnung wie bisher');
 ok(ug.ugBraucht(Object.assign({}, pdf, { brutto: 250.01 })), 'ueber 250 braucht eine');
 
 // ZUGFeRD mit PDF/A-Mangel bringt die XML mit: keine 800k-Einschätzung
@@ -77,7 +83,7 @@ for (const art of ['ueber-ruecksendung', 'bis-akzeptanz', 'ueber-ankuendigen', '
   d.rechnungen = {};
   ug._ug.mails = {};
   const pdf = (nr, extra) => Object.assign({ richtung: 'Eingang', formatmangel: true, brutto: 900, baseKey: nr, steller: '' }, extra);
-  const a = pdf('RE-1'), b = pdf('RE-2', { ustid: 'DE123456789' }), c = pdf('RE-3'), klein = pdf('RE-4', { brutto: 120 });
+  const a = pdf('RE-1'), b = pdf('RE-2', { ustid: 'DE123456789' }), c = pdf('RE-3'), klein = pdf('RE-4', { brutto: 119, netto: 100 });
   ok(ug.ugInformiert(a) === '', 'nicht eingeschaetzt = offen');
   ok(ug.ugInformiert(b) === 'Automatik', 'Lieferant ueber USt-IdNr. schon eingeschaetzt');
   d.rechnungen[ug.ugRechnungKey(a)] = { lieferant: 'muster werkzeuge', informiert: 'Nein' };
@@ -223,7 +229,8 @@ global._monDate = x => String(x || '').slice(0, 10);
 ug._ug.daten = { version: 1, lieferanten: {}, rechnungen: {} };
 const offen = { nummer: 'RE-30', werk: 'WGC', richtung: 'Eingang', formatmangel: true, baseKey: 'RE-30', brutto: 900, steller: 'Neu GmbH', datum: '2026-11-03' };
 ok(ug.ugDialogMoeglich(offen), 'offene Einschätzung hat den Dialog');
-ok(!ug.ugDialogMoeglich(Object.assign({}, offen, { brutto: 120 })), 'unbestätigter Kleinbetrag hat keinen Dialog');
+ok(ug.ugDialogMoeglich(Object.assign({}, offen, { brutto: 120 })), 'gelesener Kleinbetrag: Dialog zum Bestätigen');
+ok(!ug.ugDialogMoeglich(Object.assign({}, offen, { brutto: 119, netto: 100 })), 'abgesicherter Kleinbetrag hat keinen Dialog');
 ok(!ug.ugDialogMoeglich(Object.assign({}, offen, { formatmangel: false })), 'E-Rechnung hat keinen Dialog');
 ok(/data-ug="7"/.test(ug.ugZelle(offen, 7)) && /800k einschätzen/.test(ug.ugZelle(offen, 7)), 'ohne Bearbeiten: eigener Knopf');
 const nurStand = ug.ugZelle(offen, 7, true);
@@ -253,6 +260,53 @@ delete global._esc; delete global._monDate;
   try { await ug.ugNummerSpeichern(zeile, 'X-1'); } catch (e) { f = e.message; }
   ok(/keine Schreibrechte auf ERAR_WGC/.test(f), 'ohne Rechte: Hinweis statt Absturz');
   delete global._monDateien;
+}
+
+// 800k je Lieferant: eine Entscheidung für alle offenen Rechnungen
+{
+  const d = ug._ug.daten;
+  d.lieferanten = {};
+  d.rechnungen = {};
+  ug._ug.mails = {};
+  const z = (nr, extra) => Object.assign({ richtung: 'Eingang', formatmangel: true, werk: 'WGC', nummer: nr, baseKey: nr, brutto: null, datum: '2026-10-01', steller: '' }, extra);
+  const offen = [
+    z('A1', { steller: 'Muster GmbH', ustid: 'DE111111111', brutto: 1190, netto: 1000 }),
+    z('A2', { steller: 'Muster GmbH', brutto: 595 }),
+    z('A3', { steller: 'Muster Gmbh Berlin', ustid: 'DE111111111' }),
+    z('B1', { steller: 'Beispiel AG', brutto: 120 }),
+    z('C1', { steller: 'Fonderia S.r.l.', ustid: 'IT01234567890', brutto: 300, waehrung: 'CZK' }),
+    z('D1', { brutto: 80 }),
+    z('E1', { ustid: 'DE222222222' }),
+  ];
+  const { gruppen, ohne, klein } = ug.ugOffeneLieferanten(offen);
+  ok(gruppen.map(g => [g.name, g.rechnungen.length]).join('|') === 'Muster GmbH,3|Beispiel AG,1|DE222222222,1|Fonderia S.r.l.,1', 'Gruppen: nach Anzahl, gleiche USt-IdNr. zusammen');
+  ok(gruppen[0].vat === 'DE111111111' && gruppen[0].summe === 1785 && gruppen[0].mitBetrag === 2, 'Name ohne USt-IdNr. kommt zur Gruppe, Summe der gelesenen Beträge');
+  ok(gruppen[3].land === 'IT' && !gruppen[0].land, 'USt-IdNr. im Ausland');
+  ok(gruppen[3].mitBetrag === 0, 'andere Währung zählt nicht zur Summe');
+  ok(ohne.map(r => r.nummer).join() === 'D1', 'ohne Lieferant');
+  ok(klein.map(r => r.nummer).join() === 'B1,D1', 'gelesene Kleinbeträge in Euro');
+
+  const bodies = [];
+  global.fetch = async (url, opt) => { bodies.push(JSON.parse(Buffer.from(opt.body).toString('utf8')));
+    return { ok: true, status: 200, json: async () => ({ id: 'item1', eTag: 'e' + bodies.length }) }; };
+  await ug.ugSammelSetzen(gruppen[0], { vermutung: 'bis' });
+  const r0 = offen[0];
+  ok(bodies.length === 1, 'ein Schreibvorgang für alle Rechnungen');
+  ok(ug.ugFuer(r0).vermutung === 'bis' && ug.ugFuer(offen[1]).vermutung === 'bis' && ug.ugFuer(offen[2]).vermutung === 'bis', 'alle drei eingeschätzt');
+  ok(ug.ugFuer(z('A9', { ustid: 'DE111111111' })).vermutung === 'bis', 'auch künftige Rechnungen');
+  ok(ug.ugFuer(z('A8', { steller: 'Muster Gmbh Berlin' })).vermutung === 'bis', 'gelesene Schreibweise gemerkt');
+  ok(ug.ugInformiert(r0) === 'Nein', 'keine Mail, also nicht informiert');
+  ok(ug.ugLieferantFuer(r0).vat === 'DE111111111', 'USt-IdNr. am Lieferanten');
+
+  await ug.ugSammelSetzen(gruppen[0], { vermutung: 'ueber' });
+  ok(ug.ugFuer(r0).vermutung === 'ueber' && ug.ugFuer(r0).verlauf[0].vermutung === 'bis', 'alter Stand im Verlauf');
+
+  await ug.ugSammelSetzen(gruppen[3], { ausland: { land: 'IT', gruende: ['USt-IdNr. IT01234567890'] } });
+  ok(ug.ugAusland(offen[4]).land === 'IT' && !ug.ugBraucht(offen[4]), 'Ausland: keine Einschätzung nötig');
+
+  await ug.ugSammelKlein(klein);
+  ok(ug.ugKleinBestaetigt(offen[3]).betrag === 120 && ug.ugKleinbetrag(offen[3]) && !ug.ugBraucht(offen[5]), 'Kleinbeträge bestätigt');
+  ok(bodies.length === 4, 'je Klick ein Schreibvorgang');
 }
 
 console.log(`umsatzgrenze: ${n} Pruefungen gruen`);

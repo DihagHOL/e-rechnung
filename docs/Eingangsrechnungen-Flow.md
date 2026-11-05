@@ -192,7 +192,11 @@ aus der Empfänger-Adresse ableitet. Ablauf:
 **Normales PDF:** wird erkannt, gekennzeichnet und archiviert, aber **nicht**
 automatisch in eine XRechnung umgewandelt (zuverlässige Auto-Konvertierung beliebiger
 Lieferanten-Layouts ist nicht seriös leistbar). Bei Bedarf manuell in der E-Rechnung-App
-umwandeln. Eine automatische OCR-Konvertierung wäre ein eigener, größerer Ausbau.
+umwandeln. Eine automatische OCR-Konvertierung wäre ein eigener, größerer Ausbau. Die
+Kopfdaten liest der Prüfdienst trotzdem aus (Lieferant, USt-IdNr., Nummer, Datum, Fälligkeit,
+Netto, Brutto), bei Scans über den OCR-Dienst (`OCR_URL`, [`ocr-service/`](../ocr-service/README.md)).
+Der Flow schreibt sie wie bei einer E-Rechnung aus `daten` in die Spalten, er braucht dafür
+keine eigenen Schritte. `datenQuelle` sagt, woher sie stammen (`pdf-text` oder `ocr`).
 
 Was sich aus dem Text sicher lesen lässt, liefert der Prüfdienst trotzdem in `daten`:
 Lieferant (`steller`), USt-IdNr. (`stellerVat`), Rechnungsnummer und -datum

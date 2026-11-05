@@ -201,7 +201,24 @@
 
     #ug-dialog, #bh-dialog, #sp-dialog { margin:auto; border:none; border-radius:12px; padding:0; width:min(680px, calc(100vw - 32px));
                 max-height:calc(100vh - 48px); box-shadow:0 20px 50px rgba(0,0,0,.25); }
-    #ug-dialog::backdrop, #bh-dialog::backdrop, #sp-dialog::backdrop { background:rgba(17,24,39,.45); }
+    #ug-dialog::backdrop, #bh-dialog::backdrop, #sp-dialog::backdrop, #ug-sammel::backdrop { background:rgba(17,24,39,.45); }
+    #ug-sammel { margin:auto; border:none; border-radius:12px; padding:0; width:min(920px, calc(100vw - 32px));
+                max-height:calc(100vh - 48px); box-shadow:0 20px 50px rgba(0,0,0,.25); }
+    .ug-s-block { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; background:var(--gray-100);
+                border-radius:8px; padding:8px 12px; font-size:13px; }
+    .ug-s-block .ug-btn { margin-top:0; }
+    .ug-s-rahmen { max-height:calc(100vh - 300px); overflow:auto; border:1px solid var(--gray-200); border-radius:8px; }
+    .ug-s-tabelle { width:100%; border-collapse:collapse; font-size:13px; }
+    .ug-s-tabelle th { position:sticky; top:0; background:var(--gray-100); text-align:left; font-size:12px; color:var(--gray-600); padding:6px 10px; }
+    .ug-s-tabelle td { padding:6px 10px; border-top:1px solid var(--gray-200); vertical-align:middle; }
+    .ug-s-tabelle .ug-s-zahl { text-align:right; white-space:nowrap; }
+    .ug-s-name { font-weight:600; color:var(--gray-900); }
+    .ug-s-info { font-size:11px; color:var(--gray-500); }
+    .ug-s-knoepfe { white-space:nowrap; text-align:right; }
+    .ug-s-knoepfe .ug-btn { margin-top:0; }
+    .ug-s-zeigen { font:inherit; font-size:11px; color:var(--primary); background:none; border:none; cursor:pointer; padding:3px 4px; text-decoration:underline; }
+    .ug-s-zeigen:disabled, .ug-s-knoepfe .ug-btn:disabled, .ug-s-block .ug-btn:disabled { opacity:.6; cursor:wait; }
+    .mon-gelesen { color:var(--gray-500); font-style:italic; }
     .ug-form { padding:20px 22px; display:flex; flex-direction:column; gap:12px; }
     .ug-kopf { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
     .ug-kopf h3 { margin:0; font-size:17px; color:var(--gray-900); }
@@ -414,6 +431,7 @@
         <button type="button" data-dichte="gross">Groß</button>
       </div>
       <button type="button" class="mon-reset" id="mon-alle-auf" title="Details aller angezeigten Zeilen auf- oder zuklappen">Alle aufklappen</button>
+      <button type="button" class="mon-reset" id="mon-800k" hidden title="Offene Rechnungen nach Lieferant: eine Entscheidung für alle">800k je Lieferant</button>
       <span class="mon-ansicht-tipp">Zeile anklicken zeigt alle Angaben zur Rechnung</span>
       <button type="button" class="mon-reset" id="mon-breiten-zurueck" title="Selbst gezogene Spaltenbreiten zurücksetzen" hidden>Breiten zurücksetzen</button>
       <button type="button" class="mon-reset" id="mon-aeltere" style="margin-left:auto;" hidden>Ältere laden</button>
@@ -439,6 +457,7 @@
 <dialog id="ug-dialog" aria-label="Umsatzgrenze 800.000 €"></dialog>
 <dialog id="bh-dialog" aria-label="Rechnung bearbeiten"></dialog>
 <dialog id="sp-dialog" aria-label="Spalten je Werk"></dialog>
+<dialog id="ug-sammel" aria-label="800k-Einschätzung je Lieferant"></dialog>
 
 <script src="js/vendor/msal-browser.min.js?v=c933092555"></script>
 <script src="js/auth.js?v=1bbbff5340"></script>
@@ -447,10 +466,10 @@
 <script type="module" src="js/pdfjs-laden.mjs?v=47a74e334d"></script>
 <script src="js/vendor/tesseract/tesseract.min.js?v=000c27d9cd"></script>
 <script src="js/ocr.js?v=ca1f1ec809"></script>
-<script src="js/lieferant.js?v=39fcf1c639"></script>
-<script src="js/umsatzgrenze.js?v=75448b6b2c"></script>
+<script src="js/lieferant.js?v=791d31f810"></script>
+<script src="js/umsatzgrenze.js?v=2bdc19f9d8"></script>
 <script src="js/bearbeitung.js?v=48a5f63b3a"></script>
-<script src="js/monitoring.js?v=8dd413197d"></script>
+<script src="js/monitoring.js?v=4bb6250aea"></script>
 
 <script src="js/seite-monitoring.js?v=5831e85eeb"></script>
 </body>

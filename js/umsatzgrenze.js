@@ -98,13 +98,27 @@ function ugSonstige(r) {
   return (r.richtung || '') === 'Eingang' && !!r.formatmangel && !r.mahnung && !ugMitXml(r);
 }
 
+/** Passen die gelesenen Beträge zum üblichen Steuersatz? Dann bestätigen sie sich gegenseitig. */
+function ugSummenStimmig(r) {
+  if (r.brutto == null || r.netto == null || !(Math.abs(r.netto) > 0)) return false;
+  const n = Math.abs(r.netto), steuer = Math.abs(r.brutto) - n;
+  return [0.19, 0.07].some(q => Math.abs(steuer - n * q) <= 0.02);
+}
+
 /**
- * Kleinbetragsrechnung (§ 33 UStDV): immer als sonstige Rechnung zulässig. Entweder ist der
- * Betrag bekannt, oder die Kreditorenbuchhaltung hat den Kleinbetrag im 800k-Dialog bestätigt
- * (Betrag aus dem PDF gelesen oder selbst eingetragen).
+ * Kleinbetragsrechnung (§ 33 UStDV): immer als sonstige Rechnung zulässig. Der Betrag steht in
+ * der E-Rechnung, oder der aus dem PDF gelesene Betrag ist durch Netto und Steuer abgesichert,
+ * oder die Kreditorenbuchhaltung hat den Kleinbetrag bestätigt. Ein einzelner gelesener Betrag
+ * reicht nicht: Ein Lesefehler würde sonst die 800k-Einschätzung ausblenden.
  */
 function ugKleinbetrag(r) {
-  return (r.brutto != null && Math.abs(r.brutto) <= UG.kleinbetrag) || !!ugKleinBestaetigt(r);
+  const klein = r.brutto != null && Math.abs(r.brutto) <= UG.kleinbetrag && (r.waehrung || 'EUR') === 'EUR';
+  return (klein && (ugMitXml(r) || ugSummenStimmig(r))) || !!ugKleinBestaetigt(r);
+}
+
+/** Laut gelesenem Betrag vermutlich ein Kleinbetrag, die Bestätigung fehlt noch. */
+function ugKleinVermutet(r) {
+  return !ugKleinbetrag(r) && r.brutto != null && Math.abs(r.brutto) <= UG.kleinbetrag && (r.waehrung || 'EUR') === 'EUR';
 }
 
 /** Bestätigter Kleinbetrag an der Rechnung: { betrag, am, von, vonName } oder null. */
@@ -491,6 +505,174 @@ async function ugAuslandSetzen(r, name, info, extra) {
   return neu.lieferanten[key];
 }
 
+/* ── 800k je Lieferant: eine Entscheidung für alle Rechnungen ─────────── */
+
+/**
+ * Offene Rechnungen nach Lieferant zusammenfassen. Gleiche USt-IdNr. = ein Lieferant, ohne
+ * USt-IdNr. gleicher Name. Ein Name mit bekannter USt-IdNr. kommt zu dieser Gruppe.
+ * @param {object[]} offen  Zeilen, denen die Einschätzung fehlt
+ * @returns {{gruppen: object[], ohne: object[], klein: object[]}}  ohne: kein Lieferant
+ *          erkennbar, klein: gelesene Beträge bis 250 €, zum Bestätigen
+ */
+function ugOffeneLieferanten(offen) {
+  const nameZuVat = new Map();
+  for (const r of offen) {
+    const n = ugKey(r.steller);
+    if (n && r.ustid && !nameZuVat.has(n)) nameZuVat.set(n, r.ustid);
+  }
+  const map = new Map();
+  const ohne = [];
+  for (const r of offen) {
+    const n = ugKey(r.steller);
+    const vat = r.ustid || nameZuVat.get(n) || '';
+    const key = vat || n;
+    if (!key) { ohne.push(r); continue; }
+    if (!map.has(key)) map.set(key, { key, vat, rechnungen: [], namen: new Map() });
+    const g = map.get(key);
+    g.rechnungen.push(r);
+    const name = String(r.steller || '').trim();
+    if (name) g.namen.set(name, (g.namen.get(name) || 0) + 1);
+  }
+  const gruppen = [...map.values()].map(g => {
+    const name = [...g.namen.entries()].sort((a, b) => b[1] - a[1])[0];
+    const mitBetrag = g.rechnungen.filter(r => r.brutto != null && (r.waehrung || 'EUR') === 'EUR');
+    const land = g.vat && !/^DE/.test(g.vat) ? (/^CHE/.test(g.vat) ? 'CH' : g.vat.slice(0, 2)) : '';
+    return { key: g.key, vat: g.vat, name: name ? name[0] : g.vat, rechnungen: g.rechnungen, land,
+      summe: mitBetrag.reduce((s, r) => s + Number(r.brutto), 0), mitBetrag: mitBetrag.length };
+  }).sort((a, b) => b.rechnungen.length - a.rechnungen.length || a.name.localeCompare(b.name, 'de'));
+  return { gruppen, ohne, klein: offen.filter(r => ugKleinVermutet(r)) };
+}
+
+/**
+ * Entscheidung für einen Lieferanten mit allen seinen offenen Rechnungen, in einem
+ * Schreibvorgang. Die Rechnungen werden ihm zugeordnet, gelesene Schreibweisen gemerkt.
+ * Eine Mail geht dabei nicht raus, „Lieferant informiert“ steht deshalb auf Nein.
+ * @param {object} g     Gruppe aus ugOffeneLieferanten
+ * @param {object} was   { vermutung: 'bis'|'ueber' } oder { ausland: { land, gruende } }
+ */
+async function ugSammelSetzen(g, was) {
+  const user = (typeof getAuthUser === 'function' && getAuthUser()) || {};
+  const key = ugKey(g.name);
+  if (!key) throw new Error('Der Lieferant hat keinen Namen.');
+  const wer = _ugWer(new Date().toISOString());
+  const neu = await _ugSchreiben(d => {
+    const alt = d.lieferanten[key];
+    let e = alt;
+    for (const r of g.rechnungen) e = ugLieferantMerken(e, g.name, r, user, wer.am, { vat: g.vat });
+    if (was.vermutung) {
+      Object.assign(e, { vermutung: was.vermutung, am: wer.am, von: wer.von, vonName: wer.vonName, rechnung: g.rechnungen[0].nummer || '',
+        verlauf: ((alt && alt.verlauf) || []).concat(alt && alt.vermutung ? [{ vermutung: alt.vermutung, am: alt.am, vonName: alt.vonName }] : []).slice(-10) });
+    }
+    if (was.ausland) e.ausland = Object.assign({ land: was.ausland.land, landName: was.ausland.land, gruende: was.ausland.gruende }, wer);
+    const rechnungen = Object.assign({}, d.rechnungen);
+    for (const r of g.rechnungen) {
+      const k = ugRechnungKey(r);
+      rechnungen[k] = Object.assign({}, rechnungen[k], { lieferant: key, am: wer.am, von: wer.von }, was.vermutung ? { informiert: 'Nein' } : {});
+    }
+    return { version: 1, lieferanten: Object.assign({}, d.lieferanten, { [key]: e }), rechnungen };
+  });
+  return neu.lieferanten[key];
+}
+
+/** Gelesene Kleinbeträge in einem Schreibvorgang bestätigen. */
+async function ugSammelKlein(rows) {
+  const wer = _ugWer(new Date().toISOString());
+  return _ugSchreiben(d => {
+    const rechnungen = Object.assign({}, d.rechnungen);
+    for (const r of rows) {
+      const k = ugRechnungKey(r);
+      rechnungen[k] = Object.assign({}, rechnungen[k], { klein: Object.assign({ betrag: r.brutto }, wer) });
+    }
+    return { version: 1, lieferanten: d.lieferanten, rechnungen };
+  });
+}
+
+let _ugSammel = null;
+
+/**
+ * Dialog „800k je Lieferant“.
+ * @param {function} holeOffen   liefert die offenen Zeilen des aktuellen Filters
+ * @param {function} geaendert   nach dem Speichern: Tabelle neu zeichnen
+ * @param {function} anzeigen    (suchtext) Zeilen in der Tabelle zeigen, der Dialog schließt
+ */
+function ugSammelOeffnen(holeOffen, geaendert, anzeigen) {
+  const dlg = document.getElementById('ug-sammel');
+  if (!dlg) return;
+  _ugSammel = { holeOffen, geaendert, anzeigen, meldung: '', arbeitet: false };
+  _ugSammelRender();
+  if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+}
+
+function _ugSammelRender() {
+  const s = _ugSammel;
+  const dlg = document.getElementById('ug-sammel');
+  const offen = s.holeOffen();
+  const { gruppen, ohne, klein } = ugOffeneLieferanten(offen);
+  s.gruppen = gruppen;
+  s.klein = klein;
+  const geld = v => v.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+  const zeilen = gruppen.map((g, i) => {
+    const hinweis = [g.vat, g.land ? `vermutlich Ausland (${g.land})` : ''].filter(Boolean).join(' · ');
+    return `<tr>
+      <td><div class="ug-s-name">${_esc(g.name)}</div>${hinweis ? `<div class="ug-s-info">${_esc(hinweis)}</div>` : ''}</td>
+      <td class="ug-s-zahl">${g.rechnungen.length}</td>
+      <td class="ug-s-zahl">${g.mitBetrag ? _esc(geld(g.summe)) : '<span class="ug-s-info">–</span>'}</td>
+      <td class="ug-s-knoepfe">
+        <button type="button" class="ug-btn" data-s="bis" data-g="${i}">bis 800k</button>
+        <button type="button" class="ug-btn" data-s="ueber" data-g="${i}">über 800k</button>
+        ${g.land ? `<button type="button" class="ug-btn" data-s="ausland" data-g="${i}">Ausland</button>` : ''}
+        <button type="button" class="ug-s-zeigen" data-s="zeigen" data-g="${i}">Anzeigen</button>
+      </td></tr>`;
+  }).join('');
+  dlg.innerHTML = `
+    <div class="ug-form">
+      <div class="ug-kopf">
+        <h3>800k-Einschätzung je Lieferant</h3>
+        <button type="button" class="ug-x" data-s="zu" aria-label="Schließen">✕</button>
+      </div>
+      <p class="ug-regel">${offen.length} Rechnung(en) im aktuellen Filter ohne Einschätzung. Eine Entscheidung gilt für alle
+        Rechnungen des Lieferanten, auch für künftige. Mails gehen dabei nicht raus, die Vorlage gibt es im Dialog an der
+        einzelnen Rechnung. Namen und Beträge sind aus den Rechnungen gelesen.</p>
+      ${klein.length ? `<div class="ug-s-block"><span>${klein.length} Rechnung(en) laut gelesenem Betrag bis 250 € brutto.</span>
+        <button type="button" class="ug-btn" data-s="klein">Alle als Kleinbetrag bestätigen</button></div>` : ''}
+      <div class="ug-meldung" id="ug-s-meldung">${_esc(s.meldung)}</div>
+      ${gruppen.length ? `<div class="ug-s-rahmen"><table class="ug-s-tabelle">
+        <thead><tr><th>Lieferant</th><th class="ug-s-zahl">Rechnungen</th><th class="ug-s-zahl">Brutto gelesen</th><th></th></tr></thead>
+        <tbody>${zeilen}</tbody></table></div>` : '<p class="ug-regel">Keine Rechnung mit erkanntem Lieferanten offen.</p>'}
+      ${ohne.length ? `<p class="ug-regel">${ohne.length} Rechnung(en) ohne erkannten Lieferanten: bitte einzeln einschätzen.</p>` : ''}
+    </div>`;
+}
+
+async function _ugSammelKlick(e) {
+  const b = e.target.closest('[data-s]');
+  const s = _ugSammel;
+  if (!b || !s || s.arbeitet) return;
+  const dlg = document.getElementById('ug-sammel');
+  const art = b.dataset.s;
+  if (art === 'zu') { dlg.close(); return; }
+  const g = s.gruppen[Number(b.dataset.g)];
+  if (art === 'zeigen') { dlg.close(); s.anzeigen(g.vat || g.name); return; }
+  s.arbeitet = true;
+  dlg.querySelectorAll('button').forEach(x => { x.disabled = true; });
+  try {
+    if (art === 'klein') {
+      await ugSammelKlein(s.klein);
+      s.meldung = s.klein.length === 1 ? 'Einen Kleinbetrag bestätigt.' : `${s.klein.length} Kleinbeträge bestätigt.`;
+    } else if (art === 'ausland') {
+      await ugSammelSetzen(g, { ausland: { land: g.land, gruende: ['USt-IdNr. ' + g.vat] } });
+      s.meldung = `${g.name}: als Lieferant im Ausland gemerkt.`;
+    } else {
+      await ugSammelSetzen(g, { vermutung: art });
+      s.meldung = `${g.name}: ${_UG_LABEL[art]}, ${g.rechnungen.length} Rechnung(en) erledigt.`;
+    }
+    s.geaendert();
+  } catch (err) {
+    s.meldung = err.message || String(err);
+  }
+  s.arbeitet = false;
+  _ugSammelRender();
+}
+
 /* ── Mailaufträge (Liste KreditorMails, Versand über den Flow) ────────── */
 
 /**
@@ -618,13 +800,15 @@ function ugZelle(r, idx, nurAnzeige) {
     ? `<div><span class="ug-badge ug-mail-${mail.status === 'Gesendet' ? 'ok' : mail.status === 'Fehler' ? 'fehler' : 'wartet'}" title="${_esc(_ugMailStand(mail))}">`
       + `${mail.status === 'Gesendet' ? 'Mail gesendet' : mail.status === 'Fehler' ? 'Mail fehlgeschlagen' : 'Mail wartet'}</span></div>`
     : '';
+  const vermutet = ugKleinVermutet(r)
+    ? '<div><span class="ug-badge ug-klein" title="Gelesener Betrag bis 250 € brutto, im Dialog bestätigen">bis 250 € gelesen</span></div>' : '';
   if (!e) {
     if (nurAnzeige) {
       return `<span class="bh-pill bh-wartet" title="Noch nicht eingeschätzt. „Bearbeiten“ öffnet die Einschätzung.">`
-        + `${phase === 'pflicht' ? 'E-Rechnung anfordern' : '800k offen'}</span>${mailBadge}`;
+        + `${phase === 'pflicht' ? 'E-Rechnung anfordern' : '800k offen'}</span>${vermutet}${mailBadge}`;
     }
     const label = phase === 'pflicht' ? 'E-Rechnung anfordern' : '800k einschätzen';
-    return `<button type="button" class="ug-btn" data-ug="${idx}" title="Lieferant über oder bis 800.000 € Umsatz? Mit Mailvorlage">${label}</button>${mailBadge}`;
+    return `<button type="button" class="ug-btn" data-ug="${idx}" title="Lieferant über oder bis 800.000 € Umsatz? Mit Mailvorlage">${label}</button>${vermutet}${mailBadge}`;
   }
   const folge = ugFolge(e.vermutung, phase);
   const tip = `${_UG_LABEL[e.vermutung] || e.vermutung} vermutet von ${e.vonName || e.von} am ${_monDate(e.am)}. ${folge.folge}`;
@@ -1017,6 +1201,12 @@ async function _ugAusRechnungLesen(r) {
     // Kopie übergeben: pdf.js gibt den Puffer an seinen Worker ab, die Texterkennung braucht ihn noch
     let l = lieferantAusText(await textAusPdf(puffer.slice(0)));
     if (_ugAktuell !== a) return;                      // Dialog inzwischen zu oder andere Rechnung
+    // Scan, den der Eingang schon gelesen hat: Die Werte stehen im Dialog, nicht noch einmal erkennen
+    if (!l.lesbar && (r.steller || r.ustid || r.brutto != null)) {
+      a.lesen = '';
+      _ugGelesenZeigen();
+      return;
+    }
     // Scan ohne Text: Texterkennung (Tesseract wie im Konverter) über die ersten zwei Seiten
     if (!l.lesbar && typeof ocrCollectItems === 'function' && typeof Tesseract !== 'undefined' && typeof textAusItems === 'function') {
       a.lesen = 'ocr';
@@ -1274,7 +1464,8 @@ async function _ugAbschliessen(modus) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { UG, UG_MAIL_ART, ugKey, ugRechnungKey, ugPhase, ugSonstige, ugKleinbetrag, ugBraucht, ugDialogMoeglich, ugZelle, ugFolge, ugVorlage,
+  module.exports = { UG, UG_MAIL_ART, ugKey, ugRechnungKey, ugPhase, ugSonstige, ugKleinbetrag, ugKleinVermutet, ugSummenStimmig, ugOffeneLieferanten,
+    ugSammelSetzen, ugSammelKlein, ugBraucht, ugDialogMoeglich, ugZelle, ugFolge, ugVorlage,
     ugMailOk, ugMailHtml, ugInformiert, ugSpeichern, ugBestaetigen, ugLieferantFuer, ugLieferantMerken, ugLieferantName,
     ugMitXml, ugFuer, ugLaden, ugKleinBestaetigt, ugAusland, ugGeprueft, ugRechnungSetzen, ugAuslandSetzen, ugNummerSpeichern,
     _ugBetragZahl, _ugBetragText, _ugAbsenderOk, _ugAbsenderWahl, _ug };

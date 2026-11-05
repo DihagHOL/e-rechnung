@@ -132,6 +132,8 @@
     const label = /(Rechnungs-?\s?|Beleg-?|Invoice\s*)datum|Invoice date|Datum der Rechnung/i;
     for (let i = 0; i < zeilen.length; i++) {
       if (!label.test(zeilen[i])) continue;
+      // „30 Tage nach Rechnungsdatum … Zahlung bis …“ ist die Zahlungsbedingung
+      if (/(nach|ab)\s+Rechnungs-?\s?datum|Zahlung\s/i.test(zeilen[i])) continue;
       const hier = zeilen[i].slice(zeilen[i].search(label));
       // Manche Layouts setzen den Wert vor die Beschriftung
       const vorher = /^\s*\d{1,2}\.\d{1,2}\.\d{2,4}\s*$/.test(zeilen[i - 1] || '') ? zeilen[i - 1] : '';
@@ -203,6 +205,141 @@
       else if (danach) treffer = zahl(danach[1]);
     }
     return treffer;
+  }
+
+  /** Alle Beträge im Text, kaufmännisch gerundet in Cent, ohne Doppelte. */
+  function alleBetraege(zeilen) {
+    const cents = new Set();
+    for (const z of zeilen) {
+      BETRAG.lastIndex = 0;
+      let m;
+      while ((m = BETRAG.exec(z))) {
+        const c = Math.round(Math.abs(zahl(m[1])) * 100);
+        if (c > 0) cents.add(c);
+      }
+    }
+    return [...cents].slice(-400);
+  }
+
+  // Passen netto + Steuer = brutto zum üblichen Steuersatz? Dann stimmen die drei Beträge sehr
+  // wahrscheinlich, egal wie die Summenzeilen beschriftet sind.
+  const SAETZE = [0.19, 0.07];
+  const passtSatz = (n, s) => SAETZE.some(q => Math.abs(s - n * q) <= Math.max(2, n * 0.0005));
+
+  /** Größtes Tripel netto + Steuer = brutto im Text, Beträge in Cent, sonst null. */
+  function summenTripel(cents) {
+    const da = new Set(cents);
+    const groesste = cents.slice().sort((a, b) => b - a);
+    for (const b of groesste) {
+      for (const n of groesste) {
+        if (n >= b) continue;
+        if (b - n > n) break;
+        if (da.has(b - n) && passtSatz(n, b - n)) return { netto: n / 100, brutto: b / 100 };
+      }
+    }
+    return null;
+  }
+
+  /** Netto zu einem bekannten Bruttobetrag: Summenzeile, sonst über den Steuerbetrag im Text. */
+  function nettobetrag(zeilen, brutto, cents) {
+    const stark = /(Netto\s*-?\s*(?:betrag|summe|gesamt|wert|rechnungsbetrag|warenwert)|Gesamt\s*-?\s*netto|Summe\s*-?\s*netto|Rechnungs-?summe\s*netto|Warenwert\s*netto|Zwischensumme\s*netto|Net\s+(?:amount|total|value)|Total\s+(?:net|excl))/i;
+    const kurz = /^\s*(?:Summe\s+|Gesamt\s+)?(?:Netto|Warenwert|Zwischensumme)\s*(?:EUR|€)?\s*:?\s*(-?\d{1,3}(?:\.\d{3})*,\d{2}|-?\d+,\d{2})\s*(?:EUR|€)?\s*$/i;
+    const nurBetrag = /^\s*(-?\d{1,3}(?:\.\d{3})*,\d{2}|-?\d+,\d{2})\s*(?:EUR|€)?\s*$/;
+    let treffer = null;
+    for (let i = 0; i < zeilen.length; i++) {
+      const z = zeilen[i];
+      if (/Skonto|Abschlag|Übertrag|Uebertrag|Einzelpreis|Positionen/i.test(z)) continue;
+      const k = kurz.exec(z);
+      if (k) { treffer = zahl(k[1]); continue; }
+      const m = stark.exec(z);
+      if (!m) continue;
+      BETRAG.lastIndex = 0;
+      const b = BETRAG.exec(z.slice(m.index));
+      const danach = nurBetrag.exec(zeilen[i + 1] || '');
+      if (b) treffer = zahl(b[1]);
+      else if (danach) treffer = zahl(danach[1]);
+    }
+    if (brutto != null) {
+      const bc = Math.round(Math.abs(brutto) * 100);
+      // Die Summenzeile zählt nur, wenn sie zum Bruttobetrag passt
+      if (treffer != null && Math.abs(treffer) <= Math.abs(brutto) + 0.005) {
+        const t = Math.round(Math.abs(treffer) * 100);
+        if (t === bc || cents.includes(bc - t)) return treffer;
+      }
+      for (const n of cents) {
+        if (n < bc && cents.includes(bc - n) && passtSatz(n, bc - n)) return (brutto < 0 ? -n : n) / 100;
+      }
+      return null;
+    }
+    return treffer;
+  }
+
+  const FREMDWAEHRUNG = /\b(CZK|USD|GBP|CHF|PLN|SEK|DKK|NOK|HUF|RON|CNY|JPY)\b|K\u010d/;
+
+  /** Währung, wenn der Text klar etwas anderes als Euro nennt, sonst ''. */
+  function waehrung(zeilen) {
+    const eur = zeilen.filter(z => /\bEUR\b|€/.test(z)).length;
+    const anz = {};
+    for (const z of zeilen) {
+      const m = FREMDWAEHRUNG.exec(z);
+      if (m) { const k = m[1] || 'CZK'; anz[k] = (anz[k] || 0) + 1; }
+    }
+    const beste = Object.keys(anz).sort((a, b) => anz[b] - anz[a])[0];
+    return beste && anz[beste] > eur ? beste : '';
+  }
+
+  /* ── Fälligkeit ────────────────────────────────────────────────────── */
+
+  function plusTage(iso, tage) {
+    const [j, m, t] = iso.split('-').map(Number);
+    return new Date(Date.UTC(j, m - 1, t + tage)).toISOString().slice(0, 10);
+  }
+
+  /**
+   * Fälligkeit: ausdrückliches Datum hinter „fällig“, „zahlbar bis“ und ähnlich, sonst
+   * Rechnungsdatum + Tage aus der Zahlungsbedingung („30 Tage netto“). Zeilen, die nur
+   * eine Skontofrist nennen, zählen nicht.
+   */
+  function faelligkeit(zeilen, datum) {
+    const label = /(f(?:ä|ae)llig(?:keit)?(?:sdatum)?|zahlbar\s+(?:bis|am|zum|sp(?:ä|ae)testens)|Zahlungsziel|Zahlungstermin|zu\s+zahlen\s+bis|Zahlung(?:\s+[a-z]+){0,2}\s+bis|due\s+date|payable\s+(?:by|until|on)|payment\s+due)/i;
+    const skonto = /Skonto|Rabatt|discount/i;
+    const ohneAbzug = /netto|ohne\s+(?:jeden\s+)?Abzug|rein\s+netto|without\s+deduction|net\b/i;
+    const daten = [];
+    zeilen.forEach((z, i) => {
+      const m = label.exec(z);
+      if (!m) return;
+      const rest = z.slice(m.index);
+      if (skonto.test(z) && !ohneAbzug.test(z)) return;
+      const d = DATUM.exec(rest) || (/^\s*\d{1,2}\.\d{1,2}\.\d{2,4}\s*$/.test(zeilen[i + 1] || '') ? DATUM.exec(zeilen[i + 1]) : null);
+      const iso = d ? isoDatum(d) : '';
+      if (iso && (!datum || iso >= datum)) daten.push(iso);
+    });
+    if (daten.length) return daten.sort().slice(-1)[0];
+    if (!datum) return '';
+    const tage = [];
+    const muster = [
+      /(\d{1,3})\s*Tage?n?\s*(?:rein\s*)?(?:netto|ohne\s+(?:jeden\s+)?Abzug)/gi,
+      /netto\s+(?:innerhalb\s+)?(?:von\s+)?(\d{1,3})\s*Tage/gi,
+      /Zahlungsziel\s*:?\s*(\d{1,3})\s*Tage/gi,
+      /zahlbar\s+(?:innerhalb\s+)?(?:von\s+)?(\d{1,3})\s*Tage/gi,
+      /innerhalb\s+(?:von\s+)?(\d{1,3})\s*Tagen?\s+(?:nach|ab)\s+(?:Rechnung|Erhalt|Zugang)/gi,
+      /(\d{1,3})\s*days\s*(?:net|after)/gi,
+      /net\s+(\d{1,3})\s*days/gi,
+    ];
+    for (const z of zeilen) {
+      for (const re of muster) {
+        re.lastIndex = 0;
+        let m;
+        while ((m = re.exec(z))) {
+          const n = Number(m[1]);
+          // „14 Tage 2 % Skonto“ steht selten direkt davor, die Spanne schließt sie aus
+          if (n >= 1 && n <= 120 && !/Skonto/i.test(z.slice(m.index, m.index + m[0].length))) tage.push(n);
+        }
+      }
+    }
+    if (tage.length) return plusTage(datum, Math.max(...tage));
+    if (zeilen.some(z => /zahlbar\s+sofort|sofort\s+(?:f(?:ä|ae)llig|netto|ohne\s+Abzug)/i.test(z))) return datum;
+    return '';
   }
 
   /* ── Mailadresse ───────────────────────────────────────────────────── */
@@ -389,14 +526,16 @@
 
   /**
    * @param {string} text  PDF-Text (Zeilen durch Zeilenumbruch getrennt)
-   * @returns {{name:string, vat:string, mail:string, nummer:string, datum:string, brutto:(number|null),
+   * @returns {{name:string, vat:string, mail:string, nummer:string, datum:string, faelligkeit:string,
+   *            netto:(number|null), brutto:(number|null), waehrung:string, summenGeprueft:boolean,
    *            kleinunternehmer:boolean, ausland:(null|{land, landName, gruende}), lesbar:boolean}}
    */
   function lieferantAusText(text) {
     const roh = String(text || '');
     const zeilen = roh.split(/\r?\n/).map(z => z.replace(/\s+$/, '')).filter(z => z.trim());
     const lesbar = (roh.match(/[A-Za-z0-9]/g) || []).length >= 80;
-    const leer = { name: '', vat: '', mail: '', nummer: '', datum: '', brutto: null, kleinunternehmer: false, ausland: null, lesbar };
+    const leer = { name: '', vat: '', mail: '', nummer: '', datum: '', faelligkeit: '', netto: null, brutto: null, waehrung: '',
+      summenGeprueft: false, kleinunternehmer: false, ausland: null, lesbar };
     if (!lesbar) return leer;
 
     const vats = vatKandidaten(zeilen);
@@ -407,13 +546,28 @@
     const namen = nameKandidaten(zeilen, vatZeilen);
     const name = namen.length && namen[0].punkte >= 3 ? namen[0].name.replace(/\s+/g, ' ') : '';
 
+    // Summen: Beschriftete Zeile und Tripel netto + Steuer = brutto. Passt beides nicht
+    // zusammen, gewinnt das Tripel, weil seine drei Beträge sich gegenseitig bestätigen.
+    const cents = alleBetraege(zeilen);
+    const tripel = summenTripel(cents);
+    let brutto = bruttobetrag(zeilen);
+    let netto = nettobetrag(zeilen, brutto, cents);
+    if (tripel && (brutto == null || (netto == null && Math.abs(brutto) < tripel.brutto))) {
+      brutto = tripel.brutto;
+      netto = tripel.netto;
+    }
+    const datum = rechnungsdatum(zeilen);
     return {
       name,
       vat: vatWahl,
       mail: mailAusZeilen(zeilen, name),
       nummer: rechnungsnummer(zeilen),
-      datum: rechnungsdatum(zeilen),
-      brutto: bruttobetrag(zeilen),
+      datum,
+      faelligkeit: faelligkeit(zeilen, datum),
+      netto,
+      brutto,
+      waehrung: waehrung(zeilen),
+      summenGeprueft: !!(tripel && brutto === tripel.brutto && netto === tripel.netto),
       kleinunternehmer: /§\s*19\s*(Abs\.?\s*1\s*)?UStG|Kleinunternehmer/i.test(roh),
       ausland: auslandAusZeilen(zeilen, vatWahl),
       lesbar,

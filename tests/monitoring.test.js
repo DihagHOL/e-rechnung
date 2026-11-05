@@ -89,7 +89,7 @@ gleich([ps.quelle, ps.bestaetigt], ['rechnung', true], 'von der Kreditorenbuchha
 gleich(M._monPartnerSicher({ richtung: 'Eingang', baseKey: 'R_5', steller: 'Muster GmbH', ustid: 'DE111111111', format: 'XRechnung', ext: 'xml' }).bestaetigt, true, 'Siegel auch bei der XML');
 gleich(M._monPartnerSicher({ richtung: 'Eingang', baseKey: 'Scan_2', steller: 'Xy', ustid: 'DE111111111', format: 'PDF', ext: 'pdf' }).quelle, 'register', 'über die USt-IdNr.');
 gleich(M._monPartnerSicher({ richtung: 'Eingang', baseKey: 'R_3', steller: 'Neu AG', format: 'XRechnung', ext: 'xml' }), { name: 'Neu AG', quelle: 'xml', eintrag: null, bestaetigt: false }, 'aus der XML');
-gleich(M._monPartnerSicher({ richtung: 'Eingang', baseKey: 'Scan_4', steller: 'Neu AG', format: 'PDF', ext: 'pdf' }).name, '', 'PDF-Text allein ist nicht sicher');
+gleich(M._monPartnerSicher({ richtung: 'Eingang', baseKey: 'Scan_4', steller: 'Neu AG', format: 'PDF', ext: 'pdf' }), { name: 'Neu AG', quelle: 'gelesen' }, 'aus dem PDF gelesen: gezeigt, aber nicht bestätigt');
 
 // 7) Neue Spalte in alten Werkseinstellungen
 gleich(M._monMitNeuenSpalten({ spalten: ['links', 'werk', 'datum', 'nummer'], spaltenAm: '2026-11-01T08:00:00Z' }), ['links', 'werk', 'datum', 'nummer', 'geprueft'], 'Geprüft hinter dem Vorgänger');

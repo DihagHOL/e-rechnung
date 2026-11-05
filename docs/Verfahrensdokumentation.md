@@ -140,9 +140,10 @@ und Unversehrtheit allein (§ 14 Abs. 3 UStG).
   anderer Inhalt). Der Eingangs-Flow überschreibt keine vorhandene Datei: ist der Name schon
   belegt, bekommt die neue Datei einen Zeitstempel. Gelöscht wird nichts, die Buchhaltung
   entscheidet.
-- **Korrektur der Kopfdaten:** Nummer und Lieferant einer sonstigen Rechnung liest der
-  Prüfdienst aus dem PDF-Text, das ist ein Vorschlag. Die Kreditorenbuchhaltung korrigiert
-  beides im Monitoring („Bearbeiten“). Die Änderung steht im Versionsverlauf der Datei (wer,
+- **Korrektur der Kopfdaten:** Nummer, Lieferant, Datum, Fälligkeit und Beträge einer
+  sonstigen Rechnung liest der Prüfdienst beim Eingang aus dem PDF-Text, bei Scans per
+  Texterkennung. Das ist ein Vorschlag und steuert keine Buchung. Die Kreditorenbuchhaltung
+  korrigiert Nummer und Lieferant im Monitoring („Bearbeiten“). Die Änderung steht im Versionsverlauf der Datei (wer,
   wann, alter und neuer Wert), die Rechnung selbst bleibt unverändert. Bestätigte Lieferanten
   merkt sich das Lieferantenregister (Name, USt-IdNr., Schreibweisen aus dem PDF-Text).
 - **Ausgang:** Belegnummer = ERP‑Nummer; Trennung je Werk über `AR_<Werk>`.

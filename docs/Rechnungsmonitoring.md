@@ -68,7 +68,8 @@ Datei (`_JJJJMMTThhmmss`) fallen weg. Eine Korrektur unter „Bearbeiten“ geht
 
 **Eine Mail = ein Vorgang:** Der Eingangs-Flow legt jeden Anhang als eigene Datei ab und
 schreibt in die Spalte `MailVorgang` den Namen seines Laufs, bei allen Anhängen einer Mail
-also denselben Wert (bisher HOL, LEG und EWA). Das Monitoring fasst danach zusammen:
+also denselben Wert (alle Werke, bei WGC, SHB und ZAI seit 05.11.2026). Das Monitoring fasst
+danach zusammen:
 
 - E-Rechnungen (ZUGFeRD, XRechnung) bleiben **je Rechnung eine Zeile**. Die Details nennen
   unter „In derselben Mail“ die anderen Nummern. PDF und XML derselben Rechnung (gleiche
@@ -105,7 +106,7 @@ Lieferantenregister unter `rechnungen` (Feld `geprueft`), gilt für alle Rechnun
 E-Rechnungen, und ändert nichts an Buchung oder Bearbeitungsstatus. Die Spalte lässt sich
 sortieren, die aufgeklappte Zeile nennt unter „Prüfung“, wer markiert hat.
 
-**Steller / Empfänger** zeigt nur, was sicher ist, in dieser Reihenfolge:
+**Steller / Empfänger** zeigt in dieser Reihenfolge:
 
 1. der Name, der an dieser Rechnung eingetragen ist (unter „Bearbeiten“ oder bei der
    800k-Einschätzung),
@@ -116,9 +117,25 @@ sortieren, die aufgeklappte Zeile nennt unter „Prüfung“, wer markiert hat.
 Ein grünes **✓** dahinter ist das Siegel der Kreditorenbuchhaltung: Sie hat den Lieferanten
 geprüft und bestätigt. Der Tooltip nennt wer und wann.
 
-Den Namen, den der Prüfdienst nur aus dem PDF-Text gelesen hat, zeigt die Tabelle nicht,
-die aufgeklappte Zeile nennt ihn als „nicht bestätigt“. Darunter steht grün die
-Absenderadresse der Rechnungsmail, die der Eingangs-Flow mitschreibt.
+4. den Namen, den der Prüfdienst beim Eingang aus dem PDF gelesen hat (grau und kursiv, Tooltip
+   „aus der Rechnung gelesen, nicht bestätigt“).
+
+Darunter steht grün die Absenderadresse der Rechnungsmail, die der Eingangs-Flow mitschreibt.
+
+**Gelesene Werte:** Bei einer PDF ohne E-Rechnung liest `/api/intake` beim Eingang Lieferant,
+USt-IdNr., Nummer, Datum, Fälligkeit, Netto und Brutto aus dem PDF, bei einem Scan über den
+OCR-Dienst ([`ocr-service/`](../ocr-service/README.md)). Die Rechnung muss dafür niemand öffnen.
+Netto, Brutto und „Fällig am“ stehen dann grau und kursiv in der Tabelle, so wie der Name. Ein
+Betrag gilt nur, wenn er sicher ist: Das Netto wird nur übernommen, wenn es zum Brutto passt.
+Fehlt eine Summenzeile, reicht ein Tripel im Text, das netto + Steuer = brutto zu 19 oder 7 %
+ergibt. Die Fälligkeit kommt aus dem Datum hinter „fällig“ oder „zahlbar bis“, sonst aus
+Rechnungsdatum + Tage („30 Tage netto“), Skontofristen zählen nicht. Gelesene Werte steuern
+keine Buchung. Der 800k-Dialog liest einen Scan, den der Eingang schon gelesen hat, nicht noch
+einmal.
+
+„Fällig am“ wird nur rot, wo die Buchung im Monitoring läuft (Bearbeitung an) und die Rechnung
+nicht als gebucht markiert ist. Die anderen Werke buchen im SAP, dort kennt das Monitoring den
+Stand nicht.
 
 ## Rechnungsnummer und Lieferant korrigieren
 
@@ -170,8 +187,29 @@ Kreditorenbuchhaltung im Dialog mit einem Klick, so wie den Lieferanten:
 In der Spalte „Buchung“ stehen dann „Kleinbetrag ✓“ oder „Ausland ✓“ (ein Klick öffnet den
 Dialog), „Lieferant informiert“ bleibt leer, und die Rechnung zählt nicht mehr zu
 „800k-Einschätzung offen“. Die aufgeklappte Zeile nennt die Ausnahme unter „800.000 €“.
-Rechnungen mit bekanntem Betrag bis 250 € tragen wie bisher das Abzeichen „Kleinbetrag“
-ohne Bestätigung.
+Das Abzeichen „Kleinbetrag“ ohne Bestätigung tragen Rechnungen bis 250 € brutto, deren Betrag
+in der E-Rechnung steht oder durch Netto und Steuer abgesichert ist. Ein einzelner gelesener
+Betrag reicht nicht, weil ein Lesefehler sonst die Einschätzung ausblenden würde. Solche
+Rechnungen tragen „bis 250 € gelesen“ und bleiben offen, bis jemand sie bestätigt. Nur
+Euro-Beträge zählen.
+
+## 800k je Lieferant
+
+Eine Einschätzung gilt für den Lieferanten, nicht für die einzelne Rechnung. Der Knopf
+**„800k je Lieferant“** über der Tabelle zeigt deshalb alle offenen Rechnungen im aktuellen
+Filter nach Lieferant, die mit den meisten Rechnungen zuerst. Gleiche USt-IdNr. ist ein
+Lieferant, ohne USt-IdNr. gleicher Name, ein Name mit bekannter USt-IdNr. kommt zu dieser Gruppe.
+
+- **bis 800k / über 800k** speichert die Einschätzung am Lieferanten und ordnet ihm alle seine
+  offenen Rechnungen zu, in einem Schreibvorgang. Gelesene Schreibweisen werden gemerkt, künftige
+  Rechnungen sind damit schon eingeschätzt. Mails gehen dabei nicht raus, „Lieferant informiert“
+  steht auf Nein. Die Vorlage gibt es weiter im Dialog an der einzelnen Rechnung.
+- **Ausland** gibt es bei USt-IdNr. außerhalb Deutschlands und merkt den Lieferanten wie im
+  Einzeldialog.
+- **Anzeigen** schließt den Dialog und filtert die Tabelle auf diesen Lieferanten.
+- **Alle als Kleinbetrag bestätigen** erscheint, wenn gelesene Beträge bis 250 € offen sind.
+
+Rechnungen ohne erkannten Lieferanten nennt der Dialog nur als Zahl, sie bleiben Einzelfälle.
 
 ## Lieferantenregister
 
@@ -235,7 +273,7 @@ beziehen sich auf die gefilterte Auswahl, ein Klick filtert.
 Werk · Richtung · Typ · Konformität · Buchung (mit „Kleinbetrag bis 250 € brutto“ und
 „Lieferant im Ausland (bestätigt)“) ·
 Status · Bearbeitung · Genehmigt · Datum von/bis · Freitextsuche (Nummer, Steller,
-Empfänger, Absendermail, Varialnummer, Kontierung, Bestellnummer, Notiz).
+Empfänger, USt-IdNr., Absendermail, Varialnummer, Kontierung, Bestellnummer, Notiz).
 
 Vor „Datum von/bis“ steht, welches Datum gilt: **Rechnungsdatum** (Standard) oder
 **Erstellt am**. Gefiltert wird nach dem Kalendertag in Deutschland.
@@ -286,5 +324,5 @@ belegt ist, und hängt dann einen Zeitstempel an (`<dateibasis>_JJJJMMTThhmmss`)
 - Provisionierung der Bibliotheken/Spalten inkl. **indizierter `Created`-Spalte**
   (`scripts/provision-rechnungsmonitoring.ps1`).
 - Die Metadaten-Spalten füllt der Konverter (Ausgang, `js/sharepoint.js`) bzw. der
-  Power-Automate-Eingangs-Flow (`/api/intake`). Ohne Rechnungsnummer und ohne Lieferant
+  Power-Automate-Eingangs-Flow (`/api/intake`, bei PDFs ohne E-Rechnung aus dem PDF gelesen). Ohne Rechnungsnummer und ohne Lieferant
   (USt-IdNr., Register oder Name) kann eine Zeile nicht als Dublette bewertet werden.

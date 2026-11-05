@@ -46,6 +46,7 @@
  *     konvertiertesPdf:true, wenn ein technisch konvertiertes Ersatz-PDF erzeugt wurde (P8),
  *     formaleHinweise: [ … ] (Leitweg/elektr. Adresse — kein USt-Pruefgrund, P5),
  *     daten:           { nummer, datum, steller, empfaenger, netto, steuerkategorie, ... } | null,
+ *     datenQuelle:     'pdf-text' | 'ocr', nur bei PDF ohne E-Rechnung: daten sind gelesen, nicht bestätigt,
  *     xml:             <extrahierte/empfangene E-Rechnungs-XML> | null,
  *     lesbarPdfBase64: <XML -> gerendertes PDF/A, base64> | null,
  *   }
@@ -198,22 +199,21 @@ app.http('intake', {
       res.hinweis = embeddedUnsupported
         ? 'Eingebettete XML ist keine E-Rechnung nach EN 16931 (z. B. openTRANS/BMEcat).'
         : 'Keine E-Rechnungs-XML eingebettet.';
-      // Lieferant und Kopfdaten aus dem PDF-Text (Vorschlag). Felder, die nicht
-      // sicher lesbar sind, bleiben null, damit der Flow sie wie bisher leer laesst.
-      // dateibasis bleibt leer: der Dateiname kommt weiter aus dem Anhang.
+      // Lieferant, Kopfdaten und Beträge aus dem PDF (Vorschlag), bei Scans per Texterkennung.
+      // Felder, die nicht sicher lesbar sind, bleiben null, damit der Flow sie leer laesst.
+      // dateibasis bleibt leer: der Dateiname kommt weiter aus dem Anhang. Ein gelesener
+      // Kleinbetrag blendet im Monitoring nichts aus, das bestätigt die Buchhaltung (ugKleinbetrag).
       const k = isPdf ? await kopfdatenAusPdf(buf).catch(() => null) : null;
       if (k) {
-        // Betrag bewusst nicht: ein falsch gelesener Kleinbetrag würde im Monitoring
-        // die 800k-Einschätzung ausblenden. Er steht nur im Hinweis.
         res.daten = Object.assign(_leereDaten(), {
-          nummer: k.nummer, datum: k.datum, steller: k.steller, stellerVat: k.stellerVat,
+          nummer: k.nummer, datum: k.datum, faelligkeit: k.faelligkeit, steller: k.steller, stellerVat: k.stellerVat,
+          netto: k.netto, brutto: k.brutto, waehrung: k.waehrung,
         });
-        res.datenQuelle = 'pdf-text';
+        res.datenQuelle = k.quelle;
         res.kleinunternehmer = k.kleinunternehmer;
         res.hinweis += (k.kleinunternehmer ? ' Verweis auf § 19 UStG (Kleinunternehmer), keine E-Rechnungspflicht.' : '')
           + vorbehalt
-          + ' Lieferant und Kopfdaten aus dem PDF-Text, bitte prüfen.'
-          + (k.brutto != null ? ` Betrag laut Text: ${k.brutto.toFixed(2).replace('.', ',')} €.` : '');
+          + (k.quelle === 'ocr' ? ' Kopfdaten per Texterkennung aus dem Scan, bitte prüfen.' : ' Kopfdaten aus dem PDF-Text, bitte prüfen.');
       } else {
         res.hinweis += vorbehalt;
       }

@@ -158,4 +158,30 @@ gleich(istEigeneMail('rechnung@dihag-zaigler.com'), true, 'Zaigler-Mail eigen');
 gleich(istEigeneMail('info@ewa-guss.de'), true, 'EWA-Mail eigen');
 gleich(istEigeneMail('info@muster.de'), false, 'fremde Mail');
 
+// Beträge, Fälligkeit, Währung (erfundene Texte)
+{
+  const kopf = 'Muster Werkzeuge GmbH\nMusterstraße 1, 01234 Musterstadt\nUSt-IdNr.: DE123456789\nRechnung Nr. 4711\nRechnungsdatum: 01.10.2026\n';
+  const lies = t => lieferantAusText(kopf + t);
+  let l = lies('Nettobetrag EUR 1.000,00\nMWSt. 19,00 % 190,00\nGesamtbetrag 1.190,00\nzahlbar bis 31.10.2026');
+  gleich([l.netto, l.brutto, l.faelligkeit, l.summenGeprueft, l.waehrung], [1000, 1190, '2026-10-31', true, ''], 'Summenzeilen');
+  l = lies('Warenwert\n1.000,00\nUSt 7 %\n70,00\nEndbetrag\n1.070,00');
+  gleich([l.netto, l.brutto], [1000, 1070], 'Werte in der Zeile darunter, 7 %');
+  l = lies('Pos 1 Schraube 100,00\nPos 2 Mutter 400,00\n500,00\n95,00\n595,00');
+  gleich([l.netto, l.brutto, l.summenGeprueft], [500, 595, true], 'ohne Beschriftung: netto + Steuer = brutto');
+  l = lies('Nettosumme 800,00\nRechnungsbetrag 1.190,00');
+  gleich([l.netto, l.brutto], [null, 1190], 'Netto passt nicht zum Brutto: lieber leer');
+  l = lies('Gesamtbetrag 1.190,00\nZahlungsbedingung: 14 Tage 2 % Skonto, 30 Tage netto');
+  gleich(l.faelligkeit, '2026-10-31', 'Tage netto ab Rechnungsdatum, nicht die Skontofrist');
+  l = lies('Bei Zahlung bis 08.10.2026 2 % Skonto\nZahlung rein netto bis 22.10.2026');
+  gleich(l.faelligkeit, '2026-10-22', 'Skontodatum zählt nicht');
+  l = lies('Zahlungskonditionen:\n30 Tagen nach Rechnungsdatum ohne Abzug Zahlung bis 31.10.2026');
+  gleich([l.datum, l.faelligkeit], ['2026-10-01', '2026-10-31'], 'Zahlungsbedingung ist kein Rechnungsdatum');
+  l = lies('zahlbar sofort ohne Abzug');
+  gleich(l.faelligkeit, '2026-10-01', 'sofort');
+  l = lies('Gesamtbetrag 1.190,00');
+  gleich(l.faelligkeit, '', 'ohne Angabe keine Fälligkeit');
+  l = lies('Total CZK 12 100,00\nDPH CZK 2 100,00\nBetrag in CZK\nSumme CZK 10 000,00');
+  gleich(l.waehrung, 'CZK', 'Fremdwährung');
+}
+
 console.log(`lieferant: ${n} Pruefungen gruen`);

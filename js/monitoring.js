@@ -742,7 +742,7 @@ function _monMatchBase(r, f, q) {
       && (!f.genehmigt || (r.bh && r.bh.genehmigt) === f.genehmigt)
       && (!f.from     || (d && d >= f.from))
       && (!f.to       || (d && d <= f.to))
-      && (!q || (r.nummer + ' ' + _monPartner(r) + ' ' + r.steller + ' ' + r.empf + ' ' + (r.absenderMail || '') + ' ' + (r.anlagen || []).join(' ')
+      && (!q || (r.nummer + ' ' + _monPartner(r) + ' ' + r.steller + ' ' + r.empf + ' ' + (r.ustid || '') + ' ' + (r.absenderMail || '') + ' ' + (r.anlagen || []).join(' ')
                  + (r.bh ? ' ' + r.bh.varial + ' ' + r.bh.kontierung + ' ' + r.bh.notiz + ' ' + r.bh.bestellnr : ''))
                  .toLowerCase().includes(q));
 }
@@ -815,6 +815,11 @@ function _monRenderKpis(rows) {
   const zurueck    = rows.filter(r => _monMatchFlag(r, 'zurueck')).length;
   // Sonstige Rechnungen ohne Einschaetzung zur 800k-Umsatzgrenze (js/umsatzgrenze.js).
   const umsatz     = rows.filter(r => _monMatchFlag(r, 'umsatz')).length;
+  const sammel = document.getElementById('mon-800k');
+  if (sammel) {
+    sammel.hidden = !umsatz;
+    sammel.textContent = `800k je Lieferant (${umsatz})`;
+  }
   const genehmigung = rows.filter(r => _monMatchFlag(r, 'genehmigung')).length;
 
   // Klassifizierung (ZUGFeRD / XRechnung / PDF ohne E-Rechnung) als Übersichtsfelder.
@@ -1062,8 +1067,14 @@ function _monGeld(v, r) {
   return v == null ? '' : v.toLocaleString('de-DE', { style: 'currency', currency: r.waehrung || 'EUR' });
 }
 
+/** Betrag für die Tabelle: aus dem PDF gelesene Werte grau. */
+function _monBetragZelle(v, r) {
+  const text = _esc(_monGeld(v, r));
+  return text && _monGelesen(r) ? `<span class="mon-gelesen" title="Aus der Rechnung gelesen, nicht bestätigt">${text}</span>` : text;
+}
+
 function _monKlein(r) {
-  return typeof ugKleinbetrag === 'function' ? ugKleinbetrag(r) : (r.brutto != null && Math.abs(r.brutto) <= 250);
+  return typeof ugKleinbetrag === 'function' ? ugKleinbetrag(r) || ugKleinVermutet(r) : (r.brutto != null && Math.abs(r.brutto) <= 250);
 }
 
 /** Kürzel aus dem Namen („Erika Muster“ → EM, aus einer Mailadresse der Teil vor dem @). */
@@ -1107,16 +1118,16 @@ function _monZelle(id, r, idx) {
         : ''}</td>`;
     }
     case 'partner':  return `<td>${_monPartnerCell(r)}</td>`;
-    case 'netto':    return `<td style="text-align:right;white-space:nowrap;">${_esc(_monGeld(r.netto, r))}</td>`;
-    case 'brutto':   return `<td style="text-align:right;white-space:nowrap;">${_esc(_monGeld(r.brutto, r))}</td>`;
+    case 'netto':    return `<td style="text-align:right;white-space:nowrap;">${_monBetragZelle(r.netto, r)}</td>`;
+    case 'brutto':   return `<td style="text-align:right;white-space:nowrap;">${_monBetragZelle(r.brutto, r)}</td>`;
     case 'faellig': {
-      // überfällige, noch nicht gebuchte Rechnungen rot + ⚠
+      // Überfällig: nur wo die Buchung im Monitoring läuft (Bearbeitungsstatus), die anderen Werke buchen im SAP
       const faellig = _monDate(r.faelligkeit);
       const fDate = String(r.faelligkeit || '').slice(0, 10);
       const overdue = /^\d{4}-\d{2}-\d{2}$/.test(fDate) && fDate < _monTodayIso()
-                      && !['Gebucht', 'Archiviert'].includes(r.status);
+                      && !!r.bh && !/^(gebucht|keine rg|kopie)/i.test(r.bh.bstatus || '') && r.bh.genehmigt !== 'bezahlt';
       return `<td>${faellig
-        ? `<span style="white-space:nowrap;${overdue ? 'color:#b40000;font-weight:600;' : ''}">${_esc(faellig)}${overdue ? ' ⚠' : ''}</span>`
+        ? `<span class="${_monGelesen(r) ? 'mon-gelesen' : ''}" style="white-space:nowrap;${overdue ? 'color:#b40000;font-weight:600;' : ''}"${_monGelesen(r) ? ' title="Aus der Rechnung gelesen, nicht bestätigt"' : ''}>${_esc(faellig)}${overdue ? ' ⚠' : ''}</span>`
         : '<span style="color:#9ca3af;">–</span>'}</td>`;
     }
     case 'geprueft': {
@@ -1304,7 +1315,7 @@ function _monDetail(r, idx) {
         ['Werk', t(r.werk)], ['Richtung', t(r.richtung)], ['Typ', t(_monKlass(r))], ['Rechnungsart', r.mahnung ? 'Mahnung (keine Rechnung)' : t(r.art)],
         ['In derselben Mail', r.mailRechnungen ? t('Rechnung ' + r.mailRechnungen.join(', ')) : '']])
     + block(r.richtung === 'Eingang' ? 'Lieferant' : 'Kunde', [
-        ['Name', p.name ? t(p.name) + t(_monPartnerQuelle(r, p)) : t(r.steller ? r.steller + ' (aus dem PDF-Text gelesen, nicht bestätigt)' : '')],
+        ['Name', p.name ? t(p.name) + t(_monPartnerQuelle(r, p)) : ''],
         ['Rechnungsmail von', t(r.absenderMail)], ['USt-IdNr.', t(r.ustid)]])
     + block('Beträge', [['Netto', t(_monGeld(r.netto, r))], ['Brutto', t(_monGeld(r.brutto, r))], ['Bestellnummer', t((b && b.bestellnr) || r.bestellnr)]])
     + block('Prüfung', [['Ergebnis', t(r.konform)], ['Hinweis', t(_monHinweis(r))], ['Status', t(r.status)],
@@ -1787,6 +1798,7 @@ function _monAusXml(r) {
  * (an dieser Rechnung eingetragen, unter „Bearbeiten“ oder bei der 800k-Einschätzung), 'xml',
  * 'register' (aus dem Lieferantenregister über USt-IdNr. oder Name erkannt) oder ''.
  * bestaetigt: Die Kreditorenbuchhaltung hat den Lieferanten geprüft und bestätigt (Siegel ✓).
+ * Sonst der beim Eingang aus dem PDF gelesene Name, quelle 'gelesen': grau, nicht bestätigt.
  */
 function _monPartnerSicher(r) {
   if (r.richtung !== 'Eingang') return { name: r.empf || '', quelle: 'xml' };
@@ -1794,11 +1806,18 @@ function _monPartnerSicher(r) {
   const bestaetigt = !!(l && l.bestaetigtAm);
   if (l && l.name && l.treffer === 'rechnung') return { name: l.name, quelle: 'rechnung', eintrag: l, bestaetigt };
   if (r.steller && _monAusXml(r)) return { name: r.steller, quelle: 'xml', eintrag: l, bestaetigt };
-  return l && l.name ? { name: l.name, quelle: 'register', eintrag: l, bestaetigt } : { name: '', quelle: '' };
+  if (l && l.name) return { name: l.name, quelle: 'register', eintrag: l, bestaetigt };
+  return r.steller ? { name: r.steller, quelle: 'gelesen' } : { name: '', quelle: '' };
+}
+
+/** Wert stammt aus dem PDF-Text oder Scan, nicht aus einer E-Rechnung? */
+function _monGelesen(r) {
+  return r.richtung === 'Eingang' && typeof ugMitXml === 'function' && !ugMitXml(r);
 }
 
 /** Woher der Name stammt und ob er bestätigt ist, als Zusatz in Klammern ('' bei XML ohne Siegel). */
 function _monPartnerQuelle(r, p) {
+  if (p.quelle === 'gelesen') return ' (aus der Rechnung gelesen, nicht bestätigt)';
   const l = p.eintrag || {};
   const wer = l.bestaetigtVonName || l.bestaetigtVon || '';
   const siegel = p.bestaetigt
@@ -1818,7 +1837,9 @@ function _monPartnerCell(r) {
   const p = _monPartnerSicher(r);
   const quelle = _monPartnerQuelle(r, p);
   const siegel = p.bestaetigt ? ' <span class="mon-ok" aria-label="bestätigt">✓</span>' : '';
-  const name = p.quelle === 'register'
+  const name = p.quelle === 'gelesen'
+    ? `<span class="mon-gelesen" title="${_esc('Lieferant' + quelle)}">${_esc(p.name)}</span>`
+    : p.quelle === 'register'
     ? `<span title="${_esc('Lieferant' + quelle)}" style="font-style:italic;">${_esc(p.name)}</span>${siegel}`
     : quelle ? `<span title="${_esc('Lieferant' + quelle)}">${_esc(p.name)}</span>${siegel}` : _esc(p.name);
   // Absender der Rechnungsmail (vom Eingangs-Flow, also sicher)
@@ -2041,6 +2062,19 @@ function monInitFilterEvents() {
   });
   const aeltere = document.getElementById('mon-aeltere');
   if (aeltere) aeltere.addEventListener('click', () => _monAeltereLaden());
+  const sammel = document.getElementById('mon-800k');
+  if (sammel) sammel.addEventListener('click', () => {
+    ugSammelOeffnen(() => _monRecords.filter(r => _monMatchBase(r, _monFilter, _monFilter.q.trim().toLowerCase()) && _monMatchFlag(r, 'umsatz')),
+      () => _monApply(),
+      suchtext => {
+        _monFilter.q = suchtext;
+        _monFilter.flag = 'umsatz';
+        _monSyncControls();
+        _monApply();
+      });
+  });
+  const sammelDlg = document.getElementById('ug-sammel');
+  if (sammelDlg) sammelDlg.addEventListener('click', _ugSammelKlick);
 
   // KPI-Kacheln als Schnellfilter (Klick + Tastatur), per Event-Delegation.
   const kpis = document.getElementById('mon-kpis');
