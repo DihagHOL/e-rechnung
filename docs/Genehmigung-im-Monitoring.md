@@ -266,7 +266,8 @@ Der Knopf **„Spalten“** neben „Zurücksetzen“ ist nur für Admins sichtb
   Varialnummer, Kontierung, Bearbeitung, Genehmigung und Notiz. Das passt für Werke, die im
   SAP erfassen und dort auch genehmigen. Ihre Rechnungen gehen nach der Prüfung direkt ins SAP,
   im Monitoring ist danach nichts mehr zu tun. Im SAP genehmigen ZAI, HOL, LEG, EWA, EIS und DSO,
-  im Monitoring nur WGC. Die Bearbeiten-Funktion gehört deshalb nur bei WGC eingeschaltet.
+  im Monitoring nur WGC. Die Bearbeiten-Funktion ist deshalb nur bei WGC an (seit 05.11.2026 auch
+  bei EIS und DSO aus).
 - **Welche Spalten** das Werk zeigt und **in welcher Reihenfolge** (Ziehen am ☰ oder Pfeile).
   „Bearbeiten“ mit den Dateien ist immer dabei und steht im Standard vorn. Auswahl aus: Datum, Erstellt am, Werk, Richtung, Rechnungsnr., Steller /
   Empfänger, Netto, Brutto, Fällig am, Geprüft, Klassifizierung, Status, Buchung, Lieferant informiert,

@@ -75,7 +75,10 @@ beim Speichern im Editor in die Dokumentation der Kollaboration, der Import in d
 Prozesses. Beides muss erhalten bleiben (`procXmlDokuNeu` für den Prozess, die
 Kollaborations-Doku unverändert übernehmen).
 
-Letzte Übernahme: 04.11.2026. Rechnungseingang, Eingangsprüfung, Rechnungsausgang, Erkennen und
+Letzte Übernahme: 05.11.2026, Rechnungseingang (v0.10, Entscheidung „Wo wird genehmigt?“) und
+Eingangsrechnung freigeben (v0.2, ohne Abfrage je Werk).
+
+Davor: 04.11.2026. Rechnungseingang, Eingangsprüfung, Rechnungsausgang, Erkennen und
 erfassen, Prüfen und erzeugen als neue Version, Einschätzung und Freigabe neu (Kennungen in
 `rms-ids.json`). Die Prozessmanagement-Angaben aus dem RMS (Eigner, POC, Kriterien, IST-Vergleich)
 sind übernommen. Die Graph-Kennung einer Datei ist `01` plus Base32 aus dem Präfix der Bibliothek
