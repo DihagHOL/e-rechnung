@@ -348,7 +348,7 @@ const INTAKE = {
       { id: 'I_pdfa', k: 'service', n: 'PDF/A-Hülle mit veraPDF prüfen', lane: 'LI', c: 3, r: 2 },
       { id: 'I_extract', k: 'service', n: 'Eingebettete XML suchen', lane: 'LI', c: 4, r: 2 },
       { id: 'I_gwEinv', k: 'gw', n: 'Echte E-Rechnung (CII oder UBL) eingebettet?', lane: 'LI', c: 5, r: 2 },
-      { id: 'I_lief', k: 'service', n: 'Lieferant, USt-IdNr., Nummer und Datum aus dem PDF-Text lesen', lane: 'LI', c: 6, r: 1, tone: 'warn' },
+      { id: 'I_lief', k: 'service', n: 'Lieferant, USt-IdNr., Nummer, Datum, Fälligkeit und Beträge aus dem PDF lesen, Scans per OCR-Dienst', lane: 'LI', c: 6, r: 1, tone: 'warn' },
       { id: 'I_sonst', k: 'service', n: 'Sonstige Rechnung: unter Vorbehalt, Berichtigung anfordern', lane: 'LI', c: 7, r: 1, tone: 'warn' },
       { id: 'I_endSonst', k: 'end', n: 'Ergebnis: sonstige Rechnung', lane: 'LI', c: 8, r: 0, tone: 'warn' },
       { id: 'I_zf', k: 'service', n: 'Als ZUGFeRD einordnen', lane: 'LI', c: 6, r: 2 },

@@ -243,21 +243,21 @@
   /** Netto zu einem bekannten Bruttobetrag: Summenzeile, sonst über den Steuerbetrag im Text. */
   function nettobetrag(zeilen, brutto, cents) {
     const stark = /(Netto\s*-?\s*(?:betrag|summe|gesamt|wert|rechnungsbetrag|warenwert)|Gesamt\s*-?\s*netto|Summe\s*-?\s*netto|Rechnungs-?summe\s*netto|Warenwert\s*netto|Zwischensumme\s*netto|Net\s+(?:amount|total|value)|Total\s+(?:net|excl))/i;
-    const kurz = /^\s*(?:Summe\s+|Gesamt\s+)?(?:Netto|Warenwert|Zwischensumme)\s*(?:EUR|€)?\s*:?\s*(-?\d{1,3}(?:\.\d{3})*,\d{2}|-?\d+,\d{2})\s*(?:EUR|€)?\s*$/i;
+    const kurz = /^\s*(?:Summe\s+|Gesamt\s+)?(Netto|Warenwert|Zwischensumme)\s*(?:EUR|€)?\s*:?\s*(-?\d{1,3}(?:\.\d{3})*,\d{2}|-?\d+,\d{2})\s*(?:EUR|€)?\s*$/i;
     const nurBetrag = /^\s*(-?\d{1,3}(?:\.\d{3})*,\d{2}|-?\d+,\d{2})\s*(?:EUR|€)?\s*$/;
     let treffer = null;
+    let sicher = false;       // Warenwert und Zwischensumme gelten nur mit passendem Bruttobetrag
     for (let i = 0; i < zeilen.length; i++) {
       const z = zeilen[i];
       if (/Skonto|Abschlag|Übertrag|Uebertrag|Einzelpreis|Positionen/i.test(z)) continue;
       const k = kurz.exec(z);
-      if (k) { treffer = zahl(k[1]); continue; }
+      if (k) { treffer = zahl(k[2]); sicher = /netto/i.test(k[1]); continue; }
       const m = stark.exec(z);
       if (!m) continue;
       BETRAG.lastIndex = 0;
       const b = BETRAG.exec(z.slice(m.index));
       const danach = nurBetrag.exec(zeilen[i + 1] || '');
-      if (b) treffer = zahl(b[1]);
-      else if (danach) treffer = zahl(danach[1]);
+      if (b || danach) { treffer = zahl((b || danach)[1]); sicher = true; }
     }
     if (brutto != null) {
       const bc = Math.round(Math.abs(brutto) * 100);
@@ -271,7 +271,7 @@
       }
       return null;
     }
-    return treffer;
+    return sicher ? treffer : null;
   }
 
   const FREMDWAEHRUNG = /\b(CZK|USD|GBP|CHF|PLN|SEK|DKK|NOK|HUF|RON|CNY|JPY)\b|K\u010d/;
