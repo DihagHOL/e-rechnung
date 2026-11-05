@@ -3,14 +3,14 @@
   <bpmn:category id="Cat_G_anhang"><bpmn:categoryValue id="CV_G_anhang" value="wiederholt sich je Anhang (PDF oder XML)" /></bpmn:category>
   <bpmn:collaboration id="Collab_eingang">
     <bpmn:participant id="P_Lief" name="Lieferant" />
-    <bpmn:participant id="P_Ein" name="DIHAG · Rechnungseingang (eigener Flow je Werk: WGC, ZAI, HOL, LEG, EWA)" processRef="Process_ERechnung_Eingang" />
+    <bpmn:participant id="P_Ein" name="DIHAG · Rechnungseingang (eigener Flow je Werk: WGC, SHB, ZAI, HOL, LEG, EWA)" processRef="Process_ERechnung_Eingang" />
     <bpmn:messageFlow id="Msg_P_Lief_A_start" name="Rechnung (PDF oder XML)" sourceRef="P_Lief" targetRef="A_start" />
     <bpmn:messageFlow id="Msg_A_liefMail_P_Lief" name="Zurückweisung oder Abweichung (geplant)" sourceRef="A_liefMail" targetRef="P_Lief" />
     <bpmn:messageFlow id="Msg_D_rej_P_Lief" name="Zurückweisung" sourceRef="D_rej" targetRef="P_Lief" />
     <bpmn:messageFlow id="Msg_D_kred_P_Lief" name="Rückfrage" sourceRef="D_kred" targetRef="P_Lief" />
   </bpmn:collaboration>
   <bpmn:process id="Process_ERechnung_Eingang" name="E-Rechnung Rechnungseingang" isExecutable="false">
-    <bpmn:documentation>Eingangsrechnungen kommen per Mail ins Rechnungspostfach des Werks. Ein Flow je Werk (WGC, ZAI, HOL, LEG, EWA) gibt jeden PDF- oder XML-Anhang an den Prüfdienst und legt Original und Prüfergebnis in ERAR_&lt;Werk&gt; ab. WGC übergibt an die Eingangsrechnungsliste, die anderen Werke schicken eine Archiv-Mail ins eigene Postfach. Die Kreditorenbuchhaltung prüft im Monitoring und schätzt sonstige Rechnungen ein. WGC holt die Freigabe im Monitoring ein und bucht dann. ZAI, HOL, LEG, EWA, EIS und DSO erfassen im SAP, dort läuft auch die Genehmigung, die Rechnung geht nicht noch einmal durchs Monitoring.
+    <bpmn:documentation>Eingangsrechnungen kommen per Mail ins Rechnungspostfach des Werks. Ein Flow je Werk (WGC, SHB, ZAI, HOL, LEG, EWA) gibt jeden PDF- oder XML-Anhang an den Prüfdienst und legt Original und Prüfergebnis in ERAR_&lt;Werk&gt; ab. WGC und SHB übergeben an ihre Eingangsrechnungsliste, die anderen Werke schicken eine Archiv-Mail ins eigene Postfach. Die Kreditorenbuchhaltung prüft im Monitoring und schätzt sonstige Rechnungen ein. WGC holt die Freigabe im Monitoring ein und bucht dann. ZAI, HOL, LEG, EWA, EIS und DSO erfassen im SAP, dort läuft auch die Genehmigung, die Rechnung geht nicht noch einmal durchs Monitoring.
 Anwender-Ansicht: https://e-rechnung.dihag-extern.com/prozess.html#eingang
 Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflichten
 [[rms:policies=119]]</bpmn:documentation>
@@ -37,7 +37,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:exclusiveGateway id="A_gwWerk" name="Welches Werk?"><bpmn:incoming>Flow_A_liefMail_A_gwWerk</bpmn:incoming><bpmn:incoming>Flow_A_gwErr_A_gwWerk</bpmn:incoming><bpmn:outgoing>Flow_A_gwWerk_A_merk</bpmn:outgoing><bpmn:outgoing>Flow_A_gwWerk_W_item</bpmn:outgoing></bpmn:exclusiveGateway>
       <bpmn:serviceTask id="A_merk" name="Datei für die Archiv-Mail vormerken"><bpmn:incoming>Flow_A_gwWerk_A_merk</bpmn:incoming><bpmn:outgoing>Flow_A_merk_A_archSend</bpmn:outgoing></bpmn:serviceTask>
       <bpmn:serviceTask id="A_archSend" name="Archiv-Mail je E-Rechnung an das eigene Postfach senden"><bpmn:incoming>Flow_A_merk_A_archSend</bpmn:incoming><bpmn:outgoing>Flow_A_archSend_D_check</bpmn:outgoing></bpmn:serviceTask>
-      <bpmn:serviceTask id="W_item" name="Eintrag in der Eingangsrechnungsliste WGC anlegen"><bpmn:incoming>Flow_A_gwWerk_W_item</bpmn:incoming><bpmn:outgoing>Flow_W_item_W_att</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:serviceTask id="W_item" name="Eintrag in der Rechnungsliste des Werks anlegen"><bpmn:incoming>Flow_A_gwWerk_W_item</bpmn:incoming><bpmn:outgoing>Flow_W_item_W_att</bpmn:outgoing></bpmn:serviceTask>
       <bpmn:serviceTask id="W_att" name="Original und lesbares PDF an den Eintrag anhängen"><bpmn:incoming>Flow_W_item_W_att</bpmn:incoming><bpmn:outgoing>Flow_W_att_W_upd</bpmn:outgoing></bpmn:serviceTask>
       <bpmn:serviceTask id="W_upd" name="Eintrag mit dem Prüfergebnis aktualisieren"><bpmn:incoming>Flow_W_att_W_upd</bpmn:incoming><bpmn:outgoing>Flow_W_upd_D_check</bpmn:outgoing></bpmn:serviceTask>
       <bpmn:userTask id="D_check" name="Rechnung prüfen und im Monitoring als geprüft markieren"><bpmn:incoming>Flow_A_archSend_D_check</bpmn:incoming><bpmn:incoming>Flow_W_upd_D_check</bpmn:incoming><bpmn:outgoing>Flow_D_check_D_gw</bpmn:outgoing></bpmn:userTask>
@@ -74,7 +74,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:sequenceFlow id="Flow_A_liefMail_A_gwWerk" sourceRef="A_liefMail" targetRef="A_gwWerk" />
       <bpmn:sequenceFlow id="Flow_A_gwErr_A_gwWerk" sourceRef="A_gwErr" targetRef="A_gwWerk" name="nein" />
       <bpmn:sequenceFlow id="Flow_A_gwWerk_A_merk" sourceRef="A_gwWerk" targetRef="A_merk" name="ZAI, HOL, LEG, EWA" />
-      <bpmn:sequenceFlow id="Flow_A_gwWerk_W_item" sourceRef="A_gwWerk" targetRef="W_item" name="WGC" />
+      <bpmn:sequenceFlow id="Flow_A_gwWerk_W_item" sourceRef="A_gwWerk" targetRef="W_item" name="WGC, SHB" />
       <bpmn:sequenceFlow id="Flow_A_merk_A_archSend" sourceRef="A_merk" targetRef="A_archSend" name="nach allen Anhängen" />
       <bpmn:sequenceFlow id="Flow_W_item_W_att" sourceRef="W_item" targetRef="W_att" />
       <bpmn:sequenceFlow id="Flow_W_att_W_upd" sourceRef="W_att" targetRef="W_upd" />
@@ -108,7 +108,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:association id="Assoc_N_lief" associationDirection="None" sourceRef="A_liefMail" targetRef="N_lief" />
       <bpmn:textAnnotation id="N_archSend"><bpmn:text>HOL, LEG, EWA: eine Archiv-Mail je E-Rechnung, die übrigen PDFs der Mail kommen mit. ZAI noch je Anhang. Die Originalmail bleibt im Posteingang.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_archSend" associationDirection="None" sourceRef="A_archSend" targetRef="N_archSend" />
-      <bpmn:textAnnotation id="N_wgc"><bpmn:text>WGC: bis zur Umstellung auf das Monitoring über die Eingangsrechnungsliste auf gruppe_wgc. Anhänge nur bei grün oder gelb.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="N_wgc"><bpmn:text>WGC und SHB: bis zur Umstellung auf das Monitoring über die Eingangsrechnungsliste auf gruppe_wgc bzw. gruppe_shb. Anhänge nur bei grün oder gelb.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_wgc" associationDirection="None" sourceRef="W_item" targetRef="N_wgc" />
       <bpmn:textAnnotation id="N_check"><bpmn:text>„Als geprüft markieren“ speichert, wer wann geprüft hat.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_check" associationDirection="None" sourceRef="D_check" targetRef="N_check" />
@@ -178,7 +178,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNEdge id="Flow_A_liefMail_A_gwWerk_di" bpmnElement="Flow_A_liefMail_A_gwWerk"><di:waypoint x="2371" y="390" /><di:waypoint x="2426" y="390" /><di:waypoint x="2426" y="270" /><di:waypoint x="2450" y="270" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_A_gwErr_A_gwWerk_di" bpmnElement="Flow_A_gwErr_A_gwWerk"><di:waypoint x="1990" y="270" /><di:waypoint x="2450" y="270" /><bpmndi:BPMNLabel><dc:Bounds x="1996" y="253" width="38" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_A_gwWerk_A_merk_di" bpmnElement="Flow_A_gwWerk_A_merk"><di:waypoint x="2500" y="270" /><di:waypoint x="2579" y="270" /><bpmndi:BPMNLabel><dc:Bounds x="2506" y="240" width="70" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_A_gwWerk_W_item_di" bpmnElement="Flow_A_gwWerk_W_item"><di:waypoint x="2475" y="295" /><di:waypoint x="2475" y="790" /><di:waypoint x="2579" y="790" /><bpmndi:BPMNLabel><dc:Bounds x="2483" y="773" width="31" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_A_gwWerk_W_item_di" bpmnElement="Flow_A_gwWerk_W_item"><di:waypoint x="2475" y="295" /><di:waypoint x="2475" y="790" /><di:waypoint x="2579" y="790" /><bpmndi:BPMNLabel><dc:Bounds x="2483" y="773" width="63" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_A_merk_A_archSend_di" bpmnElement="Flow_A_merk_A_archSend"><di:waypoint x="2711" y="270" /><di:waypoint x="3259" y="270" /><bpmndi:BPMNLabel><dc:Bounds x="2717" y="240" width="73" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_W_item_W_att_di" bpmnElement="Flow_W_item_W_att"><di:waypoint x="2711" y="790" /><di:waypoint x="2749" y="790" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_W_att_W_upd_di" bpmnElement="Flow_W_att_W_upd"><di:waypoint x="2881" y="790" /><di:waypoint x="2919" y="790" /></bpmndi:BPMNEdge>
@@ -212,8 +212,8 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNEdge id="Assoc_N_lief_di" bpmnElement="Assoc_N_lief"><di:waypoint x="2305" y="432" /><di:waypoint x="2305" y="468" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_archSend_di" bpmnElement="N_archSend" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="3080" y="354" width="300" height="72" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_N_archSend_di" bpmnElement="Assoc_N_archSend"><di:waypoint x="3325" y="312" /><di:waypoint x="3325" y="354" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNShape id="N_wgc_di" bpmnElement="N_wgc" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="2570" y="879" width="330" height="62" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Assoc_N_wgc_di" bpmnElement="Assoc_N_wgc"><di:waypoint x="2645" y="832" /><di:waypoint x="2645" y="879" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="N_wgc_di" bpmnElement="N_wgc" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="2570" y="874" width="330" height="72" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_N_wgc_di" bpmnElement="Assoc_N_wgc"><di:waypoint x="2645" y="832" /><di:waypoint x="2645" y="874" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_check_di" bpmnElement="N_check" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="3420" y="1139" width="220" height="62" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_N_check_di" bpmnElement="Assoc_N_check"><di:waypoint x="3495" y="1092" /><di:waypoint x="3495" y="1139" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_800_di" bpmnElement="N_800" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="3420" y="1368" width="220" height="84" /></bpmndi:BPMNShape>
@@ -222,7 +222,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNEdge id="Assoc_N_wo_di" bpmnElement="Assoc_N_wo"><di:waypoint x="4005" y="1075" /><di:waypoint x="4112" y="1122" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_kred_di" bpmnElement="N_kred" bioc:stroke="#8A8F98" bioc:fill="#F1F1F3" color:background-color="#F1F1F3" color:border-color="#8A8F98"><dc:Bounds x="4780" y="1254" width="250" height="72" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_N_kred_di" bpmnElement="Assoc_N_kred"><di:waypoint x="4855" y="1212" /><di:waypoint x="4855" y="1254" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNShape id="G_anhang_di" bpmnElement="G_anhang" bioc:stroke="#17509E" color:border-color="#17509E"><dc:Bounds x="1031" y="204" width="2038" height="753" /><bpmndi:BPMNLabel><dc:Bounds x="1041" y="210" width="260" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_anhang_di" bpmnElement="G_anhang" bioc:stroke="#17509E" color:border-color="#17509E"><dc:Bounds x="1031" y="204" width="2038" height="758" /><bpmndi:BPMNLabel><dc:Bounds x="1041" y="210" width="260" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Msg_P_Lief_A_start_di" bpmnElement="Msg_P_Lief_A_start"><di:waypoint x="435" y="130" /><di:waypoint x="435" y="252" /><bpmndi:BPMNLabel><dc:Bounds x="443" y="177" width="170" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Msg_A_liefMail_P_Lief_di" bpmnElement="Msg_A_liefMail_P_Lief"><di:waypoint x="2305" y="348" /><di:waypoint x="2305" y="130" /><bpmndi:BPMNLabel><dc:Bounds x="2313" y="151" width="170" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Msg_D_rej_P_Lief_di" bpmnElement="Msg_D_rej_P_Lief"><di:waypoint x="3921" y="1368" /><di:waypoint x="3921" y="130" /><bpmndi:BPMNLabel><dc:Bounds x="3929" y="151" width="170" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>

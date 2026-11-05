@@ -91,11 +91,11 @@ const ANSICHT = 'https://e-rechnung.dihag-extern.com/prozess.html';
 const EINGANG = {
   key: 'eingang', file: '01-rechnungseingang.bpmn', tab: 'eingang', haupt: true,
   name: 'E-Rechnung Rechnungseingang', kennung: 'Process_ERechnung_Eingang',
-  doku: 'Eingangsrechnungen kommen per Mail ins Rechnungspostfach des Werks. Ein Flow je Werk (WGC, ZAI, HOL, LEG, EWA) gibt jeden PDF- oder XML-Anhang an den Prüfdienst und legt Original und Prüfergebnis in ERAR_<Werk> ab. WGC übergibt an die Eingangsrechnungsliste, die anderen Werke schicken eine Archiv-Mail ins eigene Postfach. Die Kreditorenbuchhaltung prüft im Monitoring und schätzt sonstige Rechnungen ein. WGC holt die Freigabe im Monitoring ein und bucht dann. ZAI, HOL, LEG, EWA, EIS und DSO erfassen im SAP, dort läuft auch die Genehmigung, die Rechnung geht nicht noch einmal durchs Monitoring.',
+  doku: 'Eingangsrechnungen kommen per Mail ins Rechnungspostfach des Werks. Ein Flow je Werk (WGC, SHB, ZAI, HOL, LEG, EWA) gibt jeden PDF- oder XML-Anhang an den Prüfdienst und legt Original und Prüfergebnis in ERAR_<Werk> ab. WGC und SHB übergeben an ihre Eingangsrechnungsliste, die anderen Werke schicken eine Archiv-Mail ins eigene Postfach. Die Kreditorenbuchhaltung prüft im Monitoring und schätzt sonstige Rechnungen ein. WGC holt die Freigabe im Monitoring ein und bucht dann. ZAI, HOL, LEG, EWA, EIS und DSO erfassen im SAP, dort läuft auch die Genehmigung, die Rechnung geht nicht noch einmal durchs Monitoring.',
   pools: [
     { id: 'P_Lief', name: 'Lieferant', actor: 'extern', blackbox: true },
     {
-      id: 'P_Ein', name: 'DIHAG · Rechnungseingang (eigener Flow je Werk: WGC, ZAI, HOL, LEG, EWA)', main: true,
+      id: 'P_Ein', name: 'DIHAG · Rechnungseingang (eigener Flow je Werk: WGC, SHB, ZAI, HOL, LEG, EWA)', main: true,
       lanes: [
         { id: 'LA', name: 'Werks-Postfach & Power Automate', actor: 'auto' },
         { id: 'LB', name: 'Prüfdienst (Azure)', actor: 'api' },
@@ -119,8 +119,8 @@ const EINGANG = {
         // ZAI, HOL, LEG, EWA: Übergabe über das Postfach
         { id: 'A_merk', k: 'service', n: 'Datei für die Archiv-Mail vormerken', lane: 'LA', c: 14, r: 0 },
         { id: 'A_archSend', k: 'service', n: 'Archiv-Mail je E-Rechnung an das eigene Postfach senden', lane: 'LA', c: 18, r: 0 },
-        // WGC: Übergabe über die Eingangsrechnungsliste auf gruppe_wgc
-        { id: 'W_item', k: 'service', n: 'Eintrag in der Eingangsrechnungsliste WGC anlegen', lane: 'LC', c: 14, r: 0 },
+        // WGC und SHB: Übergabe über die Eingangsrechnungsliste auf gruppe_wgc bzw. gruppe_shb
+        { id: 'W_item', k: 'service', n: 'Eintrag in der Rechnungsliste des Werks anlegen', lane: 'LC', c: 14, r: 0 },
         { id: 'W_att', k: 'service', n: 'Original und lesbares PDF an den Eintrag anhängen', lane: 'LC', c: 15, r: 0 },
         { id: 'W_upd', k: 'service', n: 'Eintrag mit dem Prüfergebnis aktualisieren', lane: 'LC', c: 16, r: 0 },
         // Kreditorenbuchhaltung
@@ -158,7 +158,7 @@ const EINGANG = {
         F('A_liefMail', 'A_gwWerk', '', { via: 'joinLeft' }),
         F('A_gwErr', 'A_gwWerk', 'nein'),
         F('A_gwWerk', 'A_merk', 'ZAI, HOL, LEG, EWA'),
-        F('A_gwWerk', 'W_item', 'WGC'),
+        F('A_gwWerk', 'W_item', 'WGC, SHB'),
         F('A_merk', 'A_archSend', 'nach allen Anhängen'),
         F('W_item', 'W_att'),
         F('W_att', 'W_upd'),
@@ -194,8 +194,8 @@ const EINGANG = {
           text: 'Bei Zurückweisung oder Abweichung. Empfänger aus der E-Rechnung. Der Schalter „Lieferantenmails“ steht noch auf aus.' },
         { id: 'N_archSend', of: 'A_archSend', lane: 'LA', c: 17, r: 1, w: 300, h: 72,
           text: 'HOL, LEG, EWA: eine Archiv-Mail je E-Rechnung, die übrigen PDFs der Mail kommen mit. ZAI noch je Anhang. Die Originalmail bleibt im Posteingang.' },
-        { id: 'N_wgc', of: 'W_item', lane: 'LC', c: 14, r: 1, w: 330, h: 62,
-          text: 'WGC: bis zur Umstellung auf das Monitoring über die Eingangsrechnungsliste auf gruppe_wgc. Anhänge nur bei grün oder gelb.' },
+        { id: 'N_wgc', of: 'W_item', lane: 'LC', c: 14, r: 1, w: 330, h: 72,
+          text: 'WGC und SHB: bis zur Umstellung auf das Monitoring über die Eingangsrechnungsliste auf gruppe_wgc bzw. gruppe_shb. Anhänge nur bei grün oder gelb.' },
         { id: 'N_check', of: 'D_check', lane: 'LD', c: 19, r: 1, w: 220, h: 62,
           text: '„Als geprüft markieren“ speichert, wer wann geprüft hat.' },
         { id: 'N_800', of: 'D_800', lane: 'LD', c: 19, r: 3, w: 220, h: 84,
