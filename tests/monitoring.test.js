@@ -163,7 +163,7 @@ gleich(['Rechnung_4711.pdf', 'Terminerinnerung.pdf', '4711_DE123456789.pdf'].som
 const mahn = datei('Mahnung_4711.pdf', { Format: 'PDF', Formatmangel: true, Verarbeitungsstatus: 'Validiert', Rechnungssteller: 'Muster GmbH', Title: '4711' });
 gleich(mahn.mahnung, true, 'Mahnung im Eingang');
 gleich(M._monMap({ id: 'a', createdDateTime: '2026-11-05T09:00:00Z' }, { FileLeafRef: 'Mahnung_1.pdf' }, { id: 'L2', werk: 'WGC', richtung: 'Ausgang' }).mahnung, false, 'Ausgang nie');
-gleich([M._monMatchFlag(mahn, 'offen'), M._monMatchFlag(mahn, 'mahnung')], [false, true], 'nicht offen, aber unter Mahnungen');
+gleich([M._monMatchFlag(mahn, 'fehler'), M._monMatchFlag(mahn, 'mahnung')], [false, true], 'kein Fehler, aber unter Mahnungen');
 const rech = datei('4711_DE811979246.pdf', { Format: 'PDF', Rechnungssteller: 'Muster GmbH', Title: '4711', RechnungsstellerUStID: 'DE811979246' });
 const paar = [Object.assign({}, rech, { ustid: 'DE811979246' }), Object.assign({}, mahn, { ustid: 'DE811979246' })];
 M._monMarkDupes(paar);
@@ -174,4 +174,47 @@ gleich(datei('x.pdf', { Fehlermeldung: '\n', Konformitaet: 'Gruen' }).fehler, ''
 gleich(M._monMatchFlag(datei('x.pdf', { Fehlermeldung: '\n', Konformitaet: 'Gruen', Verarbeitungsstatus: 'Validiert' }), 'fehler'), false, 'kein Fehler-Treffer');
 gleich(M._monMatchFlag(datei('x.pdf', { Fehlermeldung: 'Timeout', Konformitaet: 'Gruen' }), 'fehler'), true, 'echte Meldung zählt');
 
-console.log(`monitoring: ${n} Prüfungen grün`);
+// Laden: neueste zuerst bis zum Stichtag, Älteres auf Klick, kein festes Limit
+gleich(M._monVorMonaten('2026-11-05T12:00:00Z', 6), '2026-05-05', 'sechs Monate zurück');
+(async () => {
+  global.SP = { graphBase: 'https://g' };
+  const eintrag = (id, tag) => ({ id, createdDateTime: tag + 'T10:00:00Z', webUrl: 'https://x/' + id, fields: { FileLeafRef: id + '.pdf' } });
+  const seiten = {
+    start: { value: [eintrag('a', '2026-10-01'), eintrag('b', '2026-06-01')], '@odata.nextLink': 'https://g/n1' },
+    'https://g/n1': { value: [eintrag('c', '2026-05-20'), eintrag('d', '2026-05-01')], '@odata.nextLink': 'https://g/n2' },
+    'https://g/n2': { value: [eintrag('e', '2026-01-01')] },
+  };
+  let abrufe = [], kaputt = '';
+  global.fetch = async url => {
+    abrufe.push(url);
+    if (url === kaputt) return { ok: false, status: 500, text: async () => 'Fehler', headers: { get: () => null } };
+    if (kaputt === 'sortierung' && url.includes('orderby')) return { ok: false, status: 400, text: async () => 'nicht indiziert', headers: { get: () => null } };
+    return { ok: true, json: async () => seiten[url.includes('sites/') ? 'start' : url] };
+  };
+  const lib2 = { id: 'L2', werk: 'WGC', richtung: 'Eingang' };
+  const geladen = [];
+  const merken = s => { geladen.push(...s.map(r => r.file)); return true; };
+  await M._monFetchLib('s', lib2, 't', merken, '2026-05-05');
+  gleich(geladen, ['a.pdf', 'b.pdf', 'c.pdf', 'd.pdf'], 'hört auf, sobald eine Seite vor den Stichtag reicht');
+  gleich(M._monWeiter.get('L2'), 'https://g/n2', 'nächste Seite bleibt für „Ältere laden“');
+  await M._monFetchLib('s', lib2, 't', merken, '2025-11-05');
+  gleich(geladen.slice(4), ['e.pdf'], 'macht dort weiter');
+  gleich(M._monWeiter.has('L2'), false, 'nichts mehr offen');
+
+  // Fehler beim Weiterladen: Beim nächsten Klick geht es an derselben Stelle weiter
+  M._monWeiter.set('L2', 'https://g/n2');
+  kaputt = 'https://g/n2';
+  let fehler = '';
+  await M._monFetchLib('s', lib2, 't', merken, '2025-11-05').catch(e => { fehler = e.message; });
+  gleich([/500/.test(fehler), M._monWeiter.get('L2')], [true, 'https://g/n2'], 'Adresse bleibt nach einem Fehler');
+  M._monWeiter.clear();
+
+  // Sortierung abgelehnt: ungeordnet alles laden, ohne Stichtag
+  kaputt = 'sortierung';
+  geladen.length = 0;
+  await M._monFetchLib('s', lib2, 't', merken, '2026-05-05');
+  gleich(geladen, ['a.pdf', 'b.pdf', 'c.pdf', 'd.pdf', 'e.pdf'], 'ohne Sortierung alles');
+  gleich(M._monWeiter.size, 0, 'dann kein „Ältere laden“');
+
+  console.log(`monitoring: ${n} Prüfungen grün`);
+})().catch(e => { console.error(e); process.exit(1); });

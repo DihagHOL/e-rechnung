@@ -2,7 +2,8 @@
  * Rechnungsmonitoring
  * ===================
  * Liest ALLE Rechnungsbibliotheken (ERAR_<Werk> = Eingang, AR_<Werk> = Ausgang)
- * einer eigenen SharePoint-Site aus, nacheinander und seitenweise, aggregiert die
+ * einer eigenen SharePoint-Site aus, nacheinander und seitenweise (die letzten Monate,
+ * Älteres auf Klick), aggregiert die
  * Positionen und zeigt KPI-Kacheln + filterbare Tabelle (200 Zeilen je Seite).
  * Nutzt die vorhandene Auth/Graph-Infrastruktur
  * (auth.js, sharepoint.js: acquireToken, SP, _get).
@@ -15,7 +16,7 @@ const MON = {
   siteHost: 'dihag.sharepoint.com:/sites/Rechnungsmonitoring',
   libRe: /^(ERAR|AR)_(.+)$/i,   // ERAR_WGC, AR_SHB, ...
   intakeRe: /^Rechnungseingang$/i, // zentrale Eingangsstufe (werkuebergreifend)
-  maxPagesPerLib: 30,            // Sicherheitslimit: 30 x 200 = 6000 Items je Bibliothek
+  ladeMonate: 6,                 // so weit zurück lädt die Seite beim Öffnen, „Ältere laden“ holt je so viel mehr
   tabelleSeite: 200,             // so viele Zeilen zeichnet die Tabelle auf einmal
 };
 
@@ -30,6 +31,9 @@ let _monSiteId = '';                 // Monitoring-Site (Versionsverlauf)
 const _monSpaltenTitel = new Map();  // Liste -> Promise<Map(interner Name -> Anzeigename)>
 let _monLibs = [];                  // geladene Bibliotheken (für die Werk-Auswahl)
 let _monDateien = [];               // alle geladenen Dateien (neu zusammenfassen nach Einstellungen)
+let _monAb = '';                    // geladen sind Dateien ab diesem Tag (JJJJ-MM-TT), Älteres erst auf Klick
+const _monWeiter = new Map();       // Bibliothek -> Adresse der nächsten Seite, wenn dort noch Älteres liegt
+let _monStand = null;               // Angaben für die Zeile unter dem Titel
 const _monOffen = new Set();        // aufgeklappte Zeilen (Schlüssel: Werk|Richtung|Datei)
 let _monBeobachter = null;          // lädt beim Scrollen die nächste Seite der Tabelle
 let _monDichte = 'kompakt';         // kompakt | gross (im Browser gemerkt)
@@ -120,7 +124,8 @@ async function loadMonitoring(accessList, optionen) {
     const lauf = ++_monLadeLauf;
     const recs = [];
     _monDateien = recs;
-    const fehlerLibs = [];
+    _monAb = _monVorMonaten(new Date(), MON.ladeMonate);
+    _monWeiter.clear();
     _monRecords = [];
     _monLaedt = true;
     _monBuildFilterOptions(libs);
@@ -129,47 +134,99 @@ async function loadMonitoring(accessList, optionen) {
     document.getElementById('mon-body').style.display = '';
     _monApply();
 
-    for (let i = 0; i < libs.length; i++) {
-      const lib = libs[i];
-      if (sub) sub.textContent = `Lade ${lib.name} (${i + 1} von ${libs.length}) · ${recs.length} Datei(en) bisher…`;
-      try {
-        await _monFetchLib(siteId, lib, token, seite => {
-          if (lauf !== _monLadeLauf) return false;   // neuer Ladevorgang -> diesen abbrechen
-          recs.push(...seite);
-          _monUpdate(recs);
-          if (sub) sub.textContent = `Lade ${lib.name} (${i + 1} von ${libs.length}) · ${recs.length} Datei(en) bisher…`;
-          return true;
-        });
-      } catch (e) {
-        fehlerLibs.push(lib.name);
-        console.warn('Monitoring: Bibliothek nicht geladen:', lib.name, e);
-      }
-      if (lauf !== _monLadeLauf) return;
-      // Typ, Buchung und Status kommen erst mit den Daten, Auswahl bleibt erhalten.
-      _monBuildFilterOptions(libs);
-      _monSyncControls();
-    }
-
+    const fehlerLibs = await _monLibsLaden(libs, token, lauf);
+    if (lauf !== _monLadeLauf) return;
     _monLaedt = false;
     if (fehlerLibs.length === libs.length) {
       return _monShowSetup('Fehler beim Laden',
         `Keine Bibliothek ließ sich lesen (${fehlerLibs.join(', ')}). Details in der Browser-Konsole.`);
     }
     _monUpdate(recs);
-    const einstFehler = typeof _bh !== 'undefined' && _bh.einstFehler;
-    const registerFehler = typeof _ug !== 'undefined' && _ug.fehler;
-    if (sub) sub.textContent =
-      `${_monRecords.length} Rechnung(en) (${recs.length} Datei(en)) aus ${libs.length - fehlerLibs.length} Bibliothek(en) · Stand ${new Date().toLocaleString('de-DE')}`
-      + (nurAusgang ? ' · Rolle Vertrieb: nur Ausgangsrechnungen' : '')
-      + (fehlerLibs.length ? ` · nicht geladen: ${fehlerLibs.join(', ')}` : '')
-      + (einstFehler ? ` · Spalten-Einstellungen nicht lesbar (${einstFehler}), es gelten die Standardspalten` : '')
-      + (registerFehler ? ` · Lieferantenregister nicht lesbar (${registerFehler}), Bestätigen und Merken gehen nicht` : '');
+    _monStand = { libs: libs.length - fehlerLibs.length, nurAusgang, fehlerLibs };
+    _monStandZeigen();
     // Inhalt der Dubletten vergleichen (Prüfsummen nachladen), nicht fatal
     _monDublettenInhalt(lauf, token).catch(e => console.warn('Monitoring: Dubletten-Vergleich:', e));
   } catch (e) {
     _monLaedt = false;
     _monShowSetup('Fehler beim Laden', e.message || String(e));
   }
+}
+
+/** Bibliotheken nacheinander laden, liefert die Namen derer mit Fehler. */
+async function _monLibsLaden(libs, token, lauf) {
+  const sub = document.getElementById('mon-subtitle');
+  const recs = _monDateien;
+  const fehlerLibs = [];
+  for (let i = 0; i < libs.length; i++) {
+    const lib = libs[i];
+    const zeile = () => { if (sub) sub.textContent = `Lade ${lib.name} (${i + 1} von ${libs.length}) · ${recs.length} Datei(en) bisher…`; };
+    zeile();
+    try {
+      await _monFetchLib(_monSiteId, lib, token, seite => {
+        if (lauf !== _monLadeLauf) return false;   // neuer Ladevorgang -> diesen abbrechen
+        recs.push(...seite);
+        _monUpdate(recs);
+        zeile();
+        return true;
+      }, _monAb);
+    } catch (e) {
+      fehlerLibs.push(lib.name);
+      console.warn('Monitoring: Bibliothek nicht geladen:', lib.name, e);
+    }
+    if (lauf !== _monLadeLauf) return fehlerLibs;
+    // Typ, Buchung und Status kommen erst mit den Daten, Auswahl bleibt erhalten.
+    _monBuildFilterOptions(_monLibs);
+    _monSyncControls();
+  }
+  return fehlerLibs;
+}
+
+/** Tag „monate“ Monate vor dem Datum als JJJJ-MM-TT. */
+function _monVorMonaten(datum, monate) {
+  const d = new Date(datum);
+  d.setMonth(d.getMonth() - monate);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Zeile unter dem Titel nach dem Laden. */
+function _monStandZeigen() {
+  const sub = document.getElementById('mon-subtitle');
+  const s = _monStand;
+  if (sub && s) {
+    const einstFehler = typeof _bh !== 'undefined' && _bh.einstFehler;
+    const registerFehler = typeof _ug !== 'undefined' && _ug.fehler;
+    sub.textContent =
+      `${_monRecords.length} Rechnung(en) (${_monDateien.length} Datei(en)) aus ${s.libs} Bibliothek(en) · Stand ${new Date().toLocaleString('de-DE')}`
+      + (_monWeiter.size ? ` · geladen ab ${_monDate(_monAb)}, Dubletten nur in diesem Zeitraum` : '')
+      + (s.nurAusgang ? ' · Rolle Vertrieb: nur Ausgangsrechnungen' : '')
+      + (s.fehlerLibs.length ? ` · nicht geladen: ${s.fehlerLibs.join(', ')}` : '')
+      + (einstFehler ? ` · Spalten-Einstellungen nicht lesbar (${einstFehler}), es gelten die Standardspalten` : '')
+      + (registerFehler ? ` · Lieferantenregister nicht lesbar (${registerFehler}), Bestätigen und Merken gehen nicht` : '');
+  }
+  const knopf = document.getElementById('mon-aeltere');
+  if (knopf) {
+    knopf.hidden = !_monWeiter.size;
+    knopf.disabled = _monLaedt;
+    knopf.title = `Rechnungen vor dem ${_monDate(_monAb)} laden, weitere ${MON.ladeMonate} Monate`;
+  }
+}
+
+/** Knopf „Ältere laden“: die nächsten Monate holen, dort weiter, wo das Laden aufgehört hat. */
+async function _monAeltereLaden() {
+  if (_monLaedt || !_monWeiter.size) return;
+  const token = await acquireToken(SP.scopes);
+  if (!token) return;
+  const lauf = ++_monLadeLauf;
+  _monAb = _monVorMonaten(_monAb + 'T12:00:00Z', MON.ladeMonate);
+  _monLaedt = true;
+  _monStandZeigen();
+  const fehlerLibs = await _monLibsLaden(_monLibs.filter(l => _monWeiter.has(l.id)), token, lauf);
+  if (lauf !== _monLadeLauf) return;
+  _monLaedt = false;
+  _monUpdate(_monDateien);
+  if (_monStand) _monStand.fehlerLibs = fehlerLibs;
+  _monStandZeigen();
+  _monDublettenInhalt(lauf, token).catch(e => console.warn('Monitoring: Dubletten-Vergleich:', e));
 }
 
 /**
@@ -213,25 +270,29 @@ async function _monGet(url, token) {
 }
 
 // Eine Bibliothek seitenweise abrufen. Sortiert NEUESTE ZUERST (fields/Created
-// desc): so liefert das Seitenlimit maxPagesPerLib immer die aktuellsten
-// Rechnungen, statt in der Graph-Default-Reihenfolge (ID aufsteigend = älteste
-// zuerst) die neuen abzuschneiden. $orderby verlangt jenseits von 5000 Items eine
+// desc): so stehen die aktuellen Rechnungen vorn, statt in der Graph-Default-Reihenfolge
+// (ID aufsteigend = älteste zuerst). $orderby verlangt jenseits von 5000 Items eine
 // indizierte Created-Spalte (Provisioning: provision-rechnungsmonitoring.ps1).
-// Wird die Sortierung abgelehnt (noch nicht indiziert), wird ungeordnet geladen.
-// Jede Seite geht sofort an onSeite(datensaetze). Gibt onSeite false zurück, endet
-// der Abruf (neuer Ladevorgang gestartet).
-async function _monFetchLib(siteId, lib, token, onSeite) {
+// Wird die Sortierung abgelehnt (noch nicht indiziert), wird ungeordnet alles geladen.
+// Reicht eine Seite vor den Tag „ab“, endet der Abruf und die nächste Seite bleibt in
+// _monWeiter für „Ältere laden“. Ein zweiter Aufruf macht dort weiter. Jede Seite geht
+// sofort an onSeite(datensaetze). Gibt onSeite false zurück, endet der Abruf (neuer
+// Ladevorgang gestartet).
+async function _monFetchLib(siteId, lib, token, onSeite, ab) {
   const base = `${SP.graphBase}/sites/${siteId}/lists/${lib.id}/items?$expand=fields&$top=200`;
-  let url = `${base}&$orderby=fields/Created desc`;
+  const fortsetzung = _monWeiter.get(lib.id) || '';
+  let url = fortsetzung || `${base}&$orderby=fields/Created desc`;
+  _monWeiter.delete(lib.id);
   let ordered = true;
   let pages = 0;
-  while (url && pages < MON.maxPagesPerLib) {
+  while (url) {
     let page;
     try {
       page = await _monGet(url, token);
     } catch (e) {
       // Sortierung nicht möglich (unindiziert) -> einmalig ungeordnet neu starten.
-      if (ordered && pages === 0) { ordered = false; url = base; continue; }
+      if (ordered && pages === 0 && !fortsetzung) { ordered = false; url = base; continue; }
+      if (ordered && (pages || fortsetzung)) _monWeiter.set(lib.id, url);   // beim nächsten Klick dort weiter
       throw e;
     }
     const seite = [];
@@ -241,8 +302,11 @@ async function _monFetchLib(siteId, lib, token, onSeite) {
       seite.push(_monMap(it, f, lib));
     }
     if (onSeite(seite) === false) return;
-    url = page['@odata.nextLink'] || null;
+    const weiter = page['@odata.nextLink'] || null;
     pages++;
+    const aelteste = seite.length ? seite[seite.length - 1].erstellt : '';
+    if (weiter && ordered && ab && aelteste && aelteste < ab) { _monWeiter.set(lib.id, weiter); return; }
+    url = weiter;
   }
 }
 
@@ -690,7 +754,6 @@ function _monGemeinsam(r) {
 
 function _monMatchFlag(r, flag) {
   switch (flag) {
-    case 'offen':      return !r.mahnung && !!r.status && !['Gebucht', 'Archiviert'].includes(r.status);
     case 'fehler':     return !r.mahnung && (r.status === 'Fehler' || /^rot/i.test(r.konform || '') || !!r.fehler);
     case 'dublette':   return !!r.dublette;
     case 'manuell':    return !r.mahnung && (r.manuellePruefung || /manuell/i.test(r.buchung || ''));
@@ -743,7 +806,6 @@ function _monRenderKpis(rows) {
   const total = rows.length;
   const eingang = rows.filter(r => r.richtung === 'Eingang').length;
   const ausgang = rows.filter(r => r.richtung === 'Ausgang').length;
-  const offen = rows.filter(r => _monMatchFlag(r, 'offen')).length;
   const fehler = rows.filter(r => _monMatchFlag(r, 'fehler')).length;
   const dubletten = rows.filter(r => r.dublette).length;
   // Prüfschritt-Warteschlangen (UStAE/GoBD): manuelle Prüfung, Rückfrage, Zurückweisung.
@@ -767,7 +829,6 @@ function _monRenderKpis(rows) {
     { id: '',                label: 'Rechnungen gesamt',     val: total,      cls: '' },
     { id: 'r:Eingang',       label: 'Eingang',               val: eingang,    cls: 'in' },
     { id: 'r:Ausgang',       label: 'Ausgang',               val: ausgang,    cls: 'out' },
-    { id: 'flag:offen',      label: 'Offen (nicht gebucht)', val: offen,      cls: 'warn' },
     { id: 'flag:fehler',     label: 'Fehler / rot',          val: fehler,     cls: 'bad' },
     { id: 'flag:dublette',   label: 'Dubletten',             val: dubletten,  cls: dubletten ? 'bad' : '' },
     { id: 'flag:manuell',    label: 'Manuelle Prüfung',      val: manuell,    cls: manuell ? 'warn' : '' },
@@ -1155,7 +1216,8 @@ function _monRenderTable(rows) {
     ? `<tr><td colspan="${spalten.length + 1}" class="mon-mehr"><button type="button" data-mehr>Weitere ${Math.min(rest, MON.tabelleSeite)} anzeigen</button>`
       + `<span>noch ${rest} Treffer</span></td></tr>`
     : '';
-  const leer = _monLaedt ? 'Rechnungen werden geladen…' : 'Keine Treffer für die aktuellen Filter.';
+  const leer = _monLaedt ? 'Rechnungen werden geladen…' : 'Keine Treffer für die aktuellen Filter.'
+    + (_monWeiter.size ? ` Geladen sind Rechnungen ab ${_monDate(_monAb)}, Älteres holt „Ältere laden“.` : '');
   document.getElementById('mon-tbody').innerHTML = (body + mehr)
     || `<tr><td colspan="${spalten.length + 1}" style="text-align:center;color:var(--gray-500);padding:28px;">${leer}</td></tr>`;
   document.getElementById('mon-count').textContent =
@@ -1977,6 +2039,8 @@ function monInitFilterEvents() {
     if (!_monAufruf) return;
     loadMonitoring(_monAufruf.accessList, Object.assign({}, _monAufruf.optionen, { standardWerk: '' }));
   });
+  const aeltere = document.getElementById('mon-aeltere');
+  if (aeltere) aeltere.addEventListener('click', () => _monAeltereLaden());
 
   // KPI-Kacheln als Schnellfilter (Klick + Tastatur), per Event-Delegation.
   const kpis = document.getElementById('mon-kpis');
@@ -2076,6 +2140,6 @@ function _esc(s) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
+  module.exports = { _monFetchLib, _monVorMonaten, _monWeiter, _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
     _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMatchFlag, _monMitNeuenSpalten, _monLibErlaubt, _monIstMahnung };
 }

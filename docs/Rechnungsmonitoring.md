@@ -42,10 +42,15 @@ Bibliotheken, die noch die Site-Rechte erben, bekommen dafür eigene Rechte (Kop
 - **Nacheinander und seitenweise**: immer nur ein Abruf gegen SharePoint, die Tabelle
   füllt sich nach jeder Seite, Fortschritt im Untertitel. 429/503 werden wiederholt, eine
   Bibliothek mit Fehler hält die anderen nicht auf.
-- **Neueste zuerst** (`$orderby=fields/Created desc`): Das Seitenlimit
-  (`maxPagesPerLib`, 30 × 200 = 6000 Items/Bibliothek) liefert damit immer die aktuellsten
-  Rechnungen. Jenseits von 5000 Items verlangt `$orderby` eine indizierte
-  `Created`-Spalte (setzt das Provisioning), sonst lädt das Monitoring ungeordnet weiter.
+- **Neueste zuerst** (`$orderby=fields/Created desc`). Jenseits von 5000 Items verlangt
+  `$orderby` eine indizierte `Created`-Spalte (setzt das Provisioning), sonst lädt das
+  Monitoring ungeordnet alles.
+- **Die letzten 6 Monate** (`MON.ladeMonate`): Je Bibliothek endet das Laden, sobald eine
+  Seite vor diesen Tag reicht. Liegt danach noch etwas, steht „geladen ab …“ unter dem Titel
+  und der Knopf **„Ältere laden“** über der Tabelle holt je weitere 6 Monate, dort weiter, wo
+  das Laden aufgehört hat. Ein festes Limit gibt es nicht mehr. Kacheln, Suche und Dubletten
+  gelten für das, was geladen ist. Eine Dublette zu einer Rechnung vor diesem Tag zeigt sich
+  also erst nach „Ältere laden“.
 
 ## Zeilen-Aggregation
 
@@ -220,7 +225,7 @@ Tooltip nennt den gespeicherten Wert.
 
 ## KPI-Kacheln
 
-Rechnungen gesamt · Eingang · Ausgang · Offen (nicht gebucht) · **Fehler / rot** ·
+Rechnungen gesamt · Eingang · Ausgang · **Fehler / rot** ·
 **Dubletten** · Manuelle Prüfung · Zur Rückfrage · Zurückgewiesen · 800k-Einschätzung
 offen · In Genehmigung (nur wenn ein Werk die Bearbeitung nutzt) · Typen. Die Kacheln
 beziehen sich auf die gefilterte Auswahl, ein Klick filtert.

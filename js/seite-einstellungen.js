@@ -3,9 +3,7 @@
 /* ── In-Memory Arbeitskopie der Config ── */
 let _editConfig = {};   // { wgc: ['user@…'], shb: [], _rollen: {…}, _app: {…} }; Werk-Schlüssel = zugewiesene Werke
 
-/* ── Fehler-Benachrichtigung: E-Mail je Werk ── */
 const WERKE_ALL = WERKE_ALLE;   // js/access.js
-let _editFehler = {};
 
 /* ── Init nach Login ── */
 onAuthReady(async () => {
@@ -24,11 +22,6 @@ onAuthReady(async () => {
   _editConfig = zugriffKopie(_runtimeConfig);
 
   renderLists();
-
-  // Fehler-Benachrichtigungs-Config laden + rendern
-  try { _editFehler = (await spLoadFehlerConfig()) || {}; }
-  catch (e) { _editFehler = {}; }
-  renderFehlerGrid();
 
   // Rechnungsadressen der Kunden laden + rendern
   _kmGeladenAm = new Date().toISOString();
@@ -113,27 +106,6 @@ function kmEntfernen(i) {
   _kmGeaendert = true;
   renderKundenMails();
   updateHint('ungespeicherte Änderungen');
-}
-
-/* ── Fehler-Benachrichtigung: Werk-Kacheln rendern ── */
-function renderFehlerGrid() {
-  const grid = document.getElementById('fehler-mail-grid');
-  if (!grid) return;
-  grid.innerHTML = WERKE_ALL.map(([code, name]) => {
-    const cls = (code === 'WGC') ? 'wgc' : (code === 'SHB') ? 'shb' : '';
-    const val = esc(_editFehler[code] || '');
-    return `
-      <div class="card">
-        <div class="card-header">
-          <span class="card-icon"><span class="format-tag ${cls}" style="font-size:12px;">${code}</span></span>
-          <h3>${esc(name)}</h3>
-        </div>
-        <div class="card-body">
-          <input type="email" id="fehler-input-${code.toLowerCase()}" class="upn-input"
-                 placeholder="fehler-benachrichtigung@dihag.com" value="${val}">
-        </div>
-      </div>`;
-  }).join('');
 }
 
 /* ── Werk-Karten mit UPN-Listen rendern ── */
@@ -242,17 +214,6 @@ async function saveSettings() {
     _runtimeConfig = zugriffKopie(neu);   // Cache aktualisieren
     _editConfig = zugriffKopie(neu);
 
-    // Fehler-Benachrichtigungs-E-Mails einsammeln + speichern
-    const fehler = {};
-    for (const [code] of WERKE_ALL) {
-      const el = document.getElementById('fehler-input-' + code.toLowerCase());
-      const v = el ? (el.value || '').trim() : '';
-      if (v && !v.includes('@')) throw new Error('Ungültige E-Mail bei ' + code + ': ' + v);
-      if (v) fehler[code] = v;
-    }
-    await spSaveFehlerConfig(fehler);
-    _editFehler = fehler;
-
     // Rechnungsadressen nur schreiben, wenn hier etwas geändert wurde: der Konverter
     // merkt sich neue Adressen beim Export, die sollen nicht überschrieben werden.
     if (_kmGeaendert) {
@@ -339,7 +300,6 @@ _werkGrid.addEventListener('change', e => {
 _werkGrid.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.dataset && e.target.dataset.werk) addUpn(e.target.dataset.werk);
 });
-document.getElementById('fehler-mail-grid').addEventListener('input', () => updateHint('ungespeicherte Änderungen'));
 document.getElementById('km-body').addEventListener('click', e => {
   const b = e.target.closest('[data-km-entfernen]');
   if (b) kmEntfernen(Number(b.dataset.kmEntfernen));

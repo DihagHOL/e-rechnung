@@ -113,7 +113,6 @@ const EINGANG = {
         { id: 'C_meta', k: 'service', n: 'Metadaten setzen (Lieferant, Konformität, Buchung, Prüf-Flags, Mail-Vorgang)', lane: 'LC', c: 8, r: 0 },
         { id: 'C_side', k: 'call', ref: 'neben', n: 'Nebendateien ablegen', lane: 'LC', c: 9, r: 0 },
         { id: 'A_gwErr', k: 'gw', n: 'Ergebnis rot oder falsches Werk?', lane: 'LA', c: 10, r: 0 },
-        { id: 'A_errMail', k: 'service', n: 'Fehler-Mail an die Werks-Adresse senden', lane: 'LA', c: 11, r: 1 },
         { id: 'A_liefMail', k: 'service', n: 'Lieferanten-Mail mit Prüfbericht senden', lane: 'LA', c: 12, r: 1, tone: 'plan' },
         { id: 'A_gwWerk', k: 'gw', n: 'Welches Werk?', lane: 'LA', c: 13, r: 0 },
         // ZAI, HOL, LEG, EWA: Übergabe über das Postfach
@@ -149,8 +148,7 @@ const EINGANG = {
         F('C_orig', 'C_meta'),
         F('C_meta', 'C_side'),
         F('C_side', 'A_gwErr'),
-        F('A_gwErr', 'A_errMail', 'ja'),
-        F('A_errMail', 'A_liefMail'),
+        F('A_gwErr', 'A_liefMail', 'ja'),
         F('A_liefMail', 'A_gwWerk', '', { via: 'joinLeft' }),
         F('A_gwErr', 'A_gwWerk', 'nein'),
         F('A_gwWerk', 'A_merk', 'ZAI, HOL, LEG, EWA'),
@@ -181,8 +179,6 @@ const EINGANG = {
       annotations: [
         { id: 'N_arch', of: 'A_move', lane: 'LA', c: 3, r: 2, w: 300, h: 72,
           text: 'ZAI, HOL, LEG, EWA. Schleifenschutz: Die eigene Archiv-Mail kommt hier wieder an und wird nur einsortiert. In diesem Ordner arbeitet die Buchhaltung.' },
-        { id: 'N_err', of: 'A_errMail', lane: 'LA', c: 10, r: 2, w: 220, h: 62,
-          text: 'Eigener Flow „Fehler melden“. Die Adresse je Werk steht unter Einstellungen.' },
         { id: 'N_lief', of: 'A_liefMail', lane: 'LA', c: 12, r: 2, w: 220, h: 84, tone: 'plan',
           text: 'Bei Zurückweisung oder Abweichung. Empfänger aus der E-Rechnung. Der Schalter „Lieferantenmails“ steht noch auf aus.' },
         { id: 'N_archSend', of: 'A_archSend', lane: 'LA', c: 17, r: 1, w: 300, h: 72,
@@ -202,8 +198,8 @@ const EINGANG = {
       ],
       groups: [
         { id: 'G_anhang', label: 'wiederholt sich je Anhang (PDF oder XML)',
-          members: ['A_att', 'B_intake', 'C_orig', 'C_meta', 'C_side', 'A_gwErr', 'A_errMail', 'A_liefMail', 'A_gwWerk', 'A_merk',
-                    'N_err', 'N_lief', 'N_wgc'] },
+          members: ['A_att', 'B_intake', 'C_orig', 'C_meta', 'C_side', 'A_gwErr', 'A_liefMail', 'A_gwWerk', 'A_merk',
+                    'N_lief', 'N_wgc'] },
       ],
     },
   ],
