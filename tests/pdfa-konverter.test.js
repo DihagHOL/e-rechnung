@@ -26,7 +26,7 @@ Object.assign(ctx, {
     zustand.aufrufe++;
     if (zustand.wirft) throw new Error('offline');
     gleich([url, opt.method], ['https://beispiel.azurewebsites.net/api/pdfa', 'POST'], 'Aufruf des Prüfdienstes');
-    return { ok: zustand.status === 200, status: zustand.status, json: async () => ({ konform: zustand.urteil }) };
+    return { ok: zustand.status === 200, status: zustand.status, json: async () => ({ konform: zustand.urteil, meldungen: zustand.regeln || [] }) };
   },
 });
 const daten = { positionen: [{ menge: 1, einzelpreis: 10 }] };
@@ -46,7 +46,11 @@ const summen = { netTotal: 10, vatTotal: 1.9, grossTotal: 11.9 };
   // Original nicht konform: aus Daten, mit Hinweis
   zustand.urteil = 'fehler';
   gleich(await ctx.bauen(daten, summen, 'XML'), 'AUS-DATEN+XML', 'Original nicht konform');
-  gleich(/kein gültiges PDF\/A-3/.test(zustand.meldungen.pop()), true, 'Hinweis PDF/A');
+  gleich(/kein gültiges PDF\/A-3\. /.test(zustand.meldungen.pop()), true, 'Hinweis PDF/A ohne Regel');
+  zustand.regeln = ['Clause 6.2.11.4.1 Test 1', 'Clause 6.2.11.4.1 Test 1', { klausel: '6.6.2.3.1', test: 1 }];
+  gleich(await ctx.bauen(daten, summen, 'XML'), 'AUS-DATEN+XML', 'Original nicht konform, mit Regeln');
+  gleich(zustand.meldungen.pop().includes('(veraPDF-Regel 6.2.11.4.1, 6.6.2.3.1)'), true, 'Hinweis nennt die Regeln');
+  zustand.regeln = [];
 
   // Prüfdienst nicht erreichbar oder noch nicht deployt: ebenfalls aus Daten
   zustand.wirft = true;

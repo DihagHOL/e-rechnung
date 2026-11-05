@@ -1525,10 +1525,15 @@ async function _buildZugferdPdf(data, totals, xml, ust) {
   if (p.konform === 'ok') return pdf;
   if (typeof buildInvoicePdf !== 'function') throw new Error('PDF-Renderer nicht geladen (xml2pdf.js).');
   const ausDaten = await embedXMLIntoPDF(await buildInvoicePdf(_pdfDaten(data, totals)), xml, 'zugferd', extras);
+  // Regel nennen (z. B. 6.2.11.4.1), damit sich der Grund ohne Entwicklerwerkzeuge nachvollziehen lässt
+  const regeln = [...new Set((p.meldungen || []).map(m => (String((m && (m.klausel || m.clause)) || m).match(/\d+(?:\.\d+)+/) || [])[0]).filter(Boolean))];
+  console.warn('PDF/A-Prüfung des Originals:', p.konform, p.grund || '', p.meldungen || []);
   if (typeof showToast === 'function') {
     showToast(p.konform === 'fehler'
-      ? 'Das Original-PDF ist kein gültiges PDF/A-3. Die E-Rechnung wurde deshalb aus den Rechnungsdaten erzeugt.'
-      : 'Die PDF/A-Prüfung war nicht erreichbar. Die E-Rechnung wurde deshalb aus den Rechnungsdaten erzeugt.', 'info');
+      ? 'Das Original-PDF ist kein gültiges PDF/A-3' + (regeln.length ? ` (veraPDF-Regel ${regeln.slice(0, 3).join(', ')})` : '')
+        + '. Die E-Rechnung wurde deshalb aus den Rechnungsdaten erzeugt.'
+      : 'Die PDF/A-Prüfung war nicht erreichbar' + (p.grund ? ` (${p.grund})` : '')
+        + '. Die E-Rechnung wurde deshalb aus den Rechnungsdaten erzeugt.', 'info');
   }
   return ausDaten;
 }
