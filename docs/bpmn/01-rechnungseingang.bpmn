@@ -10,7 +10,7 @@
     <bpmn:messageFlow id="Msg_D_kred_P_Lief" name="Rückfrage" sourceRef="D_kred" targetRef="P_Lief" />
   </bpmn:collaboration>
   <bpmn:process id="Process_ERechnung_Eingang" name="E-Rechnung Rechnungseingang" isExecutable="false">
-    <bpmn:documentation>Eingangsrechnungen kommen per Mail ins Rechnungspostfach des Werks. Ein Flow je Werk (WGC, ZAI, HOL, LEG, EWA) gibt jeden PDF- oder XML-Anhang an den Prüfdienst und legt Original und Prüfergebnis in ERAR_&lt;Werk&gt; ab. WGC übergibt an die Eingangsrechnungsliste, die anderen Werke schicken eine Archiv-Mail ins eigene Postfach. Die Kreditorenbuchhaltung prüft im Monitoring und schätzt sonstige Rechnungen ein. Werke mit Bearbeiten im Monitoring (WGC) holen dort die Freigabe ein und buchen dann. Wo im SAP erfasst wird, läuft danach auch die Genehmigung im SAP, die Rechnung geht nicht noch einmal durchs Monitoring.
+    <bpmn:documentation>Eingangsrechnungen kommen per Mail ins Rechnungspostfach des Werks. Ein Flow je Werk (WGC, ZAI, HOL, LEG, EWA) gibt jeden PDF- oder XML-Anhang an den Prüfdienst und legt Original und Prüfergebnis in ERAR_&lt;Werk&gt; ab. WGC übergibt an die Eingangsrechnungsliste, die anderen Werke schicken eine Archiv-Mail ins eigene Postfach. Die Kreditorenbuchhaltung prüft im Monitoring und schätzt sonstige Rechnungen ein. WGC holt die Freigabe im Monitoring ein und bucht dann. ZAI, HOL, LEG, EWA, EIS und DSO erfassen im SAP, dort läuft auch die Genehmigung, die Rechnung geht nicht noch einmal durchs Monitoring.
 Anwender-Ansicht: https://e-rechnung.dihag-extern.com/prozess.html#eingang
 Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflichten
 [[rms:policies=119]]</bpmn:documentation>
@@ -114,7 +114,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:association id="Assoc_N_check" associationDirection="None" sourceRef="D_check" targetRef="N_check" />
       <bpmn:textAnnotation id="N_800"><bpmn:text>Kleinbetrag bis 250 € und Lieferant im Ausland sind ausgenommen. Die Mail an den Lieferanten geht aus dem Werks-Postfach.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_800" associationDirection="None" sourceRef="D_800" targetRef="N_800" />
-      <bpmn:textAnnotation id="N_wo"><bpmn:text>Im SAP wird erfasst und genehmigt, im Monitoring ist danach nichts zu tun. Bearbeiten im Monitoring: an bei WGC, aus bei ZAI, HOL, LEG, EWA.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="N_wo"><bpmn:text>Im SAP wird erfasst und genehmigt, im Monitoring ist danach nichts zu tun. Im SAP: ZAI, HOL, LEG, EWA, EIS und DSO. Im Monitoring: WGC.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_wo" associationDirection="None" sourceRef="D_gwWo" targetRef="N_wo" />
       <bpmn:textAnnotation id="N_kred"><bpmn:text>Heute schickt die Buchhaltung die Rückfrage selbst. Mit dem Schalter „Lieferantenmails“ übernimmt das der Eingangs-Flow.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_kred" associationDirection="None" sourceRef="D_kred" targetRef="N_kred" />

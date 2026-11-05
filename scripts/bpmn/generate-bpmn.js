@@ -91,7 +91,7 @@ const ANSICHT = 'https://e-rechnung.dihag-extern.com/prozess.html';
 const EINGANG = {
   key: 'eingang', file: '01-rechnungseingang.bpmn', tab: 'eingang', haupt: true,
   name: 'E-Rechnung Rechnungseingang', kennung: 'Process_ERechnung_Eingang',
-  doku: 'Eingangsrechnungen kommen per Mail ins Rechnungspostfach des Werks. Ein Flow je Werk (WGC, ZAI, HOL, LEG, EWA) gibt jeden PDF- oder XML-Anhang an den Prüfdienst und legt Original und Prüfergebnis in ERAR_<Werk> ab. WGC übergibt an die Eingangsrechnungsliste, die anderen Werke schicken eine Archiv-Mail ins eigene Postfach. Die Kreditorenbuchhaltung prüft im Monitoring und schätzt sonstige Rechnungen ein. Werke mit Bearbeiten im Monitoring (WGC) holen dort die Freigabe ein und buchen dann. Wo im SAP erfasst wird, läuft danach auch die Genehmigung im SAP, die Rechnung geht nicht noch einmal durchs Monitoring.',
+  doku: 'Eingangsrechnungen kommen per Mail ins Rechnungspostfach des Werks. Ein Flow je Werk (WGC, ZAI, HOL, LEG, EWA) gibt jeden PDF- oder XML-Anhang an den Prüfdienst und legt Original und Prüfergebnis in ERAR_<Werk> ab. WGC übergibt an die Eingangsrechnungsliste, die anderen Werke schicken eine Archiv-Mail ins eigene Postfach. Die Kreditorenbuchhaltung prüft im Monitoring und schätzt sonstige Rechnungen ein. WGC holt die Freigabe im Monitoring ein und bucht dann. ZAI, HOL, LEG, EWA, EIS und DSO erfassen im SAP, dort läuft auch die Genehmigung, die Rechnung geht nicht noch einmal durchs Monitoring.',
   pools: [
     { id: 'P_Lief', name: 'Lieferant', actor: 'extern', blackbox: true },
     {
@@ -201,7 +201,7 @@ const EINGANG = {
         { id: 'N_800', of: 'D_800', lane: 'LD', c: 19, r: 3, w: 220, h: 84,
           text: 'Kleinbetrag bis 250 € und Lieferant im Ausland sind ausgenommen. Die Mail an den Lieferanten geht aus dem Werks-Postfach.' },
         { id: 'N_wo', of: 'D_gwWo', lane: 'LD', c: 23, r: 1, w: 160, h: 96,
-          text: 'Im SAP wird erfasst und genehmigt, im Monitoring ist danach nichts zu tun. Bearbeiten im Monitoring: an bei WGC, aus bei ZAI, HOL, LEG, EWA.' },
+          text: 'Im SAP wird erfasst und genehmigt, im Monitoring ist danach nichts zu tun. Im SAP: ZAI, HOL, LEG, EWA, EIS und DSO. Im Monitoring: WGC.' },
         { id: 'N_kred', of: 'D_kred', lane: 'LD', c: 27, r: 2, w: 250, h: 72, tone: 'plan',
           text: 'Heute schickt die Buchhaltung die Rückfrage selbst. Mit dem Schalter „Lieferantenmails“ übernimmt das der Eingangs-Flow.' },
       ],
@@ -518,7 +518,7 @@ const EINSCHAETZUNG = {
 const FREIGABE = {
   key: 'freigabe', file: '01d-freigabe.bpmn', tab: 'eingang', von: 'eingang',
   name: 'E-Rechnung Eingangsrechnung freigeben', kennung: 'Process_ERechnung_Freigabe',
-  doku: 'Die Kreditorenbuchhaltung trägt im Monitoring Varialnummer, Kontierung und Bestellnummer ein und fordert die Genehmigung an. Ein Flow je Werk schickt die Rechnung mit PDF an den Genehmiger und schreibt die Antwort an die Rechnung. Bei Genehmigung geht auf Wunsch eine Info an die Adresse zum Austragen im abas, bei Ablehnung eine Mail an den, der angefordert hat. Das ersetzt die Eingangsrechnungsliste auf gruppe_wgc. Gilt für Werke mit Bearbeiten im Monitoring (WGC). Wo im SAP erfasst wird, läuft die Genehmigung im SAP.',
+  doku: 'Die Kreditorenbuchhaltung trägt im Monitoring Varialnummer, Kontierung und Bestellnummer ein und fordert die Genehmigung an. Ein Flow je Werk schickt die Rechnung mit PDF an den Genehmiger und schreibt die Antwort an die Rechnung. Bei Genehmigung geht auf Wunsch eine Info an die Adresse zum Austragen im abas, bei Ablehnung eine Mail an den, der angefordert hat. Das ersetzt die Eingangsrechnungsliste auf gruppe_wgc. Gilt nur für WGC. ZAI, HOL, LEG, EWA, EIS und DSO genehmigen im SAP.',
   pools: [{
     id: 'P_Frei', name: 'Eingangsrechnung freigeben (Monitoring und Genehmigungs-Flow je Werk)', main: true,
     lanes: [
@@ -557,7 +557,7 @@ const FREIGABE = {
     ],
     annotations: [
       { id: 'GN_start', of: 'G_start', lane: 'LB9', c: 1, r: 1, w: 150, h: 84,
-        text: 'Nur Werke mit Bearbeiten im Monitoring, heute WGC. Wer im SAP erfasst, genehmigt dort.' },
+        text: 'Nur WGC. ZAI, HOL, LEG, EWA, EIS und DSO genehmigen im SAP.' },
       { id: 'GN_anf', of: 'G_anf', lane: 'LB9', c: 2, r: 1, w: 220, h: 84,
         text: 'Mehrere Genehmiger mit „;“, dann gilt die erste Antwort. Die abas-Adresse ist je Werk vorbelegt.' },
       { id: 'GN_send', of: 'G_send', lane: 'LF9', c: 5, r: 1, w: 300, h: 84,

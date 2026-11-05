@@ -4,7 +4,7 @@
     <bpmn:participant id="P_Frei" name="Eingangsrechnung freigeben (Monitoring und Genehmigungs-Flow je Werk)" processRef="Process_ERechnung_Freigabe" />
   </bpmn:collaboration>
   <bpmn:process id="Process_ERechnung_Freigabe" name="E-Rechnung Eingangsrechnung freigeben" isExecutable="false">
-    <bpmn:documentation>Die Kreditorenbuchhaltung trägt im Monitoring Varialnummer, Kontierung und Bestellnummer ein und fordert die Genehmigung an. Ein Flow je Werk schickt die Rechnung mit PDF an den Genehmiger und schreibt die Antwort an die Rechnung. Bei Genehmigung geht auf Wunsch eine Info an die Adresse zum Austragen im abas, bei Ablehnung eine Mail an den, der angefordert hat. Das ersetzt die Eingangsrechnungsliste auf gruppe_wgc. Gilt für Werke mit Bearbeiten im Monitoring (WGC). Wo im SAP erfasst wird, läuft die Genehmigung im SAP.
+    <bpmn:documentation>Die Kreditorenbuchhaltung trägt im Monitoring Varialnummer, Kontierung und Bestellnummer ein und fordert die Genehmigung an. Ein Flow je Werk schickt die Rechnung mit PDF an den Genehmiger und schreibt die Antwort an die Rechnung. Bei Genehmigung geht auf Wunsch eine Info an die Adresse zum Austragen im abas, bei Ablehnung eine Mail an den, der angefordert hat. Das ersetzt die Eingangsrechnungsliste auf gruppe_wgc. Gilt nur für WGC. ZAI, HOL, LEG, EWA, EIS und DSO genehmigen im SAP.
 Eingebunden in: E-Rechnung Rechnungseingang.
 Anwender-Ansicht: https://e-rechnung.dihag-extern.com/prozess.html#eingang
 Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflichten
@@ -47,7 +47,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:sequenceFlow id="Flow_G_vermerk_G_endJa" sourceRef="G_vermerk" targetRef="G_endJa" />
       <bpmn:sequenceFlow id="Flow_G_nein_G_neinMail" sourceRef="G_nein" targetRef="G_neinMail" />
       <bpmn:sequenceFlow id="Flow_G_neinMail_G_endNein" sourceRef="G_neinMail" targetRef="G_endNein" />
-      <bpmn:textAnnotation id="GN_start"><bpmn:text>Nur Werke mit Bearbeiten im Monitoring, heute WGC. Wer im SAP erfasst, genehmigt dort.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="GN_start"><bpmn:text>Nur WGC. ZAI, HOL, LEG, EWA, EIS und DSO genehmigen im SAP.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_GN_start" associationDirection="None" sourceRef="G_start" targetRef="GN_start" />
       <bpmn:textAnnotation id="GN_anf"><bpmn:text>Mehrere Genehmiger mit „;“, dann gilt die erste Antwort. Die abas-Adresse ist je Werk vorbelegt.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_GN_anf" associationDirection="None" sourceRef="G_anf" targetRef="GN_anf" />
