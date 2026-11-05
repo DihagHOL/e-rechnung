@@ -222,7 +222,17 @@ Für SHB gibt es `Genehmigung SHB (Monitoring)`. Vorbereitet und noch aus: MEG u
    - Die abas-Adresse ist mit der Vorgabe des Werks vorbelegt. Eine andere Adresse gilt nur
      für diese Rechnung, taucht aber bei den zuletzt verwendeten Vorschlägen wieder auf.
 4. Die Kachel **„In Genehmigung“** zeigt alle offenen Genehmigungen. Die Filter
-   „Bearbeitung“ und „Genehmigt“ ersetzen die Ansichten der alten Liste.
+   „Status“ und „Genehmigt“ ersetzen die Ansichten der alten Liste.
+
+Die Spalte **„Status“** ist der Bearbeitungsstatus und steht direkt hinter „Steller /
+Empfänger“. Ohne Eintrag zeigt sie „Offen“. Hell heißt automatisch: noch nie von Hand gesetzt
+oder „In Genehmigung“ durch „Genehmigung anfordern“. Kräftig heißt: von der Buchhaltung gewählt
+(grün „Gebucht“, orange „In Klärung“ und „Mahnung“, gelb „In Genehmigung“, blau „Vorkasse“,
+sonst grau). Gespeichert wird der Status erst, wenn ihn jemand im Dialog ändert. Die technische
+Spalte des Prüfdienstes (Validiert, Fehler) heißt jetzt „Verarbeitung“.
+
+Die Rechnungsnummer lässt sich in beiden Reitern korrigieren. Auch die Nummer aus dem Reiter
+„800k-Einschätzung“ (oft aus dem PDF-Text gelesen) kommt beim Speichern an die Rechnung.
 
 Zurückgewiesene Rechnungen (Buchung „Zurückgewiesen“) werden nicht gebucht und nicht
 genehmigt. Der Dialog zeigt bei ihnen weder „Genehmigt“ noch „Genehmigung anfordern“, nur einen
@@ -273,7 +283,7 @@ Einmal für alle freigeben (Admin):
 Der Knopf **„Spalten“** neben „Zurücksetzen“ ist nur für Admins sichtbar
 (Liste `_app.admins` in `access-config.json`, js/access.js). Dort wird je Werk festgelegt:
 - **Bearbeiten-Funktion** an oder aus. Aus heißt kein „Bearbeiten“-Knopf, keine Spalten
-  Varialnummer, Kontierung, Bearbeitung, Genehmigung und Notiz. Das passt für Werke, die im
+  Varialnummer, Kontierung, Status, Genehmigung und Notiz. Das passt für Werke, die im
   SAP erfassen und dort auch genehmigen. Ihre Rechnungen gehen nach der Prüfung direkt ins SAP,
   im Monitoring ist danach nichts mehr zu tun. Im SAP genehmigen ZAI, HOL, LEG, EWA, EIS und DSO,
   im Monitoring nur WGC. Die Bearbeiten-Funktion ist deshalb nur bei WGC an (seit 05.11.2026 auch
@@ -281,7 +291,8 @@ Der Knopf **„Spalten“** neben „Zurücksetzen“ ist nur für Admins sichtb
 - **Welche Spalten** das Werk zeigt und **in welcher Reihenfolge** (Ziehen am ☰ oder Pfeile).
   „Bearbeiten“ mit den Dateien ist immer dabei und steht im Standard vorn. Auswahl aus: Datum, Erstellt am, Werk, Richtung, Rechnungsnr., Steller /
   Empfänger, Netto, Brutto, Fällig am, Geprüft, Klassifizierung, Status, Buchung, Lieferant informiert,
-  Konform., Fehler, Bestellnummer, Varialnummer, Kontierung, Bearbeitung, Genehmigung, Notiz.
+  Konform., Fehler, Bestellnummer, Varialnummer, Kontierung, Status, Genehmigung, Notiz. Im Standard
+  steht „Status“ direkt hinter „Steller / Empfänger“, die technische Spalte heißt „Verarbeitung“.
   „Standard“ setzt die Auswahl zurück (Netto statt Brutto, mit Lieferant informiert und den
   Spalten der Bearbeitung).
 

@@ -279,6 +279,15 @@
     .bh-pill.bh-ja { background:#e3f5e9; color:#0a6b2e; }
     .bh-pill.bh-nein { background:#ffe0e0; color:#b40000; }
     .bh-pill.bh-wartet { background:#fff3d6; color:#8a5a00; }
+    /* Status der Bearbeitung: kräftig = von Hand gesetzt, hell = automatisch (leer = Offen, In Genehmigung durch die Anforderung) */
+    .bh-st { display:inline-block; font-size:12px; font-weight:600; border-radius:999px; padding:2px 9px; white-space:nowrap;
+             color:#fff; background:var(--st); border:1px solid var(--st); }
+    .bh-st.bh-st-auto { color:var(--st); background:var(--st-hell); border-color:transparent; font-weight:500; }
+    .bh-st-grau   { --st:#4b5563; --st-hell:#eef1f5; }
+    .bh-st-gruen  { --st:#0a7a3d; --st-hell:#e3f5e9; }
+    .bh-st-orange { --st:#c25e00; --st-hell:#ffe9d6; }
+    .bh-st-gelb   { --st:#8a5a00; --st-hell:#fff3d6; }
+    .bh-st-blau   { --st:#17509E; --st-hell:#e3edf8; }
     .bh-pill.bh-neutral { background:var(--gray-100); color:var(--gray-700); }
     .bh-raster { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; align-items:end; }
     .bh-raster.bh-abas { grid-template-columns:2fr 1fr; }
@@ -383,8 +392,8 @@
           <option value="sonst">keine E-Rechnung</option>
         </select>
         <select id="mon-f-buchung" aria-label="Buchung"><option value="">Alle Buchung</option></select>
-        <select id="mon-f-status" aria-label="Status"><option value="">Alle Status</option></select>
-        <select id="mon-f-bstatus" aria-label="Bearbeitungsstatus"><option value="">Alle Bearbeitung</option></select>
+        <select id="mon-f-status" aria-label="Verarbeitung"><option value="">Alle Verarbeitung</option></select>
+        <select id="mon-f-bstatus" aria-label="Status"><option value="">Alle Status</option></select>
         <select id="mon-f-genehmigt" aria-label="Genehmigt"><option value="">Alle Genehmigt</option></select>
         <select id="mon-f-datumart" aria-label="Datum für Von und Bis" title="Für welches Datum Von und Bis gelten">
           <option value="">Rechnungsdatum</option>
@@ -438,9 +447,9 @@
 <script src="js/vendor/tesseract/tesseract.min.js?v=000c27d9cd"></script>
 <script src="js/ocr.js?v=ca1f1ec809"></script>
 <script src="js/lieferant.js?v=fe6e1235c8"></script>
-<script src="js/umsatzgrenze.js?v=69681c9372"></script>
-<script src="js/bearbeitung.js?v=5ad3354478"></script>
-<script src="js/monitoring.js?v=77cf779d91"></script>
+<script src="js/umsatzgrenze.js?v=328f01a751"></script>
+<script src="js/bearbeitung.js?v=48a5f63b3a"></script>
+<script src="js/monitoring.js?v=5a125515f1"></script>
 
 <script src="js/seite-monitoring.js?v=5831e85eeb"></script>
 </body>

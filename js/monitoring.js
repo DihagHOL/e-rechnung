@@ -615,8 +615,9 @@ function _monBuildFilterOptions(libs) {
   const buchung = document.getElementById('mon-f-buchung');
   if (buchung) buchung.insertAdjacentHTML('beforeend', '<option value="__klein">Kleinbetrag (bis 250 € brutto)</option>'
     + '<option value="__ausland">Lieferant im Ausland (bestätigt)</option>');
-  _fillSelect('mon-f-status',  uniq(_monRecords.map(r => r.status)),     'Alle Status');
-  _fillSelect('mon-f-bstatus', uniq(_monRecords.map(r => r.bh && r.bh.bstatus)),   'Alle Bearbeitung');
+  _fillSelect('mon-f-status',  uniq(_monRecords.map(r => r.status)),     'Alle Verarbeitung');
+  // Bearbeitungsstatus: ohne Eintrag „Offen“
+  _fillSelect('mon-f-bstatus', uniq(_monRecords.map(r => r.bh && (r.bh.bstatus || 'Offen'))),   'Alle Status');
   _fillSelect('mon-f-genehmigt', uniq(_monRecords.map(r => r.bh && r.bh.genehmigt)), 'Alle Genehmigt');
   // Filter der Bearbeitung nur zeigen, wenn ein Werk sie nutzt
   const bh = _monRecords.some(r => r.bh);
@@ -664,7 +665,7 @@ function _monMatchBase(r, f, q) {
       && (!f.buchung  || (f.buchung === '__klein' ? _monKlein(r)
                           : f.buchung === '__ausland' ? typeof ugAusland === 'function' && !!ugAusland(r) : r.buchung === f.buchung))
       && (!f.status   || r.status === f.status)
-      && (!f.bstatus  || (r.bh && r.bh.bstatus) === f.bstatus)
+      && (!f.bstatus  || (r.bh && (r.bh.bstatus || 'Offen')) === f.bstatus)
       && (!f.genehmigt || (r.bh && r.bh.genehmigt) === f.genehmigt)
       && (!f.from     || (d && d >= f.from))
       && (!f.to       || (d && d <= f.to))
@@ -716,7 +717,7 @@ function _monSortVal(r, key) {
     case 'informiert': return typeof ugInformiert === 'function' ? ugInformiert(r) : '';
     case 'varial':   return (r.bh && r.bh.varial) || '';
     case 'bestellnr': return ((r.bh && r.bh.bestellnr) || r.bestellnr || '').toLowerCase();
-    case 'bstatus':  return (r.bh && r.bh.bstatus) || '';
+    case 'bstatus':  return (r.bh && (r.bh.bstatus || 'Offen')) || '';
     case 'genehmigt': return (r.bh && r.bh.genehmigt) || '';
     case 'faellig':  return (r.faelligkeit || '').slice(0, 10);
     case 'klass':    return _monKlass(r) || '';
@@ -807,7 +808,7 @@ const MON_SPALTEN = [
   { id: 'faellig',     titel: 'Fällig am',            sort: 'faellig',    breite: 8 },
   { id: 'geprueft',    titel: 'Geprüft',              sort: 'geprueft',   breite: 10 },
   { id: 'klass',       titel: 'Klassifizierung',      sort: 'klass',      breite: 9 },
-  { id: 'status',      titel: 'Status',               sort: 'status',     breite: 8 },
+  { id: 'status',      titel: 'Verarbeitung',         sort: 'status',     breite: 8 },
   { id: 'buchung',     titel: 'Buchung',              sort: 'buchung',    breite: 11 },
   { id: 'informiert',  titel: 'Lieferant informiert', sort: 'informiert', breite: 8 },
   { id: 'konform',     titel: 'Konform.',             sort: 'konform',    breite: 13 },
@@ -815,14 +816,14 @@ const MON_SPALTEN = [
   { id: 'bestellnr',   titel: 'Bestellnummer',        sort: 'bestellnr',  breite: 9 },
   { id: 'varial',      titel: 'Varialnummer',         sort: 'varial',     breite: 9, bh: true },
   { id: 'kontierung',  titel: 'Kontierung',                               breite: 12, bh: true },
-  { id: 'bstatus',     titel: 'Bearbeitung',          sort: 'bstatus',    breite: 9, bh: true },
+  { id: 'bstatus',     titel: 'Status',               sort: 'bstatus',    breite: 9, bh: true },
   { id: 'genehmigung', titel: 'Genehmigung',          sort: 'genehmigt',  breite: 11, bh: true },
   { id: 'notiz',       titel: 'Notiz',                                    breite: 12, bh: true },
   { id: 'links',       titel: '',  name: 'Bearbeiten und Dateien (PDF, XML, Bericht)', breite: 15, fest: true },
 ];
 // Standard-Reihenfolge; „Bearbeiten“ und die Dateien stehen vorn
-const MON_STANDARD = ['links', 'datum', 'erstellt', 'werk', 'richtung', 'nummer', 'partner', 'netto', 'faellig', 'geprueft', 'klass',
-  'status', 'buchung', 'informiert', 'konform', 'fehler', 'varial', 'bstatus', 'genehmigung'];
+const MON_STANDARD = ['links', 'datum', 'erstellt', 'werk', 'richtung', 'nummer', 'partner', 'bstatus', 'netto', 'faellig', 'geprueft', 'klass',
+  'status', 'buchung', 'informiert', 'konform', 'fehler', 'varial', 'genehmigung'];
 
 /** Spalten-IDs eines Werks in seiner Reihenfolge ('links' ist immer dabei, sonst vorn). */
 /** Hat der Admin für das Werk Spalten festgelegt? */
@@ -1092,7 +1093,7 @@ function _monZelle(id, r, idx) {
     case 'bestellnr': return `<td>${_esc((bh && bh.bestellnr) || r.bestellnr || '')}</td>`;
     case 'varial':   return `<td>${_esc(bh ? bh.varial : '')}</td>`;
     case 'kontierung': return `<td class="mon-mehrzeilig">${_esc(bh ? bh.kontierung : '')}</td>`;
-    case 'bstatus':  return `<td>${bh && bh.bstatus ? `<span class="pill pill-status">${_esc(bh.bstatus)}</span>` : ''}</td>`;
+    case 'bstatus':  return `<td>${bh && typeof bhStatusZelle === 'function' ? bhStatusZelle(bh) : ''}</td>`;
     case 'genehmigung': return `<td>${typeof bhZelle === 'function' ? bhZelle(r) : ''}</td>`;
     case 'notiz':    return `<td class="mon-mehrzeilig">${_esc(bh ? bh.notiz : '')}</td>`;
     case 'links': {
@@ -1239,7 +1240,7 @@ function _monDetail(r, idx) {
           : ausland ? `Lieferant ohne Sitz in Deutschland${ausland.landName ? ' (' + ausland.landName + ')' : ''}, bestätigt von ${wer(ausland)}` : '')],
         ['Einschätzung', e ? t(`${(typeof _UG_LABEL !== 'undefined' && _UG_LABEL[e.vermutung]) || e.vermutung}, ${e.vonName || e.von || ''} am ${_monDate(e.am)}`) : klein || ausland ? 'nicht nötig' : 'noch offen'],
         ['Lieferant informiert', t(typeof ugInformiert === 'function' ? ugInformiert(r) : '')], ['Mails', t(mails.join('\n'))]]) : '')
-    + (b ? block('Bearbeitung', [['Varialnummer', t(b.varial)], ['Kontierung', t(b.kontierung)], ['Bearbeitungsstatus', t(b.bstatus)],
+    + (b ? block('Bearbeitung', [['Varialnummer', t(b.varial)], ['Kontierung', t(b.kontierung)], ['Status', b.bstatus ? t(b.bstatus) : 'Offen (automatisch)'],
         ['Genehmigung', typeof bhOhneGenehmigung === 'function' && bhOhneGenehmigung(r) ? 'entfällt (zurückgewiesen)'
           : t([typeof bhGenehmigungsStand === 'function' ? bhGenehmigungsStand(b) : '', b.genehmigt && 'Genehmigt: ' + b.genehmigt,
           b.kommentar && 'Kommentar: ' + b.kommentar].filter(Boolean).join('\n'))],
@@ -1891,8 +1892,8 @@ function _monRenderChips() {
   if (f.klass)    chips.push(['klass', 'Typ: ' + f.klass]);
   if (f.konform)  chips.push(['konform', 'Konform.: ' + (KONF[f.konform] || f.konform)]);
   if (f.buchung)  chips.push(['buchung', { __klein: 'Kleinbetrag', __ausland: 'Lieferant im Ausland' }[f.buchung] || 'Buchung: ' + f.buchung]);
-  if (f.status)   chips.push(['status', 'Status: ' + f.status]);
-  if (f.bstatus)  chips.push(['bstatus', 'Bearbeitung: ' + f.bstatus]);
+  if (f.status)   chips.push(['status', 'Verarbeitung: ' + f.status]);
+  if (f.bstatus)  chips.push(['bstatus', 'Status: ' + f.bstatus]);
   if (f.genehmigt) chips.push(['genehmigt', 'Genehmigt: ' + f.genehmigt]);
   const welches = f.datumArt === 'erstellt' ? 'Erstellt ' : '';
   if (f.from)     chips.push(['from', welches + 'ab ' + deDate(f.from)]);

@@ -918,8 +918,9 @@ async function _ugKleinKlick(an) {
   if (knopf) knopf.disabled = true;
   try {
     await ugRechnungSetzen(a.r, 'klein', an ? { betrag: _ugBetragZahl(a.betrag) } : null);
-    _ugMeldung(an ? 'Als Kleinbetrag bestätigt. Für diese Rechnung ist keine Einschätzung und keine Mail nötig.'
-      : 'Bestätigung als Kleinbetrag zurückgenommen.', 'ok');
+    const nrFehler = an ? await _ugNummerMit(a) : '';
+    _ugMeldung((an ? 'Als Kleinbetrag bestätigt. Für diese Rechnung ist keine Einschätzung und keine Mail nötig.'
+      : 'Bestätigung als Kleinbetrag zurückgenommen.') + (nrFehler ? ` Gespeichert wurde aber ${nrFehler}.` : ''), nrFehler ? 'nicht' : 'ok');
     if (typeof a.onGespeichert === 'function') a.onGespeichert();
   } catch (e) {
     _ugMeldung(e.message || String(e), 'nicht');
@@ -981,8 +982,10 @@ async function _ugAuslandKlick(modus) {
   try {
     if (modus === 'zuordnen') await ugBestaetigen(a.r, l.name, { vat: a.vat });
     else await ugAuslandSetzen(a.r, (l && l.name) || name, modus === 'an' ? { land: g.land, landName: g.landName, gruende: g.gruende || ['von Hand'] } : null, { vat: a.vat });
-    _ugMeldung(modus === 'weg' ? `Bestätigung „Ausland“ für ${name} zurückgenommen.`
-      : `${name} ist als Lieferant ohne Sitz in Deutschland gemerkt. Keine Einschätzung und keine Mail nötig.`, 'ok');
+    const nrFehler = modus === 'weg' ? '' : await _ugNummerMit(a);
+    _ugMeldung((modus === 'weg' ? `Bestätigung „Ausland“ für ${name} zurückgenommen.`
+      : `${name} ist als Lieferant ohne Sitz in Deutschland gemerkt. Keine Einschätzung und keine Mail nötig.`)
+      + (nrFehler ? ` Gespeichert wurde aber ${nrFehler}.` : ''), nrFehler ? 'nicht' : 'ok');
     if (typeof a.onGespeichert === 'function') a.onGespeichert();
   } catch (e) {
     _ugMeldung(e.message || String(e), 'nicht');
@@ -1184,6 +1187,45 @@ function _ugMailstand(a) {
 }
 
 /**
+ * Rechnungsnummer aus dem Dialog an die Rechnung schreiben (Title der Datei, an der auch
+ * „Bearbeiten“ speichert), wenn sie von der angezeigten abweicht. Das ist vor allem die aus
+ * dem PDF-Text gelesene oder von Hand korrigierte Nummer statt der aus dem Dateinamen.
+ * Gibt true zurück, wenn geschrieben wurde.
+ */
+async function ugNummerSpeichern(r, nummer) {
+  const n = String(nummer || '').trim().slice(0, 255);
+  if (!n || n === String(r.nummer || '').trim()) return false;
+  const z = r.bhQuelle || r;
+  if (!z.listId || !z.itemId || !_ug.siteId) return false;
+  const token = await acquireToken(SP.scopes);
+  if (!token) throw new Error('Nicht angemeldet.');
+  const resp = await fetch(`${SP.graphBase}/sites/${_ug.siteId}/lists/${z.listId}/items/${z.itemId}/fields`, {
+    method: 'PATCH',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ Title: n }),
+  });
+  if (!resp.ok) {
+    throw new Error(resp.status === 401 || resp.status === 403
+      ? `die Rechnungsnummer nicht (keine Schreibrechte auf ERAR_${r.werk})`
+      : `die Rechnungsnummer nicht (${resp.status})`);
+  }
+  // Geladene Daten nachziehen: Zeile, Zieldatei und dieselbe Datei in der Gesamtliste,
+  // damit die Nummer auch nach dem nächsten Zusammenfassen stehen bleibt
+  const ziele = [r, z];
+  if (typeof _monDateien !== 'undefined') {
+    const d = _monDateien.find(x => x.listId === z.listId && x.itemId === z.itemId);
+    if (d) ziele.push(d);
+  }
+  ziele.forEach(x => { x.titel = n; x.nummer = n; x.nummerAusDatei = false; });
+  return true;
+}
+
+/** Nummer mitspeichern, ohne den Rest scheitern zu lassen: '' oder ein Hinweis für die Meldung. */
+async function _ugNummerMit(a) {
+  try { await ugNummerSpeichern(a.r, a.nr); return ''; } catch (e) { return e.message || String(e); }
+}
+
+/**
  * Abschließen: 'nur' speichert die Einschätzung, 'outlook' speichert und öffnet
  * die Mail in Outlook, 'senden' speichert und legt einen Mailauftrag an, den der
  * Flow aus dem Werks-Postfach verschickt. Ab 2028 gibt es nichts zu speichern.
@@ -1206,6 +1248,7 @@ async function _ugAbschliessen(modus) {
       const informiert = modus === 'nur' ? (sel ? sel.value : 'Nein') : 'Ja';
       await ugSpeichern(a.r, dlg.querySelector('#ug-name').value.trim(), a.vermutung, a.vat, a.nr, informiert, a.an);
     }
+    const nrFehler = await _ugNummerMit(a);
     if (modus === 'outlook') _ugMailOeffnen();
     if (modus === 'senden') {
       _ugMeldung('Mailauftrag wird angelegt…');
@@ -1213,6 +1256,12 @@ async function _ugAbschliessen(modus) {
         an: a.an, betreff: dlg.querySelector('#ug-betreff').value, text: dlg.querySelector('#ug-text').value,
         vorlage: ugFolge(a.vermutung, a.phase).vorlage, nummer: a.nr, lieferant: dlg.querySelector('#ug-name').value.trim(),
       });
+    }
+    if (nrFehler) {
+      _ugMeldung(`Gespeichert, aber ${nrFehler}.`, 'nicht');
+      _ugKnoepfe();
+      if (typeof a.onGespeichert === 'function') a.onGespeichert();
+      return;
     }
     dlg.close();
     if (typeof a.onGespeichert === 'function') a.onGespeichert();
@@ -1226,6 +1275,6 @@ async function _ugAbschliessen(modus) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { UG, UG_MAIL_ART, ugKey, ugRechnungKey, ugPhase, ugSonstige, ugKleinbetrag, ugBraucht, ugDialogMoeglich, ugZelle, ugFolge, ugVorlage,
     ugMailOk, ugMailHtml, ugInformiert, ugSpeichern, ugBestaetigen, ugLieferantFuer, ugLieferantMerken, ugLieferantName,
-    ugMitXml, ugFuer, ugLaden, ugKleinBestaetigt, ugAusland, ugGeprueft, ugRechnungSetzen, ugAuslandSetzen,
+    ugMitXml, ugFuer, ugLaden, ugKleinBestaetigt, ugAusland, ugGeprueft, ugRechnungSetzen, ugAuslandSetzen, ugNummerSpeichern,
     _ugBetragZahl, _ugBetragText, _ugAbsenderOk, _ugAbsenderWahl, _ug };
 }

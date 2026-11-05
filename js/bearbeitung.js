@@ -214,6 +214,33 @@ function bhInGenehmigung(b) {
 }
 
 /**
+ * Status der Bearbeitung für die Anzeige. Ohne Eintrag gilt „Offen“. Automatisch heißt:
+ * noch nie von Hand gesetzt (leer) oder „In Genehmigung“ durch „Genehmigung anfordern“.
+ * Alles andere hat die Buchhaltung selbst gewählt.
+ * @returns {{text:string, auto:boolean, farbe:string}|null}
+ */
+function bhStatus(b) {
+  if (!b) return null;
+  const text = b.bstatus || 'Offen';
+  const auto = !b.bstatus || (b.bstatus === 'In Genehmigung' && !!b.angefordertAm);
+  const farbe = /^Gebucht/.test(text) ? 'gruen'
+    : /^(In Klärung|Mahnung)$/.test(text) ? 'orange'
+    : text === 'In Genehmigung' ? 'gelb'
+    : /^Vorkasse/.test(text) ? 'blau'
+    : 'grau';
+  return { text, auto, farbe };
+}
+
+/** Status als farbiges Abzeichen: hell = automatisch, kräftig = von Hand gesetzt. */
+function bhStatusZelle(b) {
+  const s = bhStatus(b);
+  if (!s) return '';
+  const tip = !s.auto ? 'Von Hand gesetzt'
+    : b.bstatus ? 'Automatisch durch „Genehmigung anfordern“' : 'Automatisch: noch nicht von Hand gesetzt';
+  return `<span class="bh-st bh-st-${s.farbe}${s.auto ? ' bh-st-auto' : ''}" title="${_esc(tip)}">${_esc(s.text)}</span>`;
+}
+
+/**
  * Zurückgewiesene Rechnungen werden nicht gebucht und deshalb auch nicht genehmigt:
  * kein „Genehmigung anfordern“, keine Anzeige in Spalte, Kennzahl und Details.
  */
@@ -446,7 +473,7 @@ function bhDialogOeffnen(r, onGespeichert, wechsel) {
       <div class="bh-raster">
         <label class="ug-lbl">Varialnummer<input id="bh-varial" value="${_esc(b.varial)}" autocomplete="off"></label>
         <label class="ug-lbl">Bestellnummer<input id="bh-bestellnr" value="${_esc(b.bestellnr)}" autocomplete="off"></label>
-        <label class="ug-lbl">Bearbeitungsstatus<select id="bh-bstatus">${opt(BH_STATUS, b.bstatus)}</select></label>
+        <label class="ug-lbl">Status<select id="bh-bstatus">${opt(BH_STATUS, b.bstatus || 'Offen')}</select></label>
       </div>
       <label class="ug-lbl">Kontierung<textarea id="bh-kontierung" rows="3">${_esc(b.kontierung)}</textarea></label>
       <div class="bh-raster">
@@ -666,7 +693,9 @@ async function _bhSpeichern() {
   const dlg = document.getElementById('bh-dialog');
   const wert = id => dlg.querySelector('#' + id).value;
   const neu = {
-    varial: wert('bh-varial'), bestellnr: wert('bh-bestellnr'), bstatus: wert('bh-bstatus'),
+    varial: wert('bh-varial'), bestellnr: wert('bh-bestellnr'),
+    // Vorbelegtes „Offen“ ohne Eintrag bleibt leer, damit der Status automatisch bleibt
+    bstatus: !a.b.bstatus && wert('bh-bstatus') === 'Offen' ? '' : wert('bh-bstatus'),
     kontierung: wert('bh-kontierung'),
     gfGesehen: dlg.querySelector('#bh-gf').checked, notiz: wert('bh-notiz'),
   };
@@ -744,5 +773,6 @@ async function _bhSpeichern() {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { BH_FELDER, BH_STATUS, BH_GENEHMIGT, bhAusFeldern, bhZiel, bhZusammen, bhMails,
-    bhAenderungen, bhAnforderung, bhKopfdaten, bhKopfAenderungen, bhKopfHinweis, bhGenehmigungsStand, bhInGenehmigung, bhOhneGenehmigung, bhZelle, bhMitEinschaetzung, bhStartReiter, bhReiter };
+    bhAenderungen, bhAnforderung, bhKopfdaten, bhKopfAenderungen, bhKopfHinweis, bhGenehmigungsStand, bhInGenehmigung, bhOhneGenehmigung, bhZelle, bhMitEinschaetzung, bhStartReiter, bhReiter,
+    bhStatus, bhStatusZelle };
 }

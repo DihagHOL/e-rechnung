@@ -231,5 +231,27 @@ ok(!/data-ug=|<button/.test(ug.ugZelle(offen, 7, true)) && /bis 800k/.test(ug.ug
 ok(/data-ug="7"/.test(ug.ugZelle(offen, 7)), 'eingeschätzt ohne Bearbeiten: Abzeichen als Knopf');
 delete global._esc; delete global._monDate;
 
+// Rechnungsnummer aus dem 800k-Dialog kommt an die Rechnung (Title der Zieldatei)
+{
+  const datei = { listId: 'L1', itemId: '7', nummer: 'Scan_0815', nummerAusDatei: true, titel: '' };
+  global._monDateien = [datei];
+  global.SP = { graphBase: 'https://graph.test', scopes: [] };
+  global.acquireToken = async () => 'token';
+  const zeile = Object.assign({}, datei, { werk: 'WGC', bhQuelle: datei });
+  ug._ug.siteId = 'site';
+  const aufrufe = [];
+  global.fetch = async (url, opt) => { aufrufe.push([url, opt.method, JSON.parse(opt.body)]); return { ok: true, status: 200, json: async () => ({}) }; };
+  ok(await ug.ugNummerSpeichern(zeile, ' RE-2026-17 ') === true, 'neue Nummer geschrieben');
+  ok(aufrufe.length === 1 && /lists\/L1\/items\/7\/fields$/.test(aufrufe[0][0]) && aufrufe[0][1] === 'PATCH' && aufrufe[0][2].Title === 'RE-2026-17', 'Title an der Zieldatei');
+  ok(zeile.nummer === 'RE-2026-17' && datei.nummer === 'RE-2026-17' && datei.nummerAusDatei === false, 'Zeile und Datei nachgezogen');
+  ok(await ug.ugNummerSpeichern(zeile, 'RE-2026-17') === false && aufrufe.length === 1, 'gleiche Nummer: nichts schreiben');
+  ok(await ug.ugNummerSpeichern(zeile, '  ') === false, 'leer: nichts schreiben');
+  global.fetch = async () => ({ ok: false, status: 403, text: async () => '' });
+  let f = '';
+  try { await ug.ugNummerSpeichern(zeile, 'X-1'); } catch (e) { f = e.message; }
+  ok(/keine Schreibrechte auf ERAR_WGC/.test(f), 'ohne Rechte: Hinweis statt Absturz');
+  delete global._monDateien;
+}
+
 console.log(`umsatzgrenze: ${n} Pruefungen gruen`);
 })().catch(err => { console.error(err); process.exit(1); });

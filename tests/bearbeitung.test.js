@@ -121,6 +121,19 @@ gleich(/GF/.test(zelleRot), true, 'Spalte: GF gesehen bleibt');
 gleich(B.bhZelle({ buchung: 'Zurueckgewiesen', bh: B.bhAusFeldern({ Genehmigt: 'Ja', Bearbeitungsstatus: 'Mahnung' }) }).includes('Mahnung'), true, 'Spalte: Bearbeitungsstatus bleibt');
 delete global._esc;
 
+// 7d) Status: ohne Eintrag „Offen“ (automatisch), von Hand gesetzt kräftig
+gleich(B.bhStatus(B.bhAusFeldern({})), { text: 'Offen', auto: true, farbe: 'grau' }, 'leer = Offen automatisch');
+gleich(B.bhStatus(B.bhAusFeldern({ Bearbeitungsstatus: 'Offen' })), { text: 'Offen', auto: false, farbe: 'grau' }, 'Offen von Hand');
+gleich(B.bhStatus(B.bhAusFeldern({ Bearbeitungsstatus: 'In Genehmigung', AngefordertAm: '2026-11-05T10:00:00Z' })).auto, true, 'In Genehmigung durch die Anforderung');
+gleich(B.bhStatus(B.bhAusFeldern({ Bearbeitungsstatus: 'In Genehmigung' })).auto, false, 'In Genehmigung von Hand');
+gleich(B.bhStatus(B.bhAusFeldern({ Bearbeitungsstatus: 'Gebucht (m. Prüfg rechn & Stammd)' })).farbe, 'gruen', 'Gebucht grün');
+gleich(B.bhStatus(B.bhAusFeldern({ Bearbeitungsstatus: 'In Klärung' })).farbe, 'orange', 'In Klärung orange');
+gleich(B.bhStatus(null), null, 'ohne Bearbeitung kein Status');
+global._esc = x => String(x == null ? '' : x);
+gleich(/bh-st-auto/.test(B.bhStatusZelle(B.bhAusFeldern({}))) && />Offen</.test(B.bhStatusZelle(B.bhAusFeldern({}))), true, 'Zelle hell mit Offen');
+gleich(/bh-st-auto/.test(B.bhStatusZelle(B.bhAusFeldern({ Bearbeitungsstatus: 'Mahnung' }))), false, 'Zelle kräftig, wenn von Hand');
+delete global._esc;
+
 // 8) Werte wie in der alten Liste
 gleich(B.BH_GENEHMIGT.length, 9, 'Genehmigt: 9 alte Werte');
 gleich(B.BH_STATUS.includes('Gebucht (m. Prüfg rechn & Stammd)'), true, 'Status Gebucht wie alt');

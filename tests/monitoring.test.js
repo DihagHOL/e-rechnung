@@ -149,6 +149,14 @@ vg = M._monGroup([mv('a.pdf', { Format: 'PDF' }, '2026-11-02T09:00:00Z'), mv('b.
   datei('c.pdf', { Format: 'PDF' }), datei('d.pdf', { Format: 'PDF' })]);
 gleich(vg.length, 4, 'andere Mail oder ohne Kennung: eigene Zeilen');
 
+// Status (Bearbeitungsstatus): leer zählt als „Offen“ beim Sortieren
+gleich(M._monSortVal({ bh: B.bhAusFeldern({}) }, 'bstatus'), 'Offen', 'leer sortiert als Offen');
+gleich(M._monSortVal({ bh: B.bhAusFeldern({ Bearbeitungsstatus: 'Mahnung' }) }, 'bstatus'), 'Mahnung', 'gesetzter Status');
+gleich(M._monSortVal({ bh: null }, 'bstatus'), '', 'ohne Bearbeitung leer');
+gleich(M._monMatchBase({ bh: B.bhAusFeldern({}), datum: '2026-11-05' }, { bstatus: 'Offen' }, ''), true, 'Filter Offen findet leeren Status');
+gleich(M._monMatchBase({ bh: B.bhAusFeldern({ Bearbeitungsstatus: 'Mahnung' }), datum: '2026-11-05' }, { bstatus: 'Offen' }, ''), false, 'Filter Offen nicht bei Mahnung');
+gleich(M._monMatchBase({ bh: null, datum: '2026-11-05' }, { bstatus: 'Offen' }, ''), false, 'ohne Bearbeitung kein Offen');
+
 // Fehlermeldung nur mit Zeilenumbruch (WGC-Flow) ist keine Meldung, zählt nicht unter „Fehler / rot“
 gleich(datei('x.pdf', { Fehlermeldung: '\n', Konformitaet: 'Gruen' }).fehler, '', 'Zeilenumbruch als Fehlermeldung');
 gleich(M._monMatchFlag(datei('x.pdf', { Fehlermeldung: '\n', Konformitaet: 'Gruen', Verarbeitungsstatus: 'Validiert' }), 'fehler'), false, 'kein Fehler-Treffer');
