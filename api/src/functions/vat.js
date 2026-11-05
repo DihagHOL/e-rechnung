@@ -25,10 +25,8 @@ const TTL_MS = 12 * 3600 * 1000;   // 12 h
 const CACHE_MAX = 1000;
 const FELD_MAX = 100;
 
-// USt-IdNr. der eigenen Gesellschaften (Registry in js/parser.js, verkaeufervat).
-// tests/vat-api.test.js prüft, dass die Liste zur Registry passt.
-const EIGENE_UST_IDS = ['DE140598967', 'DE812264517', 'DE368990137', 'DE368676368',
-  'DE811154479', 'DE812737567', 'DE281233945', 'DE150528912'];
+// USt-IdNr. der eigenen Gesellschaften (api/src/eigene.js, passend zur Registry in js/parser.js)
+const { EIGENE_UST_IDS } = require('../eigene');
 
 app.http('vat', {
   methods: ['GET', 'POST'],

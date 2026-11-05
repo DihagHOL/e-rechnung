@@ -1515,7 +1515,46 @@ async function _buildZugferdPdf(data, totals, xml, ust) {
   for (const a of (data.anlagen || [])) {
     extras.push({ bytes: a.bytes, filename: a.name, mimeType: a.mime, description: a.beschreibung || a.name });
   }
-  return await embedXMLIntoPDF(basePdf, xml, 'zugferd', extras);
+  const pdf = await embedXMLIntoPDF(basePdf, xml, 'zugferd', extras);
+  if (renderFromData) return pdf;
+
+  // Original aus dem ERP: PDF/A-3b hängt am ERP-PDF. Fertige Datei mit veraPDF prüfen
+  // (/api/pdfa). Ist sie nicht konform oder nicht prüfbar, aus den Rechnungsdaten erzeugen,
+  // damit beim Empfänger kein Formatfehler entsteht.
+  const p = await _pdfaPruefen(pdf);
+  if (p.konform === 'ok') return pdf;
+  if (typeof buildInvoicePdf !== 'function') throw new Error('PDF-Renderer nicht geladen (xml2pdf.js).');
+  const ausDaten = await embedXMLIntoPDF(await buildInvoicePdf(_pdfDaten(data, totals)), xml, 'zugferd', extras);
+  if (typeof showToast === 'function') {
+    showToast(p.konform === 'fehler'
+      ? 'Das Original-PDF ist kein gültiges PDF/A-3. Die E-Rechnung wurde deshalb aus den Rechnungsdaten erzeugt.'
+      : 'Die PDF/A-Prüfung war nicht erreichbar. Die E-Rechnung wurde deshalb aus den Rechnungsdaten erzeugt.', 'info');
+  }
+  return ausDaten;
+}
+
+/**
+ * Fertiges ZUGFeRD-PDF mit veraPDF prüfen (Prüfdienst /api/pdfa).
+ * @returns {Promise<{konform:'ok'|'fehler'|'ungeprueft', meldungen?:Array}>}
+ */
+async function _pdfaPruefen(bytes) {
+  const host = typeof getAppConfig === 'function' ? getAppConfig().apiHost : '';
+  if (!host) return { konform: 'ungeprueft', grund: 'Adresse des Prüfdienstes fehlt' };
+  const abbruch = typeof AbortController === 'function' ? new AbortController() : null;
+  const uhr = abbruch ? setTimeout(() => abbruch.abort(), 60000) : null;
+  try {
+    const resp = await fetch(host + '/api/pdfa', {
+      method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body: bytes,
+      signal: abbruch ? abbruch.signal : undefined,
+    });
+    if (!resp.ok) return { konform: 'ungeprueft', grund: `Prüfdienst ${resp.status}` };
+    const j = await resp.json();
+    return j && (j.konform === 'ok' || j.konform === 'fehler') ? j : { konform: 'ungeprueft' };
+  } catch (e) {
+    return { konform: 'ungeprueft', grund: (e && e.message) || String(e) };
+  } finally {
+    if (uhr) clearTimeout(uhr);
+  }
 }
 
 /** Daten für den PDF-Renderer (js/xml2pdf.js): Summen und Zeilenbeträge dazu. */

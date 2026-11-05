@@ -139,9 +139,9 @@ r = lieferantAusText(text([
 ]));
 gleich(r.ausland, null, 'IBAN mit falscher Prüfziffer zählt nicht');
 
-// Eigene USt-IdNr.: dieselben wie im Prüfdienst (api/src/functions/vat.js), dazu SCH
+// Eigene USt-IdNr.: dieselben wie im Prüfdienst (api/src/eigene.js), dazu SCH
 const { EIGENE_VAT } = require('../js/lieferant.js');
-const vatQuelle = require('fs').readFileSync(require('path').join(__dirname, '..', 'api', 'src', 'functions', 'vat.js'), 'utf8');
+const vatQuelle = require('fs').readFileSync(require('path').join(__dirname, '..', 'api', 'src', 'eigene.js'), 'utf8');
 const prueferVat = (/EIGENE_UST_IDS = \[([^\]]+)\]/.exec(vatQuelle)[1].match(/DE\d{9}/g));
 gleich(prueferVat.filter(v => !EIGENE_VAT.includes(v)), [], 'alle eigenen USt-IdNr. des Prüfdienstes');
 

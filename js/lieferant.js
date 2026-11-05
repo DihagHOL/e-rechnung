@@ -17,7 +17,7 @@
   'use strict';
 
   // USt-IdNr. der eigenen Gesellschaften: die aus js/parser.js (_COMPANY_REGISTRY, wie in
-  // api/src/functions/vat.js) und die der Schmiedeberger Gießerei (SCH).
+  // api/src/eigene.js) und die der Schmiedeberger Gießerei (SCH).
   const EIGENE_VAT = ['DE140598967', 'DE812264517', 'DE368990137', 'DE368676368',
     'DE811154479', 'DE812737567', 'DE281233945', 'DE150528912', 'DE140462641'];
   // Namensteile der eigenen Gesellschaften (klein, ohne Umlaut-Varianten). „Schmiederberger“

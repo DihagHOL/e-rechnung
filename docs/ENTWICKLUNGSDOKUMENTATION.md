@@ -396,7 +396,7 @@ Alle Berechnungen, XML-Generierung und PDF-Manipulation erfolgen im Browser des 
 | Attribut | Wert |
 |---|---|
 | Known-Error-ID | KE-ERECH-001 |
-| Status | Offen / Akzeptiert |
+| Status | Gelöst (05.11.2026) |
 | Priorität | Niedrig |
 | Entdeckt | 22.05.2026 |
 
@@ -409,8 +409,12 @@ Das Quell-PDF wurde nicht PDF/A-konform erzeugt. Die Anwendung bettet das PDF un
 **Workaround:**  
 Quell-PDF vor dem Upload mit einem PDF/A-Konverter (z. B. Adobe Acrobat, ghostscript) in PDF/A-3 konvertieren.
 
-**Lösung:**  
-Nicht geplant — liegt außerhalb des Anwendungsbereichs der Software.
+**Lösung (05.11.2026):**  
+Ist „PDF aus Rechnungsdaten erzeugen“ abgewählt, prüft der Konverter das fertige ZUGFeRD-PDF
+vor Export und Mail mit veraPDF (Endpunkt `/api/pdfa`, nur Rechnungen der eigenen Gesellschaften,
+höchstens 15 MB). Ist es nicht PDF/A-3b oder lässt es sich nicht prüfen, erzeugt der Konverter es
+aus den Rechnungsdaten und sagt das per Hinweis. So entsteht bei keinem Werk ein Formatfehler beim
+Empfänger. Tests: `tests/pdfa-api.test.js`, `tests/pdfa-konverter.test.js`.
 
 ---
 
