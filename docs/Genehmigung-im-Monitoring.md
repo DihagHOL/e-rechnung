@@ -263,8 +263,10 @@ Einmal für alle freigeben (Admin):
 Der Knopf **„Spalten“** neben „Zurücksetzen“ ist nur für Admins sichtbar
 (Liste `_app.admins` in `access-config.json`, js/access.js). Dort wird je Werk festgelegt:
 - **Bearbeiten-Funktion** an oder aus. Aus heißt kein „Bearbeiten“-Knopf, keine Spalten
-  Varialnummer, Kontierung, Bearbeitung, Genehmigung und Notiz. Das passt für Werke, die über
-  SAP buchen und nie mit der Eingangsrechnungsliste gearbeitet haben, zum Beispiel ZAI.
+  Varialnummer, Kontierung, Bearbeitung, Genehmigung und Notiz. Das passt für Werke, die im
+  SAP erfassen und dort auch genehmigen. Ihre Rechnungen gehen nach der Prüfung direkt ins SAP,
+  im Monitoring ist danach nichts mehr zu tun. Stand 05.11.2026: an bei WGC, aus bei ZAI, HOL,
+  LEG und EWA.
 - **Welche Spalten** das Werk zeigt und **in welcher Reihenfolge** (Ziehen am ☰ oder Pfeile).
   „Bearbeiten“ mit den Dateien ist immer dabei und steht im Standard vorn. Auswahl aus: Datum, Erstellt am, Werk, Richtung, Rechnungsnr., Steller /
   Empfänger, Netto, Brutto, Fällig am, Geprüft, Klassifizierung, Status, Buchung, Lieferant informiert,
