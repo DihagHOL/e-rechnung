@@ -170,6 +170,8 @@ gleich(istEigeneMail('info@muster.de'), false, 'fremde Mail');
   gleich([l.netto, l.brutto, l.summenGeprueft], [500, 595, true], 'ohne Beschriftung: netto + Steuer = brutto');
   l = lies('Nettosumme 800,00\nRechnungsbetrag 1.190,00');
   gleich([l.netto, l.brutto], [null, 1190], 'Netto passt nicht zum Brutto: lieber leer');
+  l = lies('Zwischensumme: 71,61 EUR\nSeite 2\nSumme 178.94 EUR');
+  gleich([l.netto, l.brutto], [null, null], 'Zwischensumme allein ist kein Netto');
   l = lies('Gesamtbetrag 1.190,00\nZahlungsbedingung: 14 Tage 2 % Skonto, 30 Tage netto');
   gleich(l.faelligkeit, '2026-10-31', 'Tage netto ab Rechnungsdatum, nicht die Skontofrist');
   l = lies('Bei Zahlung bis 08.10.2026 2 % Skonto\nZahlung rein netto bis 22.10.2026');
