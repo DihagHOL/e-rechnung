@@ -292,7 +292,8 @@ Der Knopf **„Spalten“** neben „Zurücksetzen“ ist nur für Admins sichtb
   „Bearbeiten“ mit den Dateien ist immer dabei und steht im Standard vorn. Auswahl aus: Datum, Erstellt am, Werk, Richtung, Rechnungsnr., Steller /
   Empfänger, Netto, Brutto, Fällig am, Geprüft, Klassifizierung, Status, Buchung, Lieferant informiert,
   Konform., Fehler, Bestellnummer, Varialnummer, Kontierung, Status, Genehmigung, Notiz. Im Standard
-  steht „Status“ direkt hinter „Steller / Empfänger“, die technische Spalte heißt „Verarbeitung“.
+  steht „Status“ direkt hinter „Steller / Empfänger“ und „Genehmigung“ direkt hinter „Buchung“
+  (so auch bei WGC und SHB eingestellt), die technische Spalte heißt „Verarbeitung“.
   „Standard“ setzt die Auswahl zurück (Netto statt Brutto, mit Lieferant informiert und den
   Spalten der Bearbeitung).
 

@@ -823,7 +823,7 @@ const MON_SPALTEN = [
 ];
 // Standard-Reihenfolge; „Bearbeiten“ und die Dateien stehen vorn
 const MON_STANDARD = ['links', 'datum', 'erstellt', 'werk', 'richtung', 'nummer', 'partner', 'bstatus', 'netto', 'faellig', 'geprueft', 'klass',
-  'status', 'buchung', 'informiert', 'konform', 'fehler', 'varial', 'genehmigung'];
+  'status', 'buchung', 'genehmigung', 'informiert', 'konform', 'fehler', 'varial'];
 
 /** Spalten-IDs eines Werks in seiner Reihenfolge ('links' ist immer dabei, sonst vorn). */
 /** Hat der Admin für das Werk Spalten festgelegt? */
