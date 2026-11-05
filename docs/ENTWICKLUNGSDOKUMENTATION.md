@@ -416,6 +416,18 @@ höchstens 15 MB). Ist es nicht PDF/A-3b oder lässt es sich nicht prüfen, erze
 aus den Rechnungsdaten und sagt das per Hinweis. So entsteht bei keinem Werk ein Formatfehler beim
 Empfänger. Tests: `tests/pdfa-api.test.js`, `tests/pdfa-konverter.test.js`.
 
+**Nachtrag (05.11.2026): Kopfdaten beim Eingang, auch aus Scans**
+`/api/intake` liest bei einer PDF ohne E-Rechnung jetzt alles, was das Monitoring zeigt: Lieferant,
+USt-IdNr., Nummer, Datum, Fälligkeit, Netto, Brutto und Währung (`lieferantAusText` in js/lieferant.js).
+Scans gehen an den OCR-Dienst (`ocr-service/`, Container `erechnung-ocr`, skaliert auf null). Die Flows
+schreiben `daten` wie bei einer E-Rechnung in die Spalten, an ihnen ändert sich dafür nichts. Gemessen an
+1.500 PDFs aus der SCH-Ablage gegen die XML der ZUGFeRD-Belege: Brutto 102 von 102, Datum 70 von 70, Nummer
+66 von 68. Netto weicht von der XML nur ab, wo sie die Positionssumme ohne Fracht führt. Ein Netto gilt nur,
+wenn es zum Brutto passt, ein Tripel netto + Steuer = brutto zu 19 oder 7 % sichert beide ab. Deshalb
+blendet nur ein so abgesicherter Betrag bis 250 € die 800k-Einschätzung aus, ein einzelner gelesener
+Betrag wird zum Bestätigen angeboten (`ugKleinbetrag`, `ugKleinVermutet`). Tests:
+`tests/lieferant.test.js`, `tests/kopfdaten.test.js`, `tests/umsatzgrenze.test.js`.
+
 **Nachtrag (05.11.2026): SAP-Formulare von LEG und EWA**  
 Die Originale aus dem SAP-Adobe-Formular (LiveCycle Designer 11) verweisen nur auf Helvetica und
 Helvetica-Bold, ohne die Schrift einzubetten. veraPDF lehnte sie deshalb mit Regel 6.2.11.4.1 ab, und

@@ -71,6 +71,7 @@ i. S. d. GoBD Rz. 151 (Inhalt, Aufbau, Ablauf, Ergebnisse).
 | Frontend | Browser‑SPA (GitHub Pages, ohne externe CDN‑Abhängigkeiten), MSAL‑Login gegen Entra ID, Microsoft Graph für SharePoint |
 | API | Azure Functions (`api/`): `convert`, `validate`, `intake`, `vat` — Key‑geschützt (`?code=`), `vat` anonym (BZSt/VIES offen) |
 | Validierung | **KoSIT‑Validator** (Daemon‑Container, `KOSIT_DAEMON_URL`) für Format/Geschäftsregeln; **veraPDF** (`VERAPDF_URL`) für die PDF/A‑3b‑Hülle |
+| Texterkennung | **OCR‑Dienst** (Container `erechnung-ocr`, `OCR_URL`, Tesseract) liest Scans ohne Textebene beim Eingang. Das Ergebnis ist ein Vorschlag für die Spalten und steuert keine Buchung. Der Dienst speichert nichts |
 | Formate | XRechnung 3.0 (`urn:xeinkauf.de:kosit:xrechnung_3.0`); ZUGFeRD 2.4 / Factur‑X 1.08, **GuidelineID `urn:cen.eu:en16931:2017`** (EN 16931 / COMFORT) |
 | Archiv | SharePoint‑Site *Rechnungsmonitoring*, Bibliotheken `ERAR_<Werk>` / `AR_<Werk>` (+ optional `Rechnungseingang`); **Purview‑Aufbewahrung** (s. 4) |
 | Monitoring | Dashboard `monitoring.html` (KPIs, KoSIT‑Klartext‑Hinweis, Dubletten, GoBD‑Abdeckung) — s. `Rechnungsmonitoring.md` |
