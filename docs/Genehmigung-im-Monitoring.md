@@ -214,6 +214,12 @@ Für ein weiteres Werk den Flow kopieren („Speichern unter“) und im Trigger 
 4. Die Kachel **„In Genehmigung“** zeigt alle offenen Genehmigungen. Die Filter
    „Bearbeitung“ und „Genehmigt“ ersetzen die Ansichten der alten Liste.
 
+Zurückgewiesene Rechnungen (Buchung „Zurückgewiesen“) werden nicht gebucht und nicht
+genehmigt. Der Dialog zeigt bei ihnen weder „Genehmigt“ noch „Genehmigung anfordern“, nur einen
+Hinweis, dass der Lieferant eine korrigierte Rechnung schicken muss. Varialnummer, Kontierung,
+Bearbeitungsstatus, GF gesehen und Notiz bleiben. In der Spalte „Genehmigung“, in der Kachel
+„In Genehmigung“ und in den Details taucht bei ihnen keine Genehmigung auf.
+
 Läuft schon eine Genehmigung, fragt der Dialog vor einer neuen nach. Steht an einer Rechnung
 länger als einige Minuten „Angefordert bei …, wartet auf den Flow“, läuft der Flow für dieses
 Werk nicht. Dann die IT informieren.

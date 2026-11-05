@@ -682,7 +682,8 @@ function _monMatchFlag(r, flag) {
     case 'zurueck':    return /zur(?:ü|ue)ckgew/i.test(r.buchung || '');
     case 'umsatz':     return typeof ugBraucht === 'function' && ugBraucht(r) && !ugFuer(r)
                               && ugPhase(r.datum) !== 'pflicht';
-    case 'genehmigung': return typeof bhInGenehmigung === 'function' && bhInGenehmigung(r.bh);
+    case 'genehmigung': return typeof bhInGenehmigung === 'function' && bhInGenehmigung(r.bh)
+      && !(typeof bhOhneGenehmigung === 'function' && bhOhneGenehmigung(r));
     default:           return true;
   }
 }
@@ -1098,7 +1099,8 @@ function _monZelle(id, r, idx) {
       const dateien = [r.url ? chip(r.url, r.ext ? r.ext.toUpperCase() : 'Datei', 'Original öffnen') : '']
         .concat((r.dateien || []).filter(d => !d.anlage).map(d => chip(d.url, kurz[d.label] || d.label, d.label + ' öffnen')))
         .concat(anlChip).join('');
-      return `<td>${bh ? `<button type="button" class="bh-btn" data-bh="${idx}" title="Varialnummer, Kontierung, Genehmigung">Bearbeiten</button>` : ''}${dateien}</td>`;
+      const bhTipp = typeof bhOhneGenehmigung === 'function' && bhOhneGenehmigung(r) ? 'Varialnummer, Kontierung, Notiz' : 'Varialnummer, Kontierung, Genehmigung';
+      return `<td>${bh ? `<button type="button" class="bh-btn" data-bh="${idx}" title="${bhTipp}">Bearbeiten</button>` : ''}${dateien}</td>`;
     }
     default: return '<td></td>';
   }
@@ -1230,7 +1232,8 @@ function _monDetail(r, idx) {
         ['Einschätzung', e ? t(`${(typeof _UG_LABEL !== 'undefined' && _UG_LABEL[e.vermutung]) || e.vermutung}, ${e.vonName || e.von || ''} am ${_monDate(e.am)}`) : klein || ausland ? 'nicht nötig' : 'noch offen'],
         ['Lieferant informiert', t(typeof ugInformiert === 'function' ? ugInformiert(r) : '')], ['Mails', t(mails.join('\n'))]]) : '')
     + (b ? block('Bearbeitung', [['Varialnummer', t(b.varial)], ['Kontierung', t(b.kontierung)], ['Bearbeitungsstatus', t(b.bstatus)],
-        ['Genehmigung', t([typeof bhGenehmigungsStand === 'function' ? bhGenehmigungsStand(b) : '', b.genehmigt && 'Genehmigt: ' + b.genehmigt,
+        ['Genehmigung', typeof bhOhneGenehmigung === 'function' && bhOhneGenehmigung(r) ? 'entfällt (zurückgewiesen)'
+          : t([typeof bhGenehmigungsStand === 'function' ? bhGenehmigungsStand(b) : '', b.genehmigt && 'Genehmigt: ' + b.genehmigt,
           b.kommentar && 'Kommentar: ' + b.kommentar].filter(Boolean).join('\n'))],
         ['GF gesehen', b.gfGesehen ? 'Ja' : ''], ['Notiz', t(b.notiz)]]) : '')
     + (dateien ? `<section><h4>Dateien</h4><div>${dateien}</div>${r.originalName && r.originalName !== r.file

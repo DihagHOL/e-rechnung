@@ -106,6 +106,21 @@ gleich(B.bhKopfHinweis(pdfZeile, { name: 'X', quelle: 'rechnung', bestaetigt: fa
 gleich(/über die USt-IdNr\./.test(B.bhKopfHinweis(pdfZeile, { name: 'X', quelle: 'register', eintrag: { treffer: 'vat' } }, false)), true, 'Register');
 delete global.ugMitXml;
 
+// 7c) Zurückgewiesene Rechnungen: keine Genehmigung
+gleich(B.bhOhneGenehmigung({ buchung: 'Zurueckgewiesen' }), true, 'zurückgewiesen (ue)');
+gleich(B.bhOhneGenehmigung({ buchung: 'zurückgewiesen' }), true, 'zurückgewiesen (ü)');
+gleich(B.bhOhneGenehmigung({ buchung: 'Unter Vorbehalt' }), false, 'unter Vorbehalt');
+gleich(B.bhOhneGenehmigung({ buchung: '' }), false, 'ohne Buchungsweg');
+gleich(B.bhOhneGenehmigung(null), false, 'ohne Zeile');
+global._esc = x => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const laufend = B.bhAusFeldern({ Genehmigt: 'Nein', GenehmigungAn: 'chef@x.de', Bearbeitungsstatus: 'In Genehmigung', GFGesehen: true });
+gleich(/In Genehmigung/.test(B.bhZelle({ buchung: 'Automatik', bh: laufend })), true, 'Spalte: sonst In Genehmigung');
+const zelleRot = B.bhZelle({ buchung: 'Zurueckgewiesen', bh: laufend });
+gleich(/Genehmig/.test(zelleRot), false, 'Spalte: zurückgewiesen ohne Genehmigung');
+gleich(/GF/.test(zelleRot), true, 'Spalte: GF gesehen bleibt');
+gleich(B.bhZelle({ buchung: 'Zurueckgewiesen', bh: B.bhAusFeldern({ Genehmigt: 'Ja', Bearbeitungsstatus: 'Mahnung' }) }).includes('Mahnung'), true, 'Spalte: Bearbeitungsstatus bleibt');
+delete global._esc;
+
 // 8) Werte wie in der alten Liste
 gleich(B.BH_GENEHMIGT.length, 9, 'Genehmigt: 9 alte Werte');
 gleich(B.BH_STATUS.includes('Gebucht (m. Prüfg rechn & Stammd)'), true, 'Status Gebucht wie alt');

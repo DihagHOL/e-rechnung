@@ -213,6 +213,14 @@ function bhInGenehmigung(b) {
   return !!b && (!!b.anfordern || (b.genehmigt === 'Nein' && !!b.genehmigungAn));
 }
 
+/**
+ * Zurückgewiesene Rechnungen werden nicht gebucht und deshalb auch nicht genehmigt:
+ * kein „Genehmigung anfordern“, keine Anzeige in Spalte, Kennzahl und Details.
+ */
+function bhOhneGenehmigung(r) {
+  return !!r && /zur(?:ü|ue)ckgew/i.test(r.buchung || '');
+}
+
 function _bhDatum(iso) {
   const d = (typeof _monTag === 'function' ? _monTag(iso) : String(iso || '')).slice(0, 10);
   return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d.split('-').reverse().join('.') : d;
@@ -334,11 +342,12 @@ function bhZelle(r) {
   if (!b) return '';
   const teile = [];
   const stand = bhGenehmigungsStand(b);
-  if (bhInGenehmigung(b)) teile.push(['In Genehmigung', 'bh-wartet', stand]);
+  if (bhOhneGenehmigung(r)) { /* zurückgewiesen: keine Genehmigung */ }
+  else if (bhInGenehmigung(b)) teile.push(['In Genehmigung', 'bh-wartet', stand]);
   else if (b.genehmigt === 'Ja') teile.push(['Genehmigt', 'bh-ja', stand]);
   else if (b.genehmigt === 'Abgelehnt') teile.push(['Abgelehnt', 'bh-nein', stand + (b.kommentar ? ': ' + b.kommentar : '')]);
   else if (b.genehmigt) teile.push([b.genehmigt, 'bh-neutral', 'Genehmigt: ' + b.genehmigt]);
-  if (b.bstatus && !(b.bstatus === 'In Genehmigung' && bhInGenehmigung(b))) teile.push([b.bstatus, 'bh-neutral', 'Bearbeitungsstatus']);
+  if (b.bstatus && !(b.bstatus === 'In Genehmigung' && (bhInGenehmigung(b) || bhOhneGenehmigung(r)))) teile.push([b.bstatus, 'bh-neutral', 'Bearbeitungsstatus']);
   if (b.gfGesehen) teile.push(['GF ✓', 'bh-neutral', 'GF gesehen']);
   return teile.map(([t, cls, tip]) =>
     `<div class="bh-pill ${cls}" title="${_esc(tip)}">${_esc(t.length > 26 ? t.slice(0, 24) + '…' : t)}</div>`).join('');
@@ -359,6 +368,7 @@ function bhDialogOeffnen(r, onGespeichert) {
   const partner = typeof _monPartner === 'function' ? _monPartner(r) : (r.steller || '');
   const stand = bhGenehmigungsStand(b);
   const laeuft = bhInGenehmigung(b);
+  const ohneGenehmigung = bhOhneGenehmigung(r);
   const abasVorgabe = b.abasInfoAn || bhVorgabeAbas(r.werk);
   // Rechnungsnummer und Lieferant korrigieren (falsch gelesen aus dem PDF-Text)
   const p = typeof _monPartnerSicher === 'function' ? _monPartnerSicher(r) : { name: r.steller || '', quelle: 'xml' };
@@ -388,12 +398,14 @@ function bhDialogOeffnen(r, onGespeichert) {
       </div>
       <label class="ug-lbl">Kontierung<textarea id="bh-kontierung" rows="3">${_esc(b.kontierung)}</textarea></label>
       <div class="bh-raster">
-        <label class="ug-lbl">Genehmigt<select id="bh-genehmigt">${opt(BH_GENEHMIGT, b.genehmigt)}</select></label>
+        ${ohneGenehmigung ? '' : `<label class="ug-lbl">Genehmigt<select id="bh-genehmigt">${opt(BH_GENEHMIGT, b.genehmigt)}</select></label>`}
         <label class="bh-check"><input type="checkbox" id="bh-gf"${b.gfGesehen ? ' checked' : ''}> GF gesehen</label>
       </div>
       <label class="ug-lbl">Notiz<textarea id="bh-notiz" rows="3">${_esc(b.notiz)}</textarea></label>
 
-      <div class="bh-box">
+      ${ohneGenehmigung ? `<div class="bh-box">
+        <p class="bh-stand">Die Rechnung ist zurückgewiesen. Sie wird nicht gebucht und braucht keine Genehmigung. Der Lieferant muss eine korrigierte Rechnung schicken.</p>
+      </div>` : `<div class="bh-box">
         <p class="bh-stand">${stand ? _esc(stand) : 'Noch keine Genehmigung angefordert.'}</p>
         ${b.kommentar ? `<p class="bh-stand">Kommentar des Genehmigers: ${_esc(b.kommentar)}</p>` : ''}
         ${b.abasGesendet ? `<p class="bh-stand">Info zum Austragen im abas ging an ${_esc(b.abasInfoAn)}.</p>` : ''}
@@ -411,7 +423,7 @@ function bhDialogOeffnen(r, onGespeichert) {
               <ul class="bh-vorschlaege" id="bh-abasan-vorschlaege" role="listbox" hidden></ul></div>
           </div>
         </div>
-      </div>
+      </div>`}
 
       <p class="ug-meldung" id="bh-meldung" role="status"></p>
       <div class="ug-aktionen">
@@ -429,7 +441,7 @@ function bhDialogOeffnen(r, onGespeichert) {
     if (anders) mk.checked = true;
   });
   const anf = dlg.querySelector('#bh-anfordern');
-  anf.addEventListener('change', () => {
+  if (anf) anf.addEventListener('change', () => {
     dlg.querySelector('#bh-anf').style.display = anf.checked ? '' : 'none';
     dlg.querySelector('[data-bh-speichern]').textContent = anf.checked ? 'Speichern und Genehmigung anfordern' : 'Speichern';
     if (anf.checked) dlg.querySelector('#bh-genehmiger').focus();
@@ -602,11 +614,14 @@ async function _bhSpeichern() {
   const wert = id => dlg.querySelector('#' + id).value;
   const neu = {
     varial: wert('bh-varial'), bestellnr: wert('bh-bestellnr'), bstatus: wert('bh-bstatus'),
-    kontierung: wert('bh-kontierung'), genehmigt: wert('bh-genehmigt'),
+    kontierung: wert('bh-kontierung'),
     gfGesehen: dlg.querySelector('#bh-gf').checked, notiz: wert('bh-notiz'),
   };
+  // Bei zurückgewiesenen Rechnungen fehlen Genehmigt und „Genehmigung anfordern“
+  if (dlg.querySelector('#bh-genehmigt')) neu.genehmigt = wert('bh-genehmigt');
   let felder = bhAenderungen(a.b, neu);
-  const anfordern = dlg.querySelector('#bh-anfordern').checked;
+  const anfBox = dlg.querySelector('#bh-anfordern');
+  const anfordern = !!(anfBox && anfBox.checked);
   try {
     if (anfordern) {
       const abas = dlg.querySelector('#bh-abas').checked;
@@ -676,5 +691,5 @@ async function _bhSpeichern() {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { BH_FELDER, BH_STATUS, BH_GENEHMIGT, bhAusFeldern, bhZiel, bhZusammen, bhMails,
-    bhAenderungen, bhAnforderung, bhKopfdaten, bhKopfAenderungen, bhKopfHinweis, bhGenehmigungsStand, bhInGenehmigung };
+    bhAenderungen, bhAnforderung, bhKopfdaten, bhKopfAenderungen, bhKopfHinweis, bhGenehmigungsStand, bhInGenehmigung, bhOhneGenehmigung, bhZelle };
 }
