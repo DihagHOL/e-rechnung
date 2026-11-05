@@ -17,6 +17,8 @@ const pdf = { richtung: 'Eingang', formatmangel: true, brutto: null, datum: '202
 ok(ug.ugSonstige(pdf), 'Formatmangel im Eingang = sonstige Rechnung');
 ok(!ug.ugSonstige({ richtung: 'Ausgang', formatmangel: true }), 'Ausgang nie');
 ok(!ug.ugSonstige({ richtung: 'Eingang', formatmangel: false }), 'E-Rechnung nicht');
+ok(!ug.ugSonstige(Object.assign({}, pdf, { mahnung: true })), 'Mahnung ist keine sonstige Rechnung');
+ok(!ug.ugBraucht(Object.assign({}, pdf, { mahnung: true })), 'Mahnung braucht keine Einschätzung');
 ok(ug.ugBraucht(pdf), 'ohne Betrag braucht Einschaetzung');
 ok(!ug.ugBraucht(Object.assign({}, pdf, { brutto: 249.99 })), 'Kleinbetrag braucht keine');
 ok(ug.ugBraucht(Object.assign({}, pdf, { brutto: 250.01 })), 'ueber 250 braucht eine');

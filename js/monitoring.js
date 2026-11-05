@@ -272,6 +272,8 @@ function _monMap(it, f, lib) {
   return {
     file, ext, sidecar, baseKey,
     nummerAusDatei: !titelEcht,
+    // Mahnung statt Rechnung (Dateiname, Title oder Name des Anhangs): kein Buchen, keine Einschätzung
+    mahnung: (lib.richtung || f.Richtung || '') === 'Eingang' && _monIstMahnung(file, titleClean, f.OriginalPdfName),
     // Eingang der Datei in SharePoint (UTC); neueste Vorgänge stehen oben
     erstellt: (it.createdDateTime || f.Created || '').toString(),
     // Werk aus dem Bibliotheksnamen (AR_SHB -> SHB) = maessgeblich; das Feld
@@ -341,6 +343,12 @@ function _monBool(v) {
 }
 
 /** Ist der Title eine Rechnungsnummer und nicht nur der Dateiname (mit oder ohne Endung)? */
+/** Sieht eine Eingangsdatei nach Mahnung oder Zahlungserinnerung aus (Dateiname, Title, Anhangname)? */
+const MON_MAHNUNG = /mahn(ung|stufe|schreiben)|zahlungs-?\s?erinnerung|(^|[^a-zäöü])erinnerung|payment reminder|dunning|(^|[^a-z])reminder/i;
+function _monIstMahnung(...texte) {
+  return texte.some(t => MON_MAHNUNG.test(String(t || '')));
+}
+
 function _monTitelEcht(titel, stem, baseKey) {
   const t = String(titel || '').trim();
   if (!t || /\.(pdf|xml)$/i.test(t) || /_kosit-?bericht$|_lesbar$/i.test(t)) return false;
@@ -543,6 +551,7 @@ function _monMarkDupes(records) {
   const groups = new Map();
   for (const r of records) {
     r.dublette = false; r.dubletteArt = ''; r.dubletteInfo = '';
+    if (r.mahnung) continue;   // Mahnung trägt meist die Nummer der Rechnung, ist aber keine zweite
     const nr = norm(r.nummer);
     if (!nr) continue;
     const kennung = _monLieferantKennung(r);
@@ -681,12 +690,13 @@ function _monGemeinsam(r) {
 
 function _monMatchFlag(r, flag) {
   switch (flag) {
-    case 'offen':      return !!r.status && !['Gebucht', 'Archiviert'].includes(r.status);
-    case 'fehler':     return r.status === 'Fehler' || /^rot/i.test(r.konform || '') || !!r.fehler;
+    case 'offen':      return !r.mahnung && !!r.status && !['Gebucht', 'Archiviert'].includes(r.status);
+    case 'fehler':     return !r.mahnung && (r.status === 'Fehler' || /^rot/i.test(r.konform || '') || !!r.fehler);
     case 'dublette':   return !!r.dublette;
-    case 'manuell':    return r.manuellePruefung || /manuell/i.test(r.buchung || '');
-    case 'rueckfrage': return !!r.rueckfrage;
-    case 'zurueck':    return /zur(?:ü|ue)ckgew/i.test(r.buchung || '');
+    case 'manuell':    return !r.mahnung && (r.manuellePruefung || /manuell/i.test(r.buchung || ''));
+    case 'rueckfrage': return !r.mahnung && !!r.rueckfrage;
+    case 'mahnung':    return !!r.mahnung;
+    case 'zurueck':    return !r.mahnung && /zur(?:ü|ue)ckgew/i.test(r.buchung || '');
     case 'umsatz':     return typeof ugBraucht === 'function' && ugBraucht(r) && !ugFuer(r)
                               && ugPhase(r.datum) !== 'pflicht';
     case 'genehmigung': return typeof bhInGenehmigung === 'function' && bhInGenehmigung(r.bh)
@@ -738,7 +748,8 @@ function _monRenderKpis(rows) {
   const dubletten = rows.filter(r => r.dublette).length;
   // Prüfschritt-Warteschlangen (UStAE/GoBD): manuelle Prüfung, Rückfrage, Zurückweisung.
   const manuell    = rows.filter(r => _monMatchFlag(r, 'manuell')).length;
-  const rueckfrage = rows.filter(r => r.rueckfrage).length;
+  const rueckfrage = rows.filter(r => _monMatchFlag(r, 'rueckfrage')).length;
+  const mahnungen  = rows.filter(r => r.mahnung).length;
   const zurueck    = rows.filter(r => _monMatchFlag(r, 'zurueck')).length;
   // Sonstige Rechnungen ohne Einschaetzung zur 800k-Umsatzgrenze (js/umsatzgrenze.js).
   const umsatz     = rows.filter(r => _monMatchFlag(r, 'umsatz')).length;
@@ -763,6 +774,7 @@ function _monRenderKpis(rows) {
     { id: 'flag:rueckfrage', label: 'Zur Rückfrage',         val: rueckfrage, cls: rueckfrage ? 'bad' : '' },
     { id: 'flag:zurueck',    label: 'Zurückgewiesen',        val: zurueck,    cls: zurueck ? 'bad' : '' },
     { id: 'flag:umsatz',     label: '800k-Einschätzung offen', val: umsatz,   cls: umsatz ? 'warn' : '' },
+    ...(_monRecords.some(r => r.mahnung) ? [{ id: 'flag:mahnung', label: 'Mahnungen (keine Rechnung)', val: mahnungen, cls: '' }] : []),
     ...(_monRecords.some(r => r.bh) ? [{ id: 'flag:genehmigung', label: 'In Genehmigung', val: genehmigung, cls: genehmigung ? 'warn' : '' }] : []),
     ...klassKeys.map(k => ({ id: 'k:' + k, label: k, val: klassCounts[k], cls: 'klass' })),
   ];
@@ -1062,6 +1074,10 @@ function _monZelle(id, r, idx) {
       return `<td>${r.status ? `<span class="pill pill-status">${_esc(r.status)}</span>` : ''}</td>`;
     }
     case 'buchung': {
+      if (r.mahnung) {
+        return `<td>${r.buchung ? `<span class="pill pill-status">${_esc(r.buchung)}</span>` : ''}`
+          + `<div><span class="bh-pill bh-wartet" title="Mahnung oder Zahlungserinnerung, keine Rechnung. Nicht buchen, keine 800k-Einschätzung.">Mahnung</span></div></td>`;
+      }
       // Buchungssteuerung + Prüfschritt-Flags (UStAE/GoBD) + 800k-Einschätzung
       const flags = [];
       if (r.formatmangel)     flags.push(['Formatmangel', '#8a5a00', '#fff3d6']);
@@ -1223,7 +1239,7 @@ function _monDetail(r, idx) {
   return `<div class="mon-det">`
     + block('Rechnung', [['Nummer', t(r.nummer) + (r.nummerAusDatei && r.nummer ? ' (aus dem Dateinamen)' : '')], ['Datum', t(_monDate(r.datum))],
         ['Erstellt am', t(_monZeit(r.erstellt))], ['Fällig am', t(_monDate(r.faelligkeit))],
-        ['Werk', t(r.werk)], ['Richtung', t(r.richtung)], ['Typ', t(_monKlass(r))], ['Rechnungsart', t(r.art)],
+        ['Werk', t(r.werk)], ['Richtung', t(r.richtung)], ['Typ', t(_monKlass(r))], ['Rechnungsart', r.mahnung ? 'Mahnung (keine Rechnung)' : t(r.art)],
         ['In derselben Mail', r.mailRechnungen ? t('Rechnung ' + r.mailRechnungen.join(', ')) : '']])
     + block(r.richtung === 'Eingang' ? 'Lieferant' : 'Kunde', [
         ['Name', p.name ? t(p.name) + t(_monPartnerQuelle(r, p)) : t(r.steller ? r.steller + ' (aus dem PDF-Text gelesen, nicht bestätigt)' : '')],
@@ -1884,7 +1900,7 @@ function _monRenderChips() {
   const KONF = { gr: 'grün', gel: 'gelb', rot: 'rot', sonst: 'keine E-Rechnung' };
   const FLAG = { offen: 'Offen', fehler: 'Fehler / rot', dublette: 'Dubletten',
                  manuell: 'Manuelle Prüfung', rueckfrage: 'Zur Rückfrage', zurueck: 'Zurückgewiesen',
-                 umsatz: '800k-Einschätzung offen', genehmigung: 'In Genehmigung' };
+                 umsatz: '800k-Einschätzung offen', genehmigung: 'In Genehmigung', mahnung: 'Mahnungen' };
   const deDate = s => s.split('-').reverse().join('.');
   const chips = [];
   if (f.werk)     chips.push(['werk', 'Werk: ' + f.werk]);
@@ -2061,5 +2077,5 @@ function _esc(s) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
-    _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMatchFlag, _monMitNeuenSpalten, _monLibErlaubt };
+    _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMatchFlag, _monMitNeuenSpalten, _monLibErlaubt, _monIstMahnung };
 }

@@ -157,6 +157,18 @@ gleich(M._monMatchBase({ bh: B.bhAusFeldern({}), datum: '2026-11-05' }, { bstatu
 gleich(M._monMatchBase({ bh: B.bhAusFeldern({ Bearbeitungsstatus: 'Mahnung' }), datum: '2026-11-05' }, { bstatus: 'Offen' }, ''), false, 'Filter Offen nicht bei Mahnung');
 gleich(M._monMatchBase({ bh: null, datum: '2026-11-05' }, { bstatus: 'Offen' }, ''), false, 'ohne Bearbeitung kein Offen');
 
+// Mahnungen: erkannt am Namen, zählen nicht als Rechnung, keine Dublette mit der Rechnung
+gleich(['Mahnung_4711.pdf', '2. Mahnstufe.pdf', 'Zahlungserinnerung 12.pdf', 'Dunning Notice 1.pdf', 'Erinnerung_88.pdf'].every(x => M._monIstMahnung(x)), true, 'Schreibweisen erkannt');
+gleich(['Rechnung_4711.pdf', 'Terminerinnerung.pdf', '4711_DE123456789.pdf'].some(x => M._monIstMahnung(x)), false, 'Rechnungen nicht');
+const mahn = datei('Mahnung_4711.pdf', { Format: 'PDF', Formatmangel: true, Verarbeitungsstatus: 'Validiert', Rechnungssteller: 'Muster GmbH', Title: '4711' });
+gleich(mahn.mahnung, true, 'Mahnung im Eingang');
+gleich(M._monMap({ id: 'a', createdDateTime: '2026-11-05T09:00:00Z' }, { FileLeafRef: 'Mahnung_1.pdf' }, { id: 'L2', werk: 'WGC', richtung: 'Ausgang' }).mahnung, false, 'Ausgang nie');
+gleich([M._monMatchFlag(mahn, 'offen'), M._monMatchFlag(mahn, 'mahnung')], [false, true], 'nicht offen, aber unter Mahnungen');
+const rech = datei('4711_DE811979246.pdf', { Format: 'PDF', Rechnungssteller: 'Muster GmbH', Title: '4711', RechnungsstellerUStID: 'DE811979246' });
+const paar = [Object.assign({}, rech, { ustid: 'DE811979246' }), Object.assign({}, mahn, { ustid: 'DE811979246' })];
+M._monMarkDupes(paar);
+gleich([paar[0].dublette, paar[1].dublette], [false, false], 'Rechnung und Mahnung mit gleicher Nummer sind keine Dubletten');
+
 // Fehlermeldung nur mit Zeilenumbruch (WGC-Flow) ist keine Meldung, zählt nicht unter „Fehler / rot“
 gleich(datei('x.pdf', { Fehlermeldung: '\n', Konformitaet: 'Gruen' }).fehler, '', 'Zeilenumbruch als Fehlermeldung');
 gleich(M._monMatchFlag(datei('x.pdf', { Fehlermeldung: '\n', Konformitaet: 'Gruen', Verarbeitungsstatus: 'Validiert' }), 'fehler'), false, 'kein Fehler-Treffer');
