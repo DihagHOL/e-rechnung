@@ -149,7 +149,7 @@ https://make.powerautomate.com, „Erstellen“, **„Automatisierter Cloud-Flow
       - Office 365 Outlook **„E-Mail senden (V2)“**
         - An: **Info zum Austragen im abas an**
         - Betreff: `Rechnung freigegeben: ` **Rechnungssteller** ` | ` **Rechnungsnummer**
-        - Text: wer genehmigt hat, Kommentar, Kontierung, Bestellnummer und der Link zur Rechnung
+        - Text: wer genehmigt hat, Kommentar, Kontierung, Varialnummer, Bestellnummer und der Link zur Rechnung
         - Anlagen: Name = **Dateiname mit Erweiterung**, Inhalt = **Dateiinhalt** (aus `PDF`)
       - darunter „Dateieigenschaften aktualisieren“: „Info abas gesendet (WL)“ = **Ja**
 
