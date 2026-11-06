@@ -18,6 +18,7 @@
 const { pdfText } = require('./pdftext');
 
 const TOLERANZ = 0.02;   // Cent-Rundung tolerieren (keine materielle Abweichung)
+const MAX_SEITEN = 100;  // Die Summe steht am Ende, also alle Seiten lesen
 
 /**
  * @param {Buffer} pdfBuf  Das ZUGFeRD/Factur-X-PDF (Sichtbild + eingebettete XML).
@@ -30,7 +31,7 @@ async function pdfXmlAbgleich(pdfBuf, daten) {
 
   let text = '';
   try {
-    text = (await pdfText(pdfBuf)).text;
+    text = (await pdfText(pdfBuf, { maxSeiten: MAX_SEITEN })).text;
   } catch (e) {
     return { status: 'nicht-pruefbar', pruefbar: false, materiell: false, hinweis: '',
              fehler: e && e.message ? e.message : String(e) };
@@ -55,8 +56,9 @@ async function pdfXmlAbgleich(pdfBuf, daten) {
              + 'Steuerbetrag bitte manuell abgleichen.',
     };
   }
+  // Ohne Vorzeichen: Die XML einer Gutschrift hat positive Beträge, das Sichtbild oft negative
   const near = target => {
-    for (const a of amounts) if (Math.abs(a - target) <= TOLERANZ) return true;
+    for (const a of amounts) if (Math.abs(Math.abs(a) - target) <= TOLERANZ) return true;
     return false;
   };
   const eur = v => v.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
@@ -66,7 +68,8 @@ async function pdfXmlAbgleich(pdfBuf, daten) {
   // Belegidentitaet: Rechnungsnummer (unterschiedliche Nummer = anderer Beleg, materiell).
   const nr = String(daten.nummer || daten.rechnungsnummer || '').trim();
   const nummerOk = !nr || nr.length < 5
-    || flat.includes(nr) || flat.replace(/[\s.]/g, '').toLowerCase().includes(nr.replace(/[\s.]/g, '').toLowerCase());
+    || flat.includes(nr) || flat.replace(/[\s.]/g, '').toLowerCase().includes(nr.replace(/[\s.]/g, '').toLowerCase())
+    || _gleicheZiffern(flat, nr);
   if (!nummerOk) abw.push(`Rechnungsnummer „${nr}" steht nicht im Sichtbild`);
 
   // Steuerbetrag (MATERIELL): muss im Bild stehen (Rundung toleriert).
@@ -89,6 +92,17 @@ async function pdfXmlAbgleich(pdfBuf, daten) {
     };
   }
   return { status: 'ok', pruefbar: true, materiell: false, hinweis: '' };
+}
+
+/**
+ * Dieselbe Nummer mit anderer Schreibweise: „DRA/10085621“ in der XML und 10085621 im Bild,
+ * „0092658542“ und 92658542. Verglichen werden die Ziffern ohne führende Nullen, mindestens fünf.
+ */
+function _gleicheZiffern(text, nr) {
+  const ziffern = s => String(s).replace(/\D/g, '').replace(/^0+/, '');
+  const soll = ziffern(nr);
+  if (soll.length < 5) return false;
+  return (text.match(/[A-Za-z0-9/.-]*\d[A-Za-z0-9/.-]*/g) || []).some(w => ziffern(w) === soll);
 }
 
 /**

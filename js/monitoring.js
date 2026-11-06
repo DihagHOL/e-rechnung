@@ -1857,7 +1857,7 @@ function _monPartnerCell(r) {
 function _monHinweis(r) {
   const s = (r.meldung || '').trim();
   const k = (r.konform || '').toLowerCase();
-  if (k.startsWith('gr')) return '';
+  if (k.startsWith('gr')) return r.rueckfrage ? s : '';
   // Bis 10/2026 schrieb die Prüfung bei Warnungen (und manchen Fehlern) keinen Text.
   if (!s && k.startsWith('gel')) return 'Nur Warnungen, die Rechnung ist gültig. Details im Prüfbericht.';
   if (!s && k.startsWith('rot')) return 'Nicht konform. Details im Prüfbericht.';
@@ -2176,6 +2176,6 @@ function _esc(s) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { _monFetchLib, _monVorMonaten, _monWeiter, _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
+  module.exports = { _monFetchLib, _monVorMonaten, _monWeiter, _monHinweis, _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
     _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMatchFlag, _monMitNeuenSpalten, _monLibErlaubt, _monIstMahnung };
 }

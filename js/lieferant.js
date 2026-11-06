@@ -625,7 +625,7 @@
    * Textstücke mit gleicher Grundlinie werden zu einer Zeile zusammengefasst.
    * Im Prüfdienst (Node) setzt api/src/kopfdaten.js pdfjsLib aus pdfjs-dist.
    * @param {ArrayBuffer|Uint8Array} daten   wird kopiert, das Original bleibt unberührt
-   * @param {object} [optionen]             weitere Optionen für getDocument
+   * @param {object} [optionen]             weitere Optionen für getDocument, maxSeiten: Standard 4
    * @returns {Promise<string>}
    */
   async function textAusPdf(daten, optionen) {
@@ -633,7 +633,7 @@
     if (!lib) throw new Error('pdf.js nicht geladen');
     const doc = await lib.getDocument(Object.assign({ data: new Uint8Array(daten) }, optionen || {})).promise;
     const zeilen = [];
-    for (let p = 1; p <= Math.min(doc.numPages, 4); p++) {
+    for (let p = 1; p <= Math.min(doc.numPages, (optionen && optionen.maxSeiten) || 4); p++) {
       const inhalt = await (await doc.getPage(p)).getTextContent();
       const reihen = new Map();
       for (const it of inhalt.items) {

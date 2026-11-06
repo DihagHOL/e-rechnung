@@ -26,12 +26,13 @@ const OPTIONEN = { verbosity: 0, disableFontFace: true, useSystemFonts: false };
 
 /**
  * @param {Buffer} pdfBuf   bleibt unverändert (pdf.js bekommt eine Kopie)
+ * @param {{maxSeiten?:number}} [zusatz]  Standard: die ersten 4 Seiten
  * @returns {Promise<{text: string, quelle: 'pdfjs'}>}  wirft, wenn das PDF nicht lesbar ist
  */
-async function pdfText(pdfBuf) {
+async function pdfText(pdfBuf, zusatz) {
   if (!lieferant || !lieferant.textAusPdf) throw new Error('js/lieferant.js nicht synchronisiert (npm run sync)');
   globalThis.pdfjsLib = await _laden();
-  return { text: await lieferant.textAusPdf(pdfBuf, OPTIONEN), quelle: 'pdfjs' };
+  return { text: await lieferant.textAusPdf(pdfBuf, Object.assign({}, OPTIONEN, zusatz)), quelle: 'pdfjs' };
 }
 
 module.exports = { pdfText };
