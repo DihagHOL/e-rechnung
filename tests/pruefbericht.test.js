@@ -10,7 +10,7 @@ const gleich = (ist, soll, m) => { assert.deepStrictEqual(ist, soll, m + ': ' + 
 const wahr = (b, m) => { assert.ok(b, m); n++; };
 const msg = (lvl, code, text) => `<rep:message id="x" level="${lvl}" xpathLocation="/Invoice" code="${code}">${text}</rep:message>`;
 
-// 1) KoSIT: abgelehnt mit 2 Warnungen und 3 Fehlern (wie R707497DQS)
+// 1) KoSIT: abgelehnt mit 2 Warnungen und 3 Fehlern
 let r = parseReport('<rep:report>' + msg('warning', 'UBL-CR-157', '[UBL-CR-157]-A UBL invoice should not include Department')
   + msg('warning', 'UBL-CR-220', '[UBL-CR-220]-A UBL invoice should not include Department')
   + [1, 2, 3].map(() => msg('error', 'PEPPOL-EN16931-R008', 'Document MUST not contain empty elements.')).join('')
