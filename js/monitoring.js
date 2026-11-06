@@ -1118,8 +1118,8 @@ function _monZelle(id, r, idx) {
         : ''}</td>`;
     }
     case 'partner':  return `<td>${_monPartnerCell(r)}</td>`;
-    case 'netto':    return `<td style="text-align:right;white-space:nowrap;">${_monBetragZelle(r.netto, r)}</td>`;
-    case 'brutto':   return `<td style="text-align:right;white-space:nowrap;">${_monBetragZelle(r.brutto, r)}</td>`;
+    case 'netto':    return `<td style="text-align:right;white-space:nowrap;" title="${_esc(_monGeld(r.netto, r))}">${_monBetragZelle(r.netto, r)}</td>`;
+    case 'brutto':   return `<td style="text-align:right;white-space:nowrap;" title="${_esc(_monGeld(r.brutto, r))}">${_monBetragZelle(r.brutto, r)}</td>`;
     case 'faellig': {
       // Überfällig: nur wo die Buchung im Monitoring läuft (Bearbeitungsstatus), die anderen Werke buchen im SAP
       const faellig = _monDate(r.faelligkeit);

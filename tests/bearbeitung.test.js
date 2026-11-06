@@ -131,6 +131,8 @@ gleich(B.bhStatus(B.bhAusFeldern({ Bearbeitungsstatus: 'In Klärung' })).farbe, 
 gleich(B.bhStatus(null), null, 'ohne Bearbeitung kein Status');
 global._esc = x => String(x == null ? '' : x);
 gleich(/bh-st-auto/.test(B.bhStatusZelle(B.bhAusFeldern({}))) && />Offen</.test(B.bhStatusZelle(B.bhAusFeldern({}))), true, 'Zelle hell mit Offen');
+const gebucht = B.bhStatusZelle(B.bhAusFeldern({ Bearbeitungsstatus: 'Gebucht (m. Prüfg rechn & Stammd)' }));
+gleich([/>Gebucht</.test(gebucht), /title="Gebucht \(m\. Prüfg rechn (&amp;|&) Stammd\)\./.test(gebucht)], [true, true], 'Tabelle kurz, voller Wert im Tooltip');
 gleich(/bh-st-auto/.test(B.bhStatusZelle(B.bhAusFeldern({ Bearbeitungsstatus: 'Mahnung' }))), false, 'Zelle kräftig, wenn von Hand');
 delete global._esc;
 

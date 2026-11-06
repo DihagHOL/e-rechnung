@@ -231,13 +231,18 @@ function bhStatus(b) {
   return { text, auto, farbe };
 }
 
-/** Status als farbiges Abzeichen: hell = automatisch, kräftig = von Hand gesetzt. */
+/**
+ * Status als farbiges Abzeichen: hell = automatisch, kräftig = von Hand gesetzt. In der
+ * Tabelle ohne den Zusatz in Klammern, der volle Wert steht im Tooltip.
+ */
 function bhStatusZelle(b) {
   const s = bhStatus(b);
   if (!s) return '';
   const tip = !s.auto ? 'Von Hand gesetzt'
     : b.bstatus ? 'Automatisch durch „Genehmigung anfordern“' : 'Automatisch: noch nicht von Hand gesetzt';
-  return `<span class="bh-st bh-st-${s.farbe}${s.auto ? ' bh-st-auto' : ''}" title="${_esc(tip)}">${_esc(s.text)}</span>`;
+  const kurz = s.text.replace(/\s*\(.*\)\s*$/, '');
+  const titel = kurz === s.text ? tip : `${s.text}. ${tip}`;
+  return `<span class="bh-st bh-st-${s.farbe}${s.auto ? ' bh-st-auto' : ''}" title="${_esc(titel)}">${_esc(kurz)}</span>`;
 }
 
 /**

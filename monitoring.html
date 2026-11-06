@@ -297,7 +297,10 @@
     .bh-pill.bh-nein { background:#ffe0e0; color:#b40000; }
     .bh-pill.bh-wartet { background:#fff3d6; color:#8a5a00; }
     /* Status der Bearbeitung: kräftig = von Hand gesetzt, hell = automatisch (leer = Offen, In Genehmigung durch die Anforderung) */
-    .bh-st { display:inline-block; font-size:12px; font-weight:600; border-radius:999px; padding:2px 9px; white-space:nowrap;
+    /* Keine Zelle läuft in die nächste, was nicht passt, endet mit „…“ */
+    table.mon-table tbody tr.mon-zeile td { overflow:hidden; text-overflow:ellipsis; }
+    .bh-st { display:inline-block; max-width:100%; box-sizing:border-box; overflow:hidden; text-overflow:ellipsis; vertical-align:middle;
+                font-size:12px; font-weight:600; border-radius:999px; padding:2px 9px; white-space:nowrap;
              color:#fff; background:var(--st); border:1px solid var(--st); }
     .bh-st.bh-st-auto { color:var(--st); background:var(--st-hell); border-color:transparent; font-weight:500; }
     .bh-st-grau   { --st:#4b5563; --st-hell:#eef1f5; }
@@ -468,8 +471,8 @@
 <script src="js/ocr.js?v=ca1f1ec809"></script>
 <script src="js/lieferant.js?v=9543e3f6ee"></script>
 <script src="js/umsatzgrenze.js?v=2bdc19f9d8"></script>
-<script src="js/bearbeitung.js?v=48a5f63b3a"></script>
-<script src="js/monitoring.js?v=4bb6250aea"></script>
+<script src="js/bearbeitung.js?v=cff6587c30"></script>
+<script src="js/monitoring.js?v=6f99c7f63c"></script>
 
 <script src="js/seite-monitoring.js?v=5831e85eeb"></script>
 </body>
