@@ -1,7 +1,7 @@
 // node tests/lieferant.test.js
 // Erfundene Rechnungstexte in den Layouts, die pdf-parse bzw. pdf.js liefern.
 const assert = require('assert');
-const { lieferantAusText, istEigen } = require('../js/lieferant.js');
+const { lieferantAusText, istEigen, keinName } = require('../js/lieferant.js');
 
 let n = 0;
 const gleich = (ist, soll, m) => { assert.deepStrictEqual(ist, soll, m + ': ' + JSON.stringify(ist)); n++; };
@@ -157,6 +157,25 @@ gleich(textAusItems([{ text: 'GmbH', x: 60, y: 701, page: 1 }, { text: 'Muster',
 gleich(istEigeneMail('rechnung@dihag-zaigler.com'), true, 'Zaigler-Mail eigen');
 gleich(istEigeneMail('info@ewa-guss.de'), true, 'EWA-Mail eigen');
 gleich(istEigeneMail('info@muster.de'), false, 'fremde Mail');
+
+// Namen: eigene Werke, Beschriftungen, Trennstrich, Domain der Rechnungsmail (erfundene Texte)
+{
+  const rest = '\nRechnung Nr. 4711\nRechnungsdatum: 01.10.2026\nIBAN DE02120300000000202051\n';
+  const nameAus = (t, o) => lieferantAusText(t + rest + 'Füllzeile mit genug Text für die Erkennung', o).name;
+  gleich(nameAus('SHB Stahl- und Hartgusswerk\nBösdorf GmbH\nWerkstr. 7\nMuster Technik GmbH - Hauptstr. 5 - 01234 Musterstadt'), 'Muster Technik GmbH', 'umgebrochener Name eines eigenen Werks');
+  gleich(istEigen('Bösdorf GmbH') && istEigen('Arnstadt GmbH') && istEigen('Eisenwerk Amstadt GmbH'), true, 'eigene Werke in Kurzform');
+  gleich(istEigen('Stadtwerke Arnstadt GmbH'), false, 'Lieferant aus demselben Ort bleibt');
+  gleich(nameAus('Zahlungsempfänger: Beispiel Energie GmbH\nZahlungsempfänger: Beispiel Energie GmbH'), 'Beispiel Energie GmbH', 'Beschriftung fällt weg');
+  gleich(nameAus('Empf.: Fremde Fracht GmbH D-44579 Castrop-Rauxel\nEmpf.: Fremde Fracht GmbH'), '', 'Frachtangabe ist kein Lieferant');
+  gleich(nameAus('Beispiel Rohstoff - Handelsgesellschaft mbH · Rheinstraße 1 · 45478 Mülheim\nBeispiel Rohstoff - Handelsgesellschaft mbH'), 'Beispiel Rohstoff - Handelsgesellschaft mbH', 'Strich gehört zum Namen');
+  gleich(keinName('Lieferbedingungen ...... Inc') && keinName('33/22/149/10 Thorbent 80 CA') && keinName('Lı5ea so wt GmbH') && keinName('Zuständig ist das Finanzamt GmbH'), true, 'kein Firmenname');
+  gleich(keinName('Bruttogewicht: 1,135 KG') && keinName('Rechtsform: GmbH & Co. KG') && keinName('Speditionsgesellschaft mbH') && keinName('Fachgroßhandel GmbH & Co. KG'), true, 'Beschriftung oder nur die Gattung');
+  gleich(keinName('Beispiel Rohstoff - Handelsgesellschaft mbH') || keinName('UNI Beispiel Fachgroßhandel GmbH & Co. KG'), false, 'mit Firmenwort davor bleibt der Name');
+  const spalten = 'SHB Stahl- und Hartgusswerk Muster Umweltdienste GmbH Muster Umwelt GmbH\nBösdorf GmbH Bösdorf GmbH\nBösdorf GmbH Bösdorf GmbH';
+  gleich(nameAus(spalten, { absender: 'ams@muster-leipzig.de' }), 'Muster Umweltdienste GmbH', 'Domain findet den Namen in der mehrspaltigen Zeile');
+  gleich(nameAus(spalten), '', 'ohne Absender lieber kein Name');
+  gleich(nameAus('Andere Firma GmbH\nAndere Firma GmbH\nMuster Technik GmbH', { absender: 'info@muster-technik.de' }), 'Muster Technik GmbH', 'Domain gibt den Ausschlag');
+}
 
 // Beträge, Fälligkeit, Währung (erfundene Texte)
 {

@@ -292,8 +292,10 @@ async function ugLaden(siteId, token) {
 /**
  * Lieferant einer Rechnung aus dem Register. treffer sagt, woher die Zuordnung kommt:
  * 'rechnung' (an dieser Rechnung bestätigt), 'vat' (gleiche USt-IdNr.), 'name' (gleicher
- * Name) oder 'alias' (Schreibweise aus dem PDF-Text, die schon einmal bestätigt wurde).
- * Name und Alias zählen nicht, wenn beide USt-IdNr. bekannt sind und sich unterscheiden.
+ * Name), 'alias' (Schreibweise aus dem PDF-Text, die schon einmal bestätigt wurde) oder
+ * 'absender' (die Rechnungsmail kam von der Adresse, die beim Lieferanten gemerkt ist).
+ * Name, Alias und Absender zählen nicht, wenn beide USt-IdNr. bekannt sind und sich
+ * unterscheiden.
  */
 function ugLieferantFuer(r) {
   const d = _ug.daten;
@@ -305,12 +307,15 @@ function ugLieferantFuer(r) {
     if (k) return treffer(k, 'vat');
   }
   const name = ugKey(r.steller);
-  if (!name) return null;
   const passt = k => !(r.ustid && d.lieferanten[k].vat && d.lieferanten[k].vat !== r.ustid);
-  if (d.lieferanten[name] && passt(name)) return treffer(name, 'name');
+  if (name && d.lieferanten[name] && passt(name)) return treffer(name, 'name');
   const k = name.length >= 5 && Object.keys(d.lieferanten).find(x => passt(x)
     && (d.lieferanten[x].aliase || []).some(a => ugKey(a) === name));
-  return k ? treffer(k, 'alias') : null;
+  if (k) return treffer(k, 'alias');
+  const absender = String(r.absenderMail || '').trim().toLowerCase();
+  const perMail = absender && _ugAbsenderOk(absender)
+    && Object.keys(d.lieferanten).find(x => passt(x) && String(d.lieferanten[x].mail || '').trim().toLowerCase() === absender);
+  return perMail ? treffer(perMail, 'absender') : null;
 }
 
 /** Einschätzung zur 800k-Grenze: der Lieferant aus dem Register, sofern er eingeschätzt ist. */
@@ -360,7 +365,8 @@ function ugLieferantMerken(alt, name, r, user, jetzt, opt) {
   e.vat = e.vat || o.vat || r.ustid || '';
   const gelesen = String(r.steller || '').trim();
   const aliase = (e.aliase || []).filter(a => ugKey(a) !== ugKey(e.name));
-  if (gelesen && ugKey(gelesen) !== ugKey(e.name) && !aliase.some(a => ugKey(a) === ugKey(gelesen))) aliase.push(gelesen);
+  const eigen = typeof istEigen === 'function' && istEigen(gelesen);
+  if (gelesen && !eigen && ugKey(gelesen) !== ugKey(e.name) && !aliase.some(a => ugKey(a) === ugKey(gelesen))) aliase.push(gelesen);
   if (aliase.length) e.aliase = aliase.slice(-10); else delete e.aliase;
   if (o.bestaetigen) {
     e.bestaetigtAm = jetzt;
@@ -523,21 +529,24 @@ function ugOffeneLieferanten(offen) {
   const map = new Map();
   const ohne = [];
   for (const r of offen) {
+    // Ein Lieferant aus dem Register geht vor dem gelesenen Namen
+    const reg = ugLieferantFuer(r);
     const n = ugKey(r.steller);
-    const vat = r.ustid || nameZuVat.get(n) || '';
-    const key = vat || n;
+    const vat = (reg && reg.vat) || r.ustid || nameZuVat.get(n) || '';
+    const key = reg ? 'r:' + reg.key : vat || n;
     if (!key) { ohne.push(r); continue; }
-    if (!map.has(key)) map.set(key, { key, vat, rechnungen: [], namen: new Map() });
+    if (!map.has(key)) map.set(key, { key, vat, rechnungen: [], namen: new Map(), mails: new Set(), feste: reg ? reg.name : '' });
     const g = map.get(key);
     g.rechnungen.push(r);
     const name = String(r.steller || '').trim();
     if (name) g.namen.set(name, (g.namen.get(name) || 0) + 1);
+    if (r.absenderMail) g.mails.add(String(r.absenderMail).toLowerCase().split('@').pop());
   }
   const gruppen = [...map.values()].map(g => {
     const name = [...g.namen.entries()].sort((a, b) => b[1] - a[1])[0];
     const mitBetrag = g.rechnungen.filter(r => r.brutto != null && (r.waehrung || 'EUR') === 'EUR');
     const land = g.vat && !/^DE/.test(g.vat) ? (/^CHE/.test(g.vat) ? 'CH' : g.vat.slice(0, 2)) : '';
-    return { key: g.key, vat: g.vat, name: name ? name[0] : g.vat, rechnungen: g.rechnungen, land,
+    return { key: g.key, vat: g.vat, name: g.feste || (name ? name[0] : g.vat), rechnungen: g.rechnungen, land, mails: [...g.mails].slice(0, 2),
       summe: mitBetrag.reduce((s, r) => s + Number(r.brutto), 0), mitBetrag: mitBetrag.length };
   }).sort((a, b) => b.rechnungen.length - a.rechnungen.length || a.name.localeCompare(b.name, 'de'));
   return { gruppen, ohne, klein: offen.filter(r => ugKleinVermutet(r)) };
@@ -612,7 +621,7 @@ function _ugSammelRender() {
   s.klein = klein;
   const geld = v => v.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
   const zeilen = gruppen.map((g, i) => {
-    const hinweis = [g.vat, g.land ? `vermutlich Ausland (${g.land})` : ''].filter(Boolean).join(' · ');
+    const hinweis = [g.vat, g.mails.join(', '), g.land ? `vermutlich Ausland (${g.land})` : ''].filter(Boolean).join(' · ');
     return `<tr>
       <td><div class="ug-s-name">${_esc(g.name)}</div>${hinweis ? `<div class="ug-s-info">${_esc(hinweis)}</div>` : ''}</td>
       <td class="ug-s-zahl">${g.rechnungen.length}</td>

@@ -29,6 +29,7 @@ gleich(M._monTitelEcht('20261967_DE811979246.xml', '20261967_DE811979246', '2026
 gleich(M._monTitelEcht('20261967_DE811979246', '20261967_DE811979246_lesbar', '20261967_DE811979246'), false, 'Dateiname ohne Endung');
 gleich(M._monTitelEcht('1324567', '1324567_DE140598967', '1324567_DE140598967'), true, 'echte Nummer');
 gleich(M._monTitelEcht('', 'x', 'x'), false, 'leer');
+gleich(M._monTitelEcht('4260554', '4260554_20261106', '4260554'), true, 'Ausgang: Title vor dem Datum im Dateinamen ist echt');
 
 // 3) Zeile aus SharePoint-Feldern
 const lib = { id: 'L1', werk: 'WGC', richtung: 'Eingang' };

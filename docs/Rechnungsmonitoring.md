@@ -125,7 +125,10 @@ Darunter steht grün die Absenderadresse der Rechnungsmail, die der Eingangs-Flo
 **Gelesene Werte:** Bei einer PDF ohne E-Rechnung liest `/api/intake` beim Eingang Lieferant,
 USt-IdNr., Nummer, Datum, Fälligkeit, Netto und Brutto aus dem PDF, bei einem Scan über den
 OCR-Dienst ([`ocr-service/`](../ocr-service/README.md)). Die Rechnung muss dafür niemand öffnen.
-Netto, Brutto und „Fällig am“ stehen dann grau und kursiv in der Tabelle, so wie der Name. Ein
+Netto, Brutto und „Fällig am“ stehen dann grau und kursiv in der Tabelle, so wie der Name. Eigene Werke sind nie
+Lieferant, auch wenn ihr Name in der Anschrift umbricht („Bösdorf GmbH“). Beschriftungen und reine
+Gattungen wie „Speditionsgesellschaft mbH“ bleiben leer.
+Ein
 Betrag gilt nur, wenn er sicher ist: Das Netto wird nur übernommen, wenn es zum Brutto passt.
 Fehlt eine Summenzeile, reicht ein Tripel im Text, das netto + Steuer = brutto zu 19 oder 7 %
 ergibt. Die Fälligkeit kommt aus dem Datum hinter „fällig“ oder „zahlbar bis“, sonst aus
@@ -219,7 +222,7 @@ Rechnungen ohne erkannten Lieferanten nennt der Dialog nur als Zahl, sie bleiben
 | Feld | Inhalt |
 |------|--------|
 | `name`, `vat`, `mail` | Name, USt-IdNr., Mailadresse für Kreditor-Mails |
-| `aliase` | Schreibweisen aus dem PDF-Text, die schon einmal zu diesem Lieferanten bestätigt wurden (höchstens 10) |
+| `aliase` | Schreibweisen aus dem PDF-Text, die schon einmal zu diesem Lieferanten bestätigt wurden (höchstens 10). Ein eigenes Werk wird nicht gemerkt |
 | `bestaetigtAm`, `bestaetigtVon`, `bestaetigtVonName` | Siegel: letzte Bestätigung durch die Kreditorenbuchhaltung („Bestätigen“ im 800k-Dialog, „Bearbeiten“) |
 | `vermutung`, `am`, `vonName`, `verlauf` | 800k-Einschätzung, falls es eine gibt |
 | `ausland` | Lieferant ohne Sitz in Deutschland: `land`, `landName`, `gruende`, wer und wann |
@@ -229,8 +232,10 @@ Rechnung `informiert`, `klein` (bestätigter Kleinbetrag mit Betrag) und `geprue
 „Geprüft“) fest, jeweils mit wer und wann. Gemerkt wird
 bei der 800k-Einschätzung und unter „Bearbeiten“, das Siegel gibt es nur mit „Bestätigen“
 bzw. einer Korrektur unter „Bearbeiten“. Eine neue Rechnung wird erkannt über
-die Zuordnung, die USt-IdNr., den Namen oder eine gemerkte Schreibweise. Name und
-Schreibweise zählen nicht, wenn beide USt-IdNr. bekannt sind und sich unterscheiden.
+die Zuordnung, die USt-IdNr., den Namen, eine gemerkte Schreibweise oder die Absenderadresse:
+Kommt die Rechnungsmail genau von der beim Lieferanten gemerkten `mail`, ist es dieser
+Lieferant, auch wenn im PDF etwas anderes gelesen wurde. noreply-Adressen zählen nicht. Name,
+Schreibweise und Adresse zählen nicht, wenn beide USt-IdNr. bekannt sind und sich unterscheiden.
 Die Kreditorenbuchhaltung braucht „Mitwirken“ auf den **Ordner** `Dokumente/Monitoring`, nicht
 nur auf einzelne Dateien darin: Die Registerdatei entsteht beim ersten Speichern und erbt die
 Rechte des Ordners. Sieht ein Konto den Ordner nicht, sagt das der Untertitel des Monitorings

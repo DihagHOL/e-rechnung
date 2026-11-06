@@ -262,6 +262,30 @@ delete global._esc; delete global._monDate;
   delete global._monDateien;
 }
 
+// Das eigene Werk wird keine Schreibweise eines Lieferanten
+{
+  global.istEigen = require('../js/lieferant.js').istEigen;
+  const e = ug.ugLieferantMerken({ name: 'Muster GmbH' }, 'Muster GmbH', { steller: 'Bösdorf GmbH' }, {}, '2026-11-06T08:00:00Z', {});
+  ok(!e.aliase, 'eigenes Werk nicht gemerkt');
+  ok(ug.ugLieferantMerken({ name: 'Muster GmbH' }, 'Muster GmbH', { steller: 'Muster Umwelt GmbH' }, {}, '2026-11-06T08:00:00Z', {}).aliase[0] === 'Muster Umwelt GmbH', 'andere Schreibweise schon');
+}
+
+// Lieferant über die Absenderadresse erkannt
+{
+  const d = ug._ug.daten;
+  d.lieferanten = { 'muster gmbh': { name: 'Muster GmbH', mail: 'Rechnung@Muster-Leipzig.de' }, 'portal gmbh': { name: 'Portal GmbH', mail: 'noreply@portal.test' } };
+  d.rechnungen = {};
+  const r = x => Object.assign({ richtung: 'Eingang', baseKey: 'A', steller: '' }, x);
+  ok(ug.ugLieferantFuer(r({ steller: 'Falsch Gelesen GmbH', absenderMail: 'rechnung@muster-leipzig.de' })).treffer === 'absender', 'Adresse ohne Groß- und Kleinschreibung');
+  ok(ug.ugLieferantFuer(r({ absenderMail: 'rechnung@muster-leipzig.de' })).name === 'Muster GmbH', 'auch ohne gelesenen Namen');
+  ok(!ug.ugLieferantFuer(r({ absenderMail: 'noreply@portal.test' })), 'noreply zählt nicht');
+  ok(!ug.ugLieferantFuer(r({ absenderMail: 'andere@muster-leipzig.de' })), 'nur die gemerkte Adresse');
+  d.lieferanten['muster gmbh'].vat = 'DE111111111';
+  ok(!ug.ugLieferantFuer(r({ ustid: 'DE222222222', absenderMail: 'rechnung@muster-leipzig.de' })), 'andere USt-IdNr. geht vor');
+  const { gruppen } = ug.ugOffeneLieferanten([r({ steller: 'Falsch Gelesen GmbH', absenderMail: 'rechnung@muster-leipzig.de' }), r({ baseKey: 'B', steller: 'Muster GmbH' })]);
+  ok(gruppen.length === 1 && gruppen[0].name === 'Muster GmbH' && gruppen[0].rechnungen.length === 2 && gruppen[0].mails[0] === 'muster-leipzig.de', 'im Dialog eine Gruppe mit dem Namen aus dem Register');
+}
+
 // 800k je Lieferant: eine Entscheidung für alle offenen Rechnungen
 {
   const d = ug._ug.daten;

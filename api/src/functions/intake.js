@@ -203,7 +203,7 @@ app.http('intake', {
       // Felder, die nicht sicher lesbar sind, bleiben null, damit der Flow sie leer laesst.
       // dateibasis bleibt leer: der Dateiname kommt weiter aus dem Anhang. Ein gelesener
       // Kleinbetrag blendet im Monitoring nichts aus, das bestätigt die Buchhaltung (ugKleinbetrag).
-      const k = isPdf ? await kopfdatenAusPdf(buf).catch(() => null) : null;
+      const k = isPdf ? await kopfdatenAusPdf(buf, { absender }).catch(() => null) : null;
       if (k) {
         res.daten = Object.assign(_leereDaten(), {
           nummer: k.nummer, datum: k.datum, faelligkeit: k.faelligkeit, steller: k.steller, stellerVat: k.stellerVat,

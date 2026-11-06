@@ -23,20 +23,21 @@ const nichtsGelesen = l => !l.name && !l.vat && !l.nummer;
 
 /**
  * @param {Buffer} pdfBuf
+ * @param {{absender?:string}} [optionen]  Absender der Rechnungsmail
  * @returns {Promise<null|{nummer, datum, faelligkeit, steller, stellerVat, netto, brutto, waehrung,
  *                         kleinunternehmer, quelle: 'pdf-text'|'ocr'}>}
  */
-async function kopfdatenAusPdf(pdfBuf) {
+async function kopfdatenAusPdf(pdfBuf, optionen) {
   if (!lieferant) return null;
   let text = '';
   try { text = (await pdfText(pdfBuf)).text; }
   catch (e) { /* kaputte Textebene: vielleicht liest die Texterkennung mehr */ }
-  let l = lieferant.lieferantAusText(text);
+  let l = lieferant.lieferantAusText(text, optionen);
   let quelle = 'pdf-text';
   if (!l.lesbar || nichtsGelesen(l)) {
     try {
       const items = await ocrItems(pdfBuf);
-      const o = items && items.length ? lieferant.lieferantAusText(lieferant.textAusItems(items)) : null;
+      const o = items && items.length ? lieferant.lieferantAusText(lieferant.textAusItems(items), optionen) : null;
       if (o && o.lesbar && !nichtsGelesen(o)) { l = o; quelle = 'ocr'; }
     } catch (e) { /* OCR nicht erreichbar: weiter wie ohne */ }
   }

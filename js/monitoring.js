@@ -417,7 +417,9 @@ function _monTitelEcht(titel, stem, baseKey) {
   const t = String(titel || '').trim();
   if (!t || /\.(pdf|xml)$/i.test(t) || /_kosit-?bericht$|_lesbar$/i.test(t)) return false;
   const k = t.toLowerCase();
-  return k !== String(stem || '').toLowerCase() && k !== String(baseKey || '').toLowerCase();
+  if (k === String(stem || '').toLowerCase()) return false;
+  // Ausgang „4260554_20261106.pdf“ mit Title 4260554: Das Datum gehört nicht zur Nummer, der Title ist echt
+  return /_\d{6,8}$/.test(String(stem || '')) || k !== String(baseKey || '').toLowerCase();
 }
 
 /**
@@ -1318,9 +1320,9 @@ function _monDetail(r, idx) {
         ['Name', p.name ? t(p.name) + t(_monPartnerQuelle(r, p)) : ''],
         ['Rechnungsmail von', t(r.absenderMail)], ['USt-IdNr.', t(r.ustid)]])
     + block('Beträge', [['Netto', t(_monGeld(r.netto, r))], ['Brutto', t(_monGeld(r.brutto, r))], ['Bestellnummer', t((b && b.bestellnr) || r.bestellnr)]])
-    + block('Prüfung', [['Ergebnis', t(r.konform)], ['Hinweis', t(_monHinweis(r))], ['Status', t(r.status)],
+    + block('Prüfung', [['Ergebnis', t(r.konform) + (r.richtung === 'Ausgang' ? ' (Selbstprüfung des Konverters beim Export)' : '')], ['Hinweis', t(_monHinweis(r))], ['Status', t(r.status)],
         ['Buchung', t(r.buchung) + (r.buchungAlt ? ` (gespeichert: ${t(r.buchungAlt)})` : '')], ['Prüfschritte', t(flags.join('\n'))],
-        ['Fehler', t(r.fehler)], ['Als geprüft markiert', geprueft ? t(wer(geprueft)) : ''], ['Aufbewahrung', r.gobdArchiviert ? t(r.complianceTag || 'GoBD-Aufbewahrung gesetzt') : ''],
+        ['Fehler', t(r.fehler)], ['Als geprüft markiert', geprueft ? t(wer(geprueft)) : ''], ['Aufbewahrung', t(r.complianceTag)],
         ['Mails', !sonstige && typeof ugMailsFuer === 'function' ? t(ugMailsFuer(r).slice(0, 3)
           .map(m => ({ Zurueckweisung: 'Zurückweisung: ', Abweichung: 'Hinweis auf Abweichungen: ' }[m.art] || '') + _ugMailStand(m))
           .join(String.fromCharCode(10))) : '']])
@@ -1335,7 +1337,7 @@ function _monDetail(r, idx) {
           b.kommentar && 'Kommentar: ' + b.kommentar].filter(Boolean).join('\n'))],
         ['GF gesehen', b.gfGesehen ? 'Ja' : ''], ['Notiz', t(b.notiz)]]) : '')
     + (dateien ? `<section><h4>Dateien</h4><div>${dateien}</div>${r.originalName && r.originalName !== r.file
-        ? `<p class="mon-det-klein">Dateiname beim Eingang: ${_esc(r.originalName)}</p>` : ''}</section>` : '')
+        ? `<p class="mon-det-klein">${r.richtung === 'Eingang' ? 'Dateiname beim Eingang' : 'Name der Quelldatei'}: ${_esc(r.originalName)}</p>` : ''}</section>` : '')
     + (r.listId && r.itemId ? `<section class="mon-ver"><h4>Versionsverlauf</h4>
         <button type="button" class="mon-reset" data-versionen="${idx}">Versionsverlauf anzeigen</button>
         <div class="mon-ver-liste"></div></section>` : '')
@@ -1824,7 +1826,7 @@ function _monPartnerQuelle(r, p) {
     ? `geprüft und bestätigt${wer ? ' von ' + wer : ''}${l.bestaetigtAm ? ' am ' + _monDate(l.bestaetigtAm) : ''}` : '';
   if (p.quelle === 'rechnung') return ` (${siegel || 'an dieser Rechnung eingetragen, noch nicht bestätigt'})`;
   if (p.quelle === 'register') {
-    return ` (aus dem Lieferantenregister über ${l.treffer === 'vat' ? 'die USt-IdNr.' : 'den Namen'}${siegel ? ', ' + siegel : ', noch nicht bestätigt'})`;
+    return ` (aus dem Lieferantenregister über ${l.treffer === 'vat' ? 'die USt-IdNr.' : l.treffer === 'absender' ? 'die Absenderadresse' : 'den Namen'}${siegel ? ', ' + siegel : ', noch nicht bestätigt'})`;
   }
   return siegel ? ` (${siegel})` : '';
 }

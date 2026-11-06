@@ -30,9 +30,13 @@
   const UMLAUT = s => s.replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss');
   const KLEIN = s => UMLAUT(String(s || '').toLowerCase());
 
+  // Bricht der Name im Anschriftenfeld um, steht nur der Rest in der Zeile:
+  // „SHB Stahl- und Hartgusswerk / Bösdorf GmbH“, „Eisenwerk / Arnstadt GmbH“.
+  const EIGENE_KURZ = /^(?:boesdorf|arnstadt|amstadt|coswig|lintorf|meuselwitz|schmiedeberg|eisenberg)\s+(?:gmbh|mbh)\b/;
+
   function istEigen(name) {
-    const k = KLEIN(name).replace(/[^a-z0-9 ]+/g, ' ');
-    return EIGENE_NAMEN.some(e => k.includes(UMLAUT(e)));
+    const k = KLEIN(name).replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    return EIGENE_NAMEN.some(e => k.includes(UMLAUT(e))) || EIGENE_KURZ.test(k) || /werk\s+a(?:rn|m)stad/.test(k);
   }
 
   /* ── USt-IdNr. ─────────────────────────────────────────────────────── */
@@ -68,25 +72,48 @@
 
   /* ── Name ──────────────────────────────────────────────────────────── */
 
+  // Kein Firmenname: Satzanfänge, Beschriftungen, Füllpunkte, Ziffernfolgen, OCR-Reste wie „Lı5ea“
+  function keinName(name) {
+    return /\.{3,}|^\d+[/.]|[a-zäöüßı]\d|\d[a-zäöüßı]|\d\s*(?:KG|AG)$/.test(name)
+      || /^(Zust(?:ä|ae)ndig|Gerichtsstand|Sitz\b|Gesch(?:ä|ae)ftsf|Finanzamt|Steuernummer|Lieferbedingung|Zahlungsbeding|Versandart|Verpackung|Rechtsform|Bruttogewicht|Nettogewicht|Gewicht|Bearbeiter|Sachbearbeiter)/i.test(name)
+      // Nur die Gattung ohne Firmenwort: Der eigentliche Name steht im Logo
+      || /^\S*(?:gesellschaft|fachgro(?:ß|ss)handel)\s+(?:mbH|GmbH|AG|KG)/i.test(name)
+      || /\b(Amtsgericht|Registergericht|Handelsregister|Bank|Sparkasse|Postbank|Commerzbank|Verwaltungs|PHG|Komplement)/i.test(name);
+  }
+
   // Teil einer Zeile, der der Firmenname ist: bis einschließlich Rechtsform.
   function nameAusZeile(z) {
+    if (/^\s*(?:Empf|Abs|Lief)\.\s*:?/i.test(z)) return '';            // Angaben zur Fracht
     const teile = z.split(/\s+[-–|·•I]\s+|\s{3,}|\s*\|\s*|\s*·\s*|,\s+(?=\D)/);
-    for (const t of teile) {
+    for (let i = 0; i < teile.length; i++) {
+      const t = teile[i];
       const m = RECHTSFORM.exec(t);
       if (!m) continue;
       let name = t.slice(0, m.index + m[0].length).trim();
-      name = name.replace(/^(Firma|Ihre|Rechnungssteller|Lieferant|Absender|Kontoinhaber|Ansprechpartner)\s*:?\s+/i, '').trim();
+      name = name.replace(/^(Firma|Ihre|Rechnungssteller|Lieferant|Absender|Kontoinhaber|Ansprechpartner|Zahlungsempf(?:ä|ae)nger|Verk(?:ä|ae)ufer|Aussteller)\s*:?\s+/i, '').trim();
+      // „RHM Rohstoff - Handelsgesellschaft mbH“: Der Strich gehört zum Namen
+      if (i > 0 && /^\S*(?:gesellschaft|handel|technik|service|logistik)\s+\S+$/i.test(name) && !/\d/.test(teile[i - 1])) name = `${teile[i - 1].trim()} - ${name}`;
       if (name.length < 4 || name.length > 80) continue;
       if (!/[A-Za-zÄÖÜäöü]{2}/.test(name.replace(RECHTSFORM, ''))) continue;
-      if (/\b(Amtsgericht|Registergericht|Handelsregister|Bank|Sparkasse|Postbank|Commerzbank|Verwaltungs|PHG|Komplement)/i.test(name)) continue;
+      if (keinName(name)) continue;
       return name;
     }
     return '';
   }
 
-  function nameKandidaten(zeilen, vatZeilen) {
+  /** Wörter aus der Domain des Absenders, die im Firmennamen stehen können. */
+  function domainWoerter(absender) {
+    const mail = String(absender || '').toLowerCase().trim();
+    const dom = mail.split('@')[1] || '';
+    if (!dom || istEigeneMail(mail)) return [];
+    return dom.split('.').slice(0, -1).join('-').split(/[^a-z0-9]+/)
+      .filter(w => w.length >= 4 && !/^(rechnung|rechnungen|invoice|invoices|billing|portal|mail|email|service|online|group|gruppe|gmbh|team|info)$/.test(w));
+  }
+
+  function nameKandidaten(zeilen, vatZeilen, absender) {
     const n = zeilen.length;
     const map = new Map();
+    const woerter = domainWoerter(absender);
     zeilen.forEach((z, i) => {
       const name = nameAusZeile(z);
       if (!name || istEigen(name)) return;
@@ -100,16 +127,34 @@
       if (vatZeilen.some(v => Math.abs(v - i) <= 6)) e.punkte += 2;
       if (/^\s*(Ihre|Lieferung an|Rechnungsempf|Firma\s*:)/i.test(z)) e.punkte -= 3;
       e.punkte += 1;                                       // jedes Vorkommen zählt
+      // Name passt zur Domain der Rechnungsmail
+      if (woerter.some(w => key.includes(w))) e.punkte += 6;
       // längere, vollständige Schreibweise behalten (z. B. „GmbH & Co. KG")
       if (name.length > e.name.length && KLEIN(name).startsWith(KLEIN(e.name).slice(0, 6))) e.name = name;
       map.set(key, e);
     });
+    // Domain der Rechnungsmail, der Name steht aber mitten in einer mehrspaltigen Zeile
+    if (![...map.values()].some(e => e.punkte >= 6)) {
+      for (const w of woerter) {
+        const re = new RegExp(`\\b${w}\\b[^,;|·]{0,40}?${RECHTSFORM.source}`, 'gi');
+        for (const z of zeilen) {
+          for (const m of UMLAUT(z).matchAll(re)) {
+            const name = m[0].replace(/\s+/g, ' ').trim();
+            if (istEigen(name) || keinName(name)) continue;
+            const key = KLEIN(name).replace(/[^a-z0-9]+/g, '');
+            const e = map.get(key) || { name, punkte: 5, zeilen: [] };
+            e.punkte += 1;
+            map.set(key, e);
+          }
+        }
+      }
+    }
     // Absenderzeile ohne Rechtsform („REL technischer Großhandel, Seestr. 23a, 01640 Coswig")
     if (!map.size) {
       const absender = /^\s*([^,|·•]{3,60}?)\s*(?:,|\s[-–|·•]\s)\s*[^,|·•]{3,40}?\d+\s?[a-z]?\s*(?:,|\s[-–|·•]\s)\s*\d{4,5}\s+[A-ZÄÖÜ]/;
       for (let i = 0; i < Math.min(n, 30); i++) {
         const m = absender.exec(zeilen[i]);
-        if (!m || istEigen(m[1]) || /^(Postfach|Lieferung|Lieferanschrift|Rechnungsanschrift|Kommission)/i.test(m[1])) continue;
+        if (!m || istEigen(m[1]) || keinName(m[1]) || /^(Postfach|Lieferung|Lieferanschrift|Rechnungsanschrift|Kommission)/i.test(m[1])) continue;
         map.set('absender', { name: m[1].trim(), punkte: 3, zeilen: [i] });
         break;
       }
@@ -526,11 +571,12 @@
 
   /**
    * @param {string} text  PDF-Text (Zeilen durch Zeilenumbruch getrennt)
+   * @param {{absender?:string}} [optionen]  Absender der Rechnungsmail, hilft bei der Wahl des Namens
    * @returns {{name:string, vat:string, mail:string, nummer:string, datum:string, faelligkeit:string,
    *            netto:(number|null), brutto:(number|null), waehrung:string, summenGeprueft:boolean,
    *            kleinunternehmer:boolean, ausland:(null|{land, landName, gruende}), lesbar:boolean}}
    */
-  function lieferantAusText(text) {
+  function lieferantAusText(text, optionen) {
     const roh = String(text || '');
     const zeilen = roh.split(/\r?\n/).map(z => z.replace(/\s+$/, '')).filter(z => z.trim());
     const lesbar = (roh.match(/[A-Za-z0-9]/g) || []).length >= 80;
@@ -543,7 +589,7 @@
     const vatWahl = (eigeneVat.find(v => v.label) || eigeneVat[0] || {}).vat || '';
     const vatZeilen = vats.filter(v => v.vat === vatWahl).map(v => v.zeile);
 
-    const namen = nameKandidaten(zeilen, vatZeilen);
+    const namen = nameKandidaten(zeilen, vatZeilen, optionen && optionen.absender);
     const name = namen.length && namen[0].punkte >= 3 ? namen[0].name.replace(/\s+/g, ' ') : '';
 
     // Summen: Beschriftete Zeile und Tripel netto + Steuer = brutto. Passt beides nicht
@@ -623,7 +669,7 @@
       .join(String.fromCharCode(10));
   }
 
-  const api = { lieferantAusText, istEigen, istEigeneMail, EIGENE_VAT, textAusPdf, textAusItems };
+  const api = { lieferantAusText, istEigen, keinName, istEigeneMail, EIGENE_VAT, textAusPdf, textAusItems };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else Object.assign(global, api);
 })(typeof window !== 'undefined' ? window : globalThis);
