@@ -416,6 +416,14 @@ höchstens 15 MB). Ist es nicht PDF/A-3b oder lässt es sich nicht prüfen, erze
 aus den Rechnungsdaten und sagt das per Hinweis. So entsteht bei keinem Werk ein Formatfehler beim
 Empfänger. Tests: `tests/pdfa-api.test.js`, `tests/pdfa-konverter.test.js`.
 
+**Nachtrag (06.11.2026): Zu- und Abschläge an der Position im lesbaren PDF**
+Eine Rechnung kann Fracht oder Rabatt direkt an der Position führen (BG-27, BG-28). Der Positionswert
+BT-131 enthält sie dann, die XML ist richtig. Das lesbare PDF zeigte nur diesen Wert, Menge mal Preis ging
+in der Zeile also nicht auf. `parseInvoiceXML` liest die Posten jetzt je Position (`zuAbschlaege`, CII und UBL), und
+`buildInvoicePdf` zeigt in der Zeile den Warenwert und darunter jeden Posten mit Betrag. In UBL zählt nur
+`AllowanceCharge` direkt an der Zeile, das unter `Price` ist der Preisnachlass (BT-147). Bereits abgelegte
+lesbare PDFs ändern sich dadurch nicht. Test: `tests/positionszuschlag.test.js`.
+
 **Nachtrag (06.11.2026): ZUGFeRD mit dem eigenen PDF als Standard**
 Der Haken „PDF aus Rechnungsdaten erzeugen“ ist nicht mehr gesetzt. ZUGFeRD nimmt das hochgeladene PDF, macht
 daraus PDF/A-3b und prüft das Ergebnis mit veraPDF. Aus den Rechnungsdaten entsteht es nur, wenn es kein Original

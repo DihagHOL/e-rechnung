@@ -8,7 +8,7 @@
  *
  * Genehmigung: Der Dialog setzt an der Datei GenehmigungAnfordern = Ja, dazu
  * Genehmiger, Kommentar, wer angefordert hat und an wen nach der Genehmigung die
- * Info zum Austragen im abas geht. Der Flow „Genehmigung <Werk>“ reagiert auf den
+ * Info an den Einkauf geht. Der Flow „Genehmigung <Werk>“ reagiert auf den
  * Haken, setzt ihn zurück und schreibt das Ergebnis (Genehmigt, Genehmigt von/am,
  * Genehmigungskommentar). Kein Flow-Link in der Webseite, Rechte regelt SharePoint.
  *
@@ -181,7 +181,7 @@ function bhAnforderung(p) {
   let abas = '';
   if (p.abasInfo) {
     abas = bhMails(p.abasInfoAn);
-    if (!abas) throw new Error('Bitte eine gültige Adresse für die Info zum Austragen im abas angeben.');
+    if (!abas) throw new Error('Bitte eine gültige Adresse für die Info an Einkauf angeben.');
   }
   return {
     GenehmigungAnfordern: true,
@@ -492,7 +492,7 @@ function bhDialogOeffnen(r, onGespeichert, wechsel) {
       </div>` : `<div class="bh-box">
         <p class="bh-stand">${stand ? _esc(stand) : 'Noch keine Genehmigung angefordert.'}</p>
         ${b.kommentar ? `<p class="bh-stand">Kommentar des Genehmigers: ${_esc(b.kommentar)}</p>` : ''}
-        ${b.abasGesendet ? `<p class="bh-stand">Info zum Austragen im abas ging an ${_esc(b.abasInfoAn)}.</p>` : ''}
+        ${b.abasGesendet ? `<p class="bh-stand">Info an Einkauf ging an ${_esc(b.abasInfoAn)}.</p>` : ''}
         <label class="bh-check"><input type="checkbox" id="bh-anfordern"> ${laeuft ? 'Genehmigung neu anfordern' : 'Genehmigung anfordern'}</label>
         <div id="bh-anf" style="display:none;">
           <div class="ug-lbl bh-such"><label for="bh-genehmiger">Genehmiger (Name oder Mail eintippen, mehrere mit ;)</label>
@@ -500,7 +500,7 @@ function bhDialogOeffnen(r, onGespeichert, wechsel) {
               role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="bh-genehmiger-vorschlaege">
             <ul class="bh-vorschlaege" id="bh-genehmiger-vorschlaege" role="listbox" hidden></ul></div>
           <label class="ug-lbl">Kommentar an den Genehmiger<textarea id="bh-anfkommentar" rows="2"></textarea></label>
-          <label class="bh-check"><input type="checkbox" id="bh-abas"${abasVorgabe ? ' checked' : ''}> Nach der Genehmigung Info zum Austragen im abas an</label>
+          <label class="bh-check"><input type="checkbox" id="bh-abas"${abasVorgabe ? ' checked' : ''}> Info an Einkauf</label>
           <div class="bh-raster bh-abas">
             <div class="ug-lbl bh-such"><label for="bh-abasan">Adresse (Name oder Mail)</label>
               <input id="bh-abasan" value="${_esc(abasVorgabe)}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="bh-abasan-vorschlaege">

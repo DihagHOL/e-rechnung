@@ -509,7 +509,7 @@ const EINSCHAETZUNG = {
 const FREIGABE = {
   key: 'freigabe', file: '01d-freigabe.bpmn', tab: 'eingang', von: 'eingang',
   name: 'E-Rechnung Eingangsrechnung freigeben', kennung: 'Process_ERechnung_Freigabe',
-  doku: 'Die Kreditorenbuchhaltung trägt im Monitoring Varialnummer, Kontierung und Bestellnummer ein und fordert die Genehmigung an. Ein Flow je Werk schickt die Rechnung mit PDF an den Genehmiger und schreibt die Antwort an die Rechnung. Bei Genehmigung geht auf Wunsch eine Info an die Adresse zum Austragen im abas, bei Ablehnung eine Mail an den, der angefordert hat. Das ersetzt die Eingangsrechnungslisten auf gruppe_wgc und gruppe_shb. Gilt für WGC und SHB. ZAI, HOL, LEG, EWA, EIS und DSO genehmigen im SAP.',
+  doku: 'Die Kreditorenbuchhaltung trägt im Monitoring Varialnummer, Kontierung und Bestellnummer ein und fordert die Genehmigung an. Ein Flow je Werk schickt die Rechnung mit PDF an den Genehmiger und schreibt die Antwort an die Rechnung. Bei Genehmigung geht auf Wunsch eine Info an den Einkauf, bei Ablehnung eine Mail an den, der angefordert hat. Das ersetzt die Eingangsrechnungslisten auf gruppe_wgc und gruppe_shb. Gilt für WGC und SHB. ZAI, HOL, LEG, EWA, EIS und DSO genehmigen im SAP.',
   pools: [{
     id: 'P_Frei', name: 'Eingangsrechnung freigeben (Monitoring und Genehmigungs-Flow je Werk)', main: true,
     lanes: [
@@ -528,7 +528,7 @@ const FREIGABE = {
       { id: 'G_pruef', k: 'user', n: 'Rechnung prüfen und genehmigen oder ablehnen', lane: 'LG9', c: 7, r: 0 },
       { id: 'G_gw', k: 'gw', n: 'Genehmigt?', lane: 'LF9', c: 8, r: 0 },
       { id: 'G_ja', k: 'service', n: 'Genehmigt, Genehmiger und Kommentar speichern', lane: 'LF9', c: 9, r: 0 },
-      { id: 'G_gwAbas', k: 'gw', n: 'Info zum Austragen im abas angegeben?', lane: 'LF9', c: 10, r: 0 },
+      { id: 'G_gwAbas', k: 'gw', n: 'Info an Einkauf angegeben?', lane: 'LF9', c: 10, r: 0 },
       { id: 'G_abas', k: 'service', n: 'Info mit PDF an die abas-Adresse senden', lane: 'LF9', c: 11, r: 1 },
       { id: 'G_vermerk', k: 'service', n: 'Info abas gesendet vermerken', lane: 'LF9', c: 12, r: 1 },
       { id: 'G_endJa', k: 'end', n: 'genehmigt', lane: 'LF9', c: 13, r: 0 },

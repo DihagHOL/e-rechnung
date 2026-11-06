@@ -281,7 +281,10 @@ async function buildInvoicePdf(data) {
       tableHeader();
     }
 
-    const gesamt = p.gesamt || (p.menge * p.einzelpreis);
+    // Zu- und Abschläge der Position: Der Positionswert der XML (BT-131) enthält sie schon.
+    // Damit Menge mal Preis aufgeht, steht in der Zeile der Warenwert, darunter jeder Posten.
+    const zuAb = (p.zuAbschlaege || []).filter(z => z.betrag);
+    const gesamt = (p.gesamt || (p.menge * p.einzelpreis)) - zuAb.reduce((s, z) => s + (z.zuschlag ? z.betrag : -z.betrag), 0);
     text(String(p.posnr || (i + 1)), cols.nr.x, y, { size: 9, color: gray });
     beschLines.forEach((l, li) => text(l, cols.besch.x, y - li * 11, { size: 9 }));
     textRight(String(p.menge ?? ''), cols.menge.x + cols.menge.w, y, { size: 9 });
@@ -307,7 +310,14 @@ async function buildInvoicePdf(data) {
       text(l, cols.besch.x, y + 2, { size: 8, color: gray });
       y -= 10;
     });
-    if (zusatz.length) y -= 2;
+    zuAb.forEach(z => {
+      if (y < M + 40) { newPage(); tableHeader(); }
+      const art = z.zuschlag ? 'zzgl.' : 'abzgl.';
+      text(`${art} ${z.grund || (z.zuschlag ? 'Zuschlag' : 'Abschlag')}`.slice(0, 80), cols.besch.x, y + 2, { size: 8, color: gray });
+      textRight(fmtEur(z.zuschlag ? z.betrag : -z.betrag), cols.gesamt.x + cols.gesamt.w, y + 2, { size: 8, color: gray });
+      y -= 10;
+    });
+    if (zusatz.length || zuAb.length) y -= 2;
     hline(y + 4);
     y -= 6;
   });

@@ -45,7 +45,7 @@ Flow „Genehmigung WGC (Monitoring)“  (Trigger: Datei in ERAR_WGC geändert, 
 ```
 
 Das macht dasselbe wie der bisherige Flow „Genehmigung WGC“. Neu ist, dass die Adresse für
-die Info zum Austragen im abas wählbar ist. Vorbelegt ist sie mit der Vorgabe des Werks aus
+die Info an Einkauf wählbar ist. Vorbelegt ist sie mit der Vorgabe des Werks aus
 `Monitoring/monitoring-einstellungen.json` auf der Monitoring-Site (für WGC Hr. Lang). Im Dialog
 lässt sich die Vorgabe nicht mehr ändern, eine andere Adresse gilt nur für diese Rechnung.
 
@@ -148,7 +148,7 @@ https://make.powerautomate.com, „Erstellen“, **„Automatisierter Cloud-Flow
       `false`. Im Zweig „Wahr“:
       - Office 365 Outlook **„E-Mail senden (V2)“**
         - An: **Info zum Austragen im abas an**
-        - Betreff: **Rechnungsnummer** ` || ` **Varialnummer** ` wurde genehmigt`
+        - Betreff: `Rechnung freigegeben: ` **Rechnungssteller** ` | ` **Rechnungsnummer**
         - Text: wer genehmigt hat, Kommentar, Kontierung, Bestellnummer und der Link zur Rechnung
         - Anlagen: Name = **Dateiname mit Erweiterung**, Inhalt = **Dateiinhalt** (aus `PDF`)
       - darunter „Dateieigenschaften aktualisieren“: „Info abas gesendet (WL)“ = **Ja**
@@ -214,7 +214,7 @@ Für SHB gibt es `Genehmigung SHB (Monitoring)`. Vorbereitet und noch aus: MEG u
      Lieferanten tragen das Siegel „✓ Bestätigt“, in der Tabelle ein grünes ✓. Unter dem Feld
      steht, woher Nummer und Lieferant stammen.
 3. Genehmigung: „Genehmigung anfordern“ anhaken, Genehmiger eintragen (mehrere mit `;`, dann
-   gilt die erste Antwort), Kommentar, bei Bedarf die Info zum Austragen im abas, „Speichern
+   gilt die erste Antwort), Kommentar, bei Bedarf die Info an Einkauf, „Speichern
    und Genehmigung anfordern“.
    - Beim Tippen von Name oder Mail schlägt das Feld Personen vor: zuletzt verwendete,
      Genehmiger aus dem Monitoring und, mit Freigabe, das Firmenverzeichnis. Pfeiltasten und

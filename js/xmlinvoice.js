@@ -426,7 +426,15 @@ function _extraCII(trans, agreement, delivery, settle, r) {
     addEx('Ursprungsland (BT-159)', _t(prod, 'OriginTradeCountry', 'ID'));
     for (const ch of _all(prod, 'ApplicableProductCharacteristic')) addEx(_t(ch, 'Description') || 'Merkmal', _t(ch, 'Value'));
     p.posExtra = ex;
+    p.zuAbschlaege = _children(_q(li, 'SpecifiedLineTradeSettlement'))
+      .filter(c => c.localName === 'SpecifiedTradeAllowanceCharge')
+      .map(ac => _zuAbschlag(_t(ac, 'ChargeIndicator', 'Indicator'), _t(ac, 'ActualAmount'), _t(ac, 'Reason')));
   });
+}
+
+/** Zu- oder Abschlag einer Position (BG-27, BG-28). Der Positionswert BT-131 enthält ihn schon. */
+function _zuAbschlag(indikator, betrag, grund) {
+  return { zuschlag: /^(true|1)$/i.test(indikator), betrag: Math.abs(parseFloat(betrag)) || 0, grund: grund || '' };
 }
 
 /** UBL: füllt r.weitere + je Position r.positionen[i].note / .posExtra */
@@ -478,5 +486,8 @@ function _extraUBL(root, r) {
     addEx('Ursprungsland (BT-159)', _t(item, 'OriginCountry', 'IdentificationCode'));
     for (const ap of _all(item, 'AdditionalItemProperty')) addEx(_t(ap, 'Name') || 'Merkmal', _t(ap, 'Value'));
     p.posExtra = ex;
+    // Nur direkt an der Zeile: AllowanceCharge unter Price ist der Preisnachlass (BT-147)
+    p.zuAbschlaege = _children(li).filter(c => c.localName === 'AllowanceCharge')
+      .map(ac => _zuAbschlag(_t(ac, 'ChargeIndicator'), _t(ac, 'Amount'), _t(ac, 'AllowanceChargeReason')));
   });
 }

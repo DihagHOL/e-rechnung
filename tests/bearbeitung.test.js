@@ -60,7 +60,7 @@ gleich(a.Bearbeitungsstatus, 'In Genehmigung', 'Bearbeitungsstatus');
 gleich(a.GenehmigtVon, '', 'altes Ergebnis geleert');
 gleich(B.bhAnforderung({ genehmiger: 'chef@x.de', abasInfo: false, abasInfoAn: 'egal' }).AbasInfoAn, '', 'ohne abas-Info');
 wirft(() => B.bhAnforderung({ genehmiger: '' }), /Genehmigers/, 'Genehmiger fehlt');
-wirft(() => B.bhAnforderung({ genehmiger: 'chef@x.de', abasInfo: true, abasInfoAn: 'kaputt' }), /abas/, 'abas-Adresse kaputt');
+wirft(() => B.bhAnforderung({ genehmiger: 'chef@x.de', abasInfo: true, abasInfoAn: 'kaputt' }), /Info an Einkauf/, 'Adresse für die Info an Einkauf kaputt');
 
 // 7) Stand und „in Genehmigung“
 const s = f => B.bhAusFeldern(f);
