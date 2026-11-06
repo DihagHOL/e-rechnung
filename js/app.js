@@ -465,8 +465,10 @@ async function _kundenMailsLaden() {
 async function _kundenMailVorschlagen(data) {
   const el = document.getElementById('kaeufer-email');
   const hinweis = document.getElementById('kaeufer-email-hinweis');
-  if (!el || el.value.trim() || v('leitwegid') || typeof kundenMailFinden !== 'function') return;
+  if (typeof kundenMailFinden !== 'function') return;
+  // Auch wenn die Adresse aus dem PDF kommt: Export und Mail gleichen sie mit dem Register ab
   const k = await _kundenMailsLaden();
+  if (!el || el.value.trim() || v('leitwegid')) return;
   const e = kundenMailFinden(k.eintraege, {
     gesellschaft: v('gesellschaft') || data.gesellschaft, kundennummer: data.kundennummer,
     kaeufervat: data.kaeufervat, kaeufer: data.kaeufer,
@@ -965,6 +967,10 @@ function validateForm(data) {
   // PEPPOL-R010: BT-49 — Leitweg-ID oder E-Mail
   if (!data.leitwegid && !data.kaeufermail)
     errors.push('Rechnungsempfänger: Leitweg-ID oder E-Mail (elektronische Adresse)');
+  if (typeof kundenMailGueltig === 'function') {
+    if (data.kaeufermail && !kundenMailGueltig(data.kaeufermail)) errors.push('Rechnungsempfänger: E-Mail ist keine gültige Adresse');
+    if (data.verkaeuferemail && !kundenMailGueltig(data.verkaeuferemail)) errors.push('Rechnungssteller: E-Mail ist keine gültige Adresse');
+  }
 
   // Rechnungsdaten
   if (!data.rechnungsnummer)  errors.push('Rechnungsnummer');
@@ -1063,15 +1069,19 @@ function _ausgangRueckfragen(data) {
   // Rechnungsadresse des Kunden darf nicht die eigene sein (z. B. die Adresse dessen,
   // der die Rechnung erstellt): dann käme die E-Rechnung nie beim Kunden an.
   const _ich = ((typeof getAuthUser === 'function' && getAuthUser()) || {}).username || '';
+  const zurueck = () => { document.getElementById('kaeufer-email').focus(); return false; };
   if (!data.leitwegid && typeof kundenMailIstEigen === 'function'
-    && (kundenMailIstEigen(data.kaeufermail, data.verkaeuferemail)
+    && (kundenMailIstEigen(data.kaeufermail, data.verkaeuferemail) || kundenMailImKonzern(data.kaeufermail, data.kaeufer)
       || (_ich && data.kaeufermail.trim().toLowerCase() === _ich.toLowerCase()))) {
     if (!window.confirm(`Die Rechnungsadresse des Kunden (${data.kaeufermail}) gehört zur eigenen Firma. `
-      + 'Eingetragen werden sollte das Rechnungspostfach des Kunden. Trotzdem fortfahren?')) {
-      document.getElementById('kaeufer-email').focus();
-      return false;
-    }
+      + 'Eingetragen werden sollte das Rechnungspostfach des Kunden. Trotzdem fortfahren?')) return zurueck();
   }
+
+  // Gegen die gemerkten Adressen: Eine Adresse aus dem ERP kann zu einem anderen Kunden gehören
+  const ab = _kundenMails && typeof kundenMailAbweichung === 'function' ? kundenMailAbweichung(_kundenMails.eintraege, data) : null;
+  if (ab && !window.confirm(ab.art === 'gemerkt'
+    ? `Für ${data.kaeufer} ist ${ab.eintrag.mail} als Rechnungsadresse gemerkt, auf dieser Rechnung steht ${data.kaeufermail}. Trotzdem ${data.kaeufermail} verwenden?`
+    : `${data.kaeufermail} ist als Rechnungsadresse von ${ab.eintrag.name} gemerkt, diese Rechnung geht an ${data.kaeufer}. Trotzdem verwenden?`)) return zurueck();
   return true;
 }
 
@@ -1098,12 +1108,10 @@ async function _exportErstellen(data, format, totals) {
 
     if (format === 'zugferd') {
       try {
-        pdfBytes = await _buildZugferdPdf(data, totals, xml, ust);   // #6: Original einbetten ODER aus Daten rendern
+        pdfBytes = await _buildZugferdPdf(data, totals, xml, ust);   // #6: eigenes PDF, im Notfall aus den Daten
       } catch (e) {
         showLoading(false);
-        showToast(e.message === 'NO_PDF'
-          ? 'Für ZUGFeRD bitte zuerst eine PDF-Datei hochladen — oder „PDF aus Rechnungsdaten erzeugen" aktivieren.'
-          : 'ZUGFeRD-Erstellung fehlgeschlagen: ' + e.message, 'error');
+        showToast('ZUGFeRD-Erstellung fehlgeschlagen: ' + e.message, 'error');
         return;
       }
       downloadBlob(pdfBytes, `${safeNr}_zugferd.pdf`, 'application/pdf');
@@ -1212,19 +1220,15 @@ async function createInvoiceMail() {
     console.warn('Mail.ReadWrite nicht verfügbar — .eml-Fallback:', e);
   }
 
-  // Format: ZUGFeRD wenn ein PDF vorliegt ODER aus Daten gerendert wird (#6), sonst XRechnung-XML
-  const renderFromData = !!(document.getElementById('opt-render-pdf') || {}).checked;
-  const useZugferd = !!uploadedPdfBytes || renderFromData;
-
   // #2/#3/#4: gleiche Prüfungen wie beim Export
   const totals = calcTotals(data.positionen, data.steuerbetrag);
   if (!_preflightChecks(data, totals)) return;
   if (typeof vorlagenVorExport === 'function' && !(await vorlagenVorExport(data))) return;
 
-  showLoading(true, useZugferd ? 'ZUGFeRD wird erstellt …' : 'XRechnung wird erstellt …');
+  showLoading(true, 'ZUGFeRD wird erstellt …');
 
   try {
-    const xml = buildXML(data, useZugferd ? 'zugferd' : 'xrechnung');
+    const xml = buildXML(data, 'zugferd');
 
     // #5: Selbstverifikation
     const rt = _verifyEmbeddedXml(xml, data, totals);
@@ -1237,21 +1241,15 @@ async function createInvoiceMail() {
     const { grossTotal } = totals;
     const safeNr = sanitizeFilename(data.rechnungsnummer);
 
-    const attachments = [];
-    let pdfBytes = null;
-    if (useZugferd) {
-      pdfBytes = await _buildZugferdPdf(data, totals, xml);   // #6
-      attachments.push({ filename: `${safeNr}_zugferd.pdf`, mime: 'application/pdf', base64: bytesToBase64(pdfBytes) });
-    } else {
-      attachments.push({ filename: `${safeNr}_xrechnung.xml`, mime: 'application/xml', base64: _utf8ToBase64('﻿' + xml) });
-    }
+    const pdfBytes = await _buildZugferdPdf(data, totals, xml);   // #6
+    const attachments = [{ filename: `${safeNr}_zugferd.pdf`, mime: 'application/pdf', base64: bytesToBase64(pdfBytes) }];
 
     // Wie beim Export im Monitoring ablegen (GoBD), es sei denn, genau diese Fassung liegt schon dort
     const ust = (typeof window.matchingVatCheck === 'function') ? window.matchingVatCheck(data.kaeufervat) : null;
-    await _imMonitoringAblegen(data, totals, xml, pdfBytes, useZugferd ? 'zugferd' : 'xrechnung', ust);
+    await _imMonitoringAblegen(data, totals, xml, pdfBytes, 'zugferd', ust);
     showLoading(true, 'Mail wird erstellt …');
 
-    const { subject, body } = _mailSubjectBody(data, grossTotal, useZugferd);
+    const { subject, body } = _mailSubjectBody(data, grossTotal, true);
 
     // 1) Direkt in Outlook als Entwurf anlegen (Microsoft Graph, kein Download)
     if (mailToken) {
@@ -1289,6 +1287,11 @@ async function createInvoiceMail() {
   }
 }
 
+/** Empfänger der Rechnungsmail: alle Adressen aus dem Feld (in der E-Rechnung steht nur die erste). */
+function _mailEmpfaenger(data) {
+  return typeof kundenMailListe === 'function' ? kundenMailListe(data.kaeufermail) : (data.kaeufermail ? [data.kaeufermail] : []);
+}
+
 /** Erstellt einen Outlook-Entwurf mit Anhang direkt im Postfach (Graph). */
 async function _createOutlookDraft(token, data, subject, body, attachments) {
   // Werke mit eigenem Rechnungspostfach (EWA: invoicing@): Absender ist das Postfach.
@@ -1298,9 +1301,7 @@ async function _createOutlookDraft(token, data, subject, body, attachments) {
     ...(postfach ? { from: { emailAddress: { address: postfach } } } : {}),
     subject,
     body: { contentType: 'Text', content: body },
-    toRecipients: data.kaeufermail
-      ? [{ emailAddress: { address: data.kaeufermail, name: data.kaeufer || undefined } }]
-      : [],
+    toRecipients: _mailEmpfaenger(data).map(address => ({ emailAddress: { address, name: data.kaeufer || undefined } })),
     attachments: attachments.map(a => ({
       '@odata.type': '#microsoft.graph.fileAttachment',
       name:         a.filename,
@@ -1357,7 +1358,7 @@ function _buildInvoiceEml(data, subject, body, attachments) {
 
   const lines = [];
   // Kein From: → Outlook nutzt das Standardkonto des Benutzers
-  lines.push(`To: ${data.kaeufermail ? _emlAddr(data.kaeufer, data.kaeufermail) : ''}`);
+  lines.push(`To: ${_mailEmpfaenger(data).map(m => _emlAddr(data.kaeufer, m)).join(', ')}`);
   lines.push(`Subject: =?UTF-8?B?${_utf8ToBase64(subject)}?=`);
   lines.push('X-Unsent: 1');
   lines.push('MIME-Version: 1.0');
@@ -1487,21 +1488,11 @@ function _verifyEmbeddedXml(xml, data, totals) {
 }
 
 /**
- * #6: ZUGFeRD-PDF bauen. Standard = Original-PDF + XML einbetten.
- * Bei aktiver Option „PDF aus Rechnungsdaten erzeugen" wird das PDF aus
- * denselben Daten wie das XML gerendert → PDF ≡ XML per Konstruktion.
+ * #6: ZUGFeRD-PDF bauen. Standard ist das eigene PDF: Original + XML, als PDF/A-3b geprüft.
+ * Aus den Rechnungsdaten entsteht es nur, wenn es kein Original gibt (manuelle Rechnung, Formular
+ * ohne Upload), wenn die Option gewählt ist oder wenn sich das Original nicht umwandeln lässt.
  */
 async function _buildZugferdPdf(data, totals, xml, ust) {
-  const renderFromData = !!(document.getElementById('opt-render-pdf') || {}).checked;
-  let basePdf;
-  if (renderFromData) {
-    if (typeof buildInvoicePdf !== 'function') throw new Error('PDF-Renderer nicht geladen (xml2pdf.js).');
-    basePdf = await buildInvoicePdf(_pdfDaten(data, totals));
-  } else {
-    if (!uploadedPdfBytes) throw new Error('NO_PDF');
-    basePdf = uploadedPdfBytes;
-  }
-
   // USt-IdNr-Bestätigung als zusätzlichen Anhang ins ZUGFeRD-PDF (PDF/A-3).
   const extras = [];
   if (ust && typeof window.vatBerichtText === 'function') {
@@ -1515,27 +1506,36 @@ async function _buildZugferdPdf(data, totals, xml, ust) {
   for (const a of (data.anlagen || [])) {
     extras.push({ bytes: a.bytes, filename: a.name, mimeType: a.mime, description: a.beschreibung || a.name });
   }
-  const pdf = await embedXMLIntoPDF(basePdf, xml, 'zugferd', extras);
-  if (renderFromData) return pdf;
+  const ausDaten = async () => {
+    if (typeof buildInvoicePdf !== 'function') throw new Error('PDF-Renderer nicht geladen (xml2pdf.js).');
+    return embedXMLIntoPDF(await buildInvoicePdf(_pdfDaten(data, totals)), xml, 'zugferd', extras);
+  };
+  if (!uploadedPdfBytes || (document.getElementById('opt-render-pdf') || {}).checked) return ausDaten();
 
   // Original aus dem ERP: PDF/A-3b hängt am ERP-PDF. Fertige Datei mit veraPDF prüfen
-  // (/api/pdfa). Ist sie nicht konform oder nicht prüfbar, aus den Rechnungsdaten erzeugen,
+  // (/api/pdfa). Lässt es sich nicht umwandeln oder prüfen, aus den Rechnungsdaten erzeugen,
   // damit beim Empfänger kein Formatfehler entsteht.
-  const p = await _pdfaPruefen(pdf);
+  let pdf = null, p;
+  try {
+    pdf = await embedXMLIntoPDF(uploadedPdfBytes, xml, 'zugferd', extras);
+    p = await _pdfaPruefen(pdf);
+  } catch (e) {
+    p = { konform: 'umwandlung', grund: (e && e.message) || String(e) };
+  }
   if (p.konform === 'ok') return pdf;
-  if (typeof buildInvoicePdf !== 'function') throw new Error('PDF-Renderer nicht geladen (xml2pdf.js).');
-  const ausDaten = await embedXMLIntoPDF(await buildInvoicePdf(_pdfDaten(data, totals)), xml, 'zugferd', extras);
+  const notfall = await ausDaten();
   // Regel nennen (z. B. 6.2.11.4.1), damit sich der Grund ohne Entwicklerwerkzeuge nachvollziehen lässt
   const regeln = [...new Set((p.meldungen || []).map(m => (String((m && (m.klausel || m.clause)) || m).match(/\d+(?:\.\d+)+/) || [])[0]).filter(Boolean))];
   console.warn('PDF/A-Prüfung des Originals:', p.konform, p.grund || '', p.meldungen || []);
   if (typeof showToast === 'function') {
-    showToast(p.konform === 'fehler'
+    const grund = p.konform === 'fehler'
       ? 'Das Original-PDF ist kein gültiges PDF/A-3' + (regeln.length ? ` (veraPDF-Regel ${regeln.slice(0, 3).join(', ')})` : '')
-        + '. Die E-Rechnung wurde deshalb aus den Rechnungsdaten erzeugt.'
-      : 'Die PDF/A-Prüfung war nicht erreichbar' + (p.grund ? ` (${p.grund})` : '')
-        + '. Die E-Rechnung wurde deshalb aus den Rechnungsdaten erzeugt.', 'info');
+      : p.konform === 'umwandlung'
+        ? `Das Original-PDF ließ sich nicht umwandeln (${p.grund})`
+        : 'Die PDF/A-Prüfung war nicht erreichbar' + (p.grund ? ` (${p.grund})` : '');
+    showToast(grund + '. Die E-Rechnung wurde deshalb aus den Rechnungsdaten erzeugt, im Standardlayout.', 'info');
   }
-  return ausDaten;
+  return notfall;
 }
 
 /**

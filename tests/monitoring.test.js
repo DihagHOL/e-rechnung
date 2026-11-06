@@ -174,6 +174,25 @@ gleich([paar[0].dublette, paar[1].dublette], [false, false], 'Rechnung und Mahnu
 gleich(M._monHinweis({ konform: 'Gruen - KoSIT ok', meldung: 'Materielle Abweichung', rueckfrage: true }), 'Materielle Abweichung', 'Grund der Rückfrage');
 gleich(M._monHinweis({ konform: 'Gruen - KoSIT ok', meldung: 'Sonstiges' }), '', 'grün ohne Rückfrage ohne Hinweis');
 
+// Formatmangel: bei Kleinbeträgen kein Mangel
+gleich(M._monFormatmangel({ formatmangel: true, brutto: 900 }), true, 'Formatmangel über 250 €');
+gleich(M._monFormatmangel({ formatmangel: true, brutto: 180.5 }), false, 'kein Formatmangel beim Kleinbetrag');
+gleich(M._monFormatmangel({ formatmangel: true, brutto: null }), true, 'ohne Betrag bleibt der Hinweis');
+gleich(M._monFormatmangel({ formatmangel: false, brutto: 900 }), false, 'kein Mangel');
+
+// Geprüft: nur im Eingang, in einer reinen Ausgangsansicht ohne Spalte
+global.ugGeprueft = () => ({ am: '2026-11-03T08:00:00Z' });
+gleich(M._monGeprueftMoeglich({ richtung: 'Eingang' }), true, 'Eingang');
+gleich(M._monGeprueftMoeglich({ richtung: 'Ausgang' }), false, 'Ausgang');
+gleich(M._monSortVal({ richtung: 'Ausgang' }, 'geprueft'), '', 'Ausgang ohne Sortierwert');
+gleich(M._monSortVal({ richtung: 'Eingang' }, 'geprueft'), '2026-11-03T08:00:00Z', 'Eingang mit Sortierwert');
+const _hatGeprueft = () => M._monSichtbareSpalten().some(s => s.id === 'geprueft');
+gleich(_hatGeprueft(), true, 'Standard: Spalte da');
+M._monFilter.richtung = 'Ausgang';
+gleich(_hatGeprueft(), false, 'Filter Ausgang: Spalte weg');
+M._monFilter.richtung = '';
+delete global.ugGeprueft;
+
 // Fehlermeldung nur mit Zeilenumbruch (WGC-Flow) ist keine Meldung, zählt nicht unter „Fehler / rot“
 gleich(datei('x.pdf', { Fehlermeldung: '\n', Konformitaet: 'Gruen' }).fehler, '', 'Zeilenumbruch als Fehlermeldung');
 gleich(M._monMatchFlag(datei('x.pdf', { Fehlermeldung: '\n', Konformitaet: 'Gruen', Verarbeitungsstatus: 'Validiert' }), 'fehler'), false, 'kein Fehler-Treffer');

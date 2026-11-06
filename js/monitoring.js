@@ -796,7 +796,7 @@ function _monSortVal(r, key) {
     case 'genehmigt': return (r.bh && r.bh.genehmigt) || '';
     case 'faellig':  return (r.faelligkeit || '').slice(0, 10);
     case 'klass':    return _monKlass(r) || '';
-    case 'geprueft': return (typeof ugGeprueft === 'function' && (ugGeprueft(r) || {}).am) || '';
+    case 'geprueft': return (_monGeprueftMoeglich(r) && (ugGeprueft(r) || {}).am) || '';
     case 'status':   return r.status || '';
     case 'buchung':  return r.buchung || '';
     case 'konform':  return r.konform || '';
@@ -982,7 +982,9 @@ function _monSichtbareSpalten() {
       if (vorher) ids.splice(ids.indexOf(vorher) + 1, 0, id); else ids.unshift(id);
     });
   });
-  return ids.map(id => MON_SPALTEN.find(sp => sp.id === id)).filter(Boolean);
+  // Nur Ausgangsrechnungen in der Ansicht: „Geprüft“ gibt es dort nicht
+  const nurAusgang = _monFilter.richtung === 'Ausgang' || (_monRecords.length > 0 && _monRecords.every(r => r.richtung === 'Ausgang'));
+  return ids.filter(id => !(nurAusgang && id === 'geprueft')).map(id => MON_SPALTEN.find(sp => sp.id === id)).filter(Boolean);
 }
 
 // Spaltenbreiten in Pixeln (Einheit 12 px). Ist der Bereich breiter, verteilt der Browser
@@ -1079,6 +1081,16 @@ function _monKlein(r) {
   return typeof ugKleinbetrag === 'function' ? ugKleinbetrag(r) || ugKleinVermutet(r) : (r.brutto != null && Math.abs(r.brutto) <= 250);
 }
 
+/** Kleinbeträge dürfen immer sonstige Rechnung sein (§ 33 UStDV), dort ist das Format kein Mangel. */
+function _monFormatmangel(r) {
+  return !!r.formatmangel && !_monKlein(r);
+}
+
+/** „Geprüft“ gibt es nur im Eingang. */
+function _monGeprueftMoeglich(r) {
+  return r.richtung !== 'Ausgang' && typeof ugGeprueft === 'function';
+}
+
 /** Kürzel aus dem Namen („Erika Muster“ → EM, aus einer Mailadresse der Teil vor dem @). */
 function _monKuerzel(name) {
   const teile = String(name || '').split('@')[0].split(/[\s._-]+/).filter(Boolean);
@@ -1134,7 +1146,7 @@ function _monZelle(id, r, idx) {
     }
     case 'geprueft': {
       // Markierung im Lieferantenregister (js/umsatzgrenze.js): ein Klick setzt sie, ein Klick auf ✓ nimmt sie zurück
-      if (typeof ugGeprueft !== 'function') return '<td></td>';
+      if (!_monGeprueftMoeglich(r)) return '<td></td>';
       const g = ugGeprueft(r);
       return `<td>${g
         ? `<button type="button" class="mon-geprueft" data-geprueft="${idx}" title="${_esc(`Geprüft von ${g.vonName || g.von} am ${_monZeit(g.am)}. Klicken nimmt die Markierung zurück.`)}">✓ Geprüft</button>`
@@ -1154,7 +1166,7 @@ function _monZelle(id, r, idx) {
       }
       // Buchungssteuerung + Prüfschritt-Flags (UStAE/GoBD) + 800k-Einschätzung
       const flags = [];
-      if (r.formatmangel)     flags.push(['Formatmangel', '#8a5a00', '#fff3d6']);
+      if (_monFormatmangel(r)) flags.push(['Formatmangel', '#8a5a00', '#fff3d6']);
       if (r.manuellePruefung) flags.push([r.manuellePruefungGrund ? 'Manuell · ' + r.manuellePruefungGrund : 'Manuell', '#8a3b00', '#ffe6cc']);
       if (r.rueckfrage)       flags.push(['Rückfrage', '#b40000', '#ffe0e0']);
       if (r.konvertiert)      flags.push(['techn. konvertiert', '#334155', '#e2e8f0']);
@@ -1296,7 +1308,7 @@ function _monDetail(r, idx) {
   };
   const t = v => (v == null || v === '' ? '' : _esc(v));
   const p = _monPartnerSicher(r);
-  const flags = [r.formatmangel && 'Formatmangel', r.manuellePruefung && ('Manuelle Prüfung' + (r.manuellePruefungGrund ? ': ' + r.manuellePruefungGrund : '')),
+  const flags = [_monFormatmangel(r) && 'Formatmangel', r.manuellePruefung && ('Manuelle Prüfung' + (r.manuellePruefungGrund ? ': ' + r.manuellePruefungGrund : '')),
     r.rueckfrage && 'Rückfrage beim Lieferanten', r.konvertiert && 'technisch konvertiertes PDF', r.dublette && r.dubletteInfo].filter(Boolean);
   const sonstige = typeof ugSonstige === 'function' && ugSonstige(r);
   const e = sonstige && typeof ugFuer === 'function' ? ugFuer(r) : null;
@@ -1304,7 +1316,7 @@ function _monDetail(r, idx) {
   const wer = x => `${x.vonName || x.von || ''} am ${_monDate(x.am)}`;
   const klein = sonstige && typeof ugKleinBestaetigt === 'function' ? ugKleinBestaetigt(r) : null;
   const ausland = sonstige && typeof ugAusland === 'function' ? ugAusland(r) : null;
-  const geprueft = typeof ugGeprueft === 'function' ? ugGeprueft(r) : null;
+  const geprueft = _monGeprueftMoeglich(r) ? ugGeprueft(r) : null;
   const b = r.bh;
   const dateien = [r.url ? `<a href="${_esc(r.url)}" target="_blank" rel="noopener">${r.ext ? 'Original (' + _esc(r.ext.toUpperCase()) + ')' : 'Original'} ↗</a>` : '']
     .concat((r.dateien || []).map(d => `<a href="${_esc(d.url)}" target="_blank" rel="noopener">${_esc(d.label)} ↗</a>`))
@@ -2176,6 +2188,6 @@ function _esc(s) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { _monFetchLib, _monVorMonaten, _monWeiter, _monHinweis, _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
+  module.exports = { _monFetchLib, _monVorMonaten, _monWeiter, _monHinweis, _monFormatmangel, _monGeprueftMoeglich, _monSichtbareSpalten, _monFilter, _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
     _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMatchFlag, _monMitNeuenSpalten, _monLibErlaubt, _monIstMahnung };
 }

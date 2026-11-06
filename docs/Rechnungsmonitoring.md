@@ -104,7 +104,13 @@ in der Zelle steht dann „✓ Geprüft“ mit Kürzel und Datum (Tooltip: Name 
 Klick auf „✓ Geprüft“ nimmt sie nach einer Rückfrage zurück. Die Markierung liegt im
 Lieferantenregister unter `rechnungen` (Feld `geprueft`), gilt für alle Rechnungen, auch
 E-Rechnungen, und ändert nichts an Buchung oder Bearbeitungsstatus. Die Spalte lässt sich
-sortieren, die aufgeklappte Zeile nennt unter „Prüfung“, wer markiert hat.
+sortieren, die aufgeklappte Zeile nennt unter „Prüfung“, wer markiert hat. Das gilt nur im
+Eingang: Ausgangsrechnungen haben weder Knopf noch Markierung, und in einer reinen
+Ausgangsansicht fehlt die Spalte.
+
+**Formatmangel** erscheint nicht bei Kleinbeträgen bis 250 € brutto. Sie dürfen immer sonstige
+Rechnung sein (§ 33 UStDV). Das Feld bleibt gesetzt, die 800k-Logik braucht es, ausgeblendet
+wird nur der Hinweis in der Spalte Buchung und in der aufgeklappten Zeile.
 
 **Steller / Empfänger** zeigt in dieser Reihenfolge:
 

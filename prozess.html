@@ -421,7 +421,7 @@
             <tr><td><span class="chip t-warn">Warnung</span></td><td>Werte fehlen im Original-PDF oder die USt-IdNr sieht ungewöhnlich aus. Du entscheidest: fortfahren oder abbrechen.</td></tr>
             <tr><td><span class="chip t-err">Selbstprüfung</span></td><td>Weicht die erzeugte XML von der Anzeige ab, entsteht keine Datei.</td></tr>
             <tr><td><span class="chip t-warn">Ausland</span></td><td>EIS, EWA und LEG senden E-Rechnungen nur an Kunden im Inland. Sonst fragt das Tool nach, bei EIS ins Drittland geht das PDF unterschrieben.</td></tr>
-            <tr><td><span class="chip t-ok">Standard</span></td><td>Das PDF wird aus den Rechnungsdaten erzeugt. So sind PDF und XML garantiert gleich und PDF/A-3b-konform. Im Inland im ZUGFeRD-Profil XRECHNUNG, ins Ausland EN 16931.</td></tr>
+            <tr><td><span class="chip t-ok">Standard</span></td><td>ZUGFeRD behält das eigene Layout: Das hochgeladene PDF wird PDF/A-3b, die XML kommt dazu, veraPDF prüft das Ergebnis. Nur wenn sich das PDF nicht umwandeln lässt, entsteht es aus den Rechnungsdaten im Standardlayout. Im Inland im ZUGFeRD-Profil XRECHNUNG, ins Ausland EN 16931.</td></tr>
           </table>
           <p class="note">Die Konformität des Generators prüfen KoSIT, veraPDF und Mustang bei jeder Änderung automatisch.</p>
         </div>

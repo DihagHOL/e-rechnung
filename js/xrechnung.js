@@ -289,7 +289,7 @@ function buildXML(data, profile = 'xrechnung') {
         ${data.leitwegid ? `<ram:URIUniversalCommunication>
           <ram:URIID schemeID="0204">${esc(data.leitwegid)}</ram:URIID>
         </ram:URIUniversalCommunication>` : (data.kaeufermail ? `<ram:URIUniversalCommunication>
-          <ram:URIID schemeID="EM">${esc(data.kaeufermail)}</ram:URIID>
+          <ram:URIID schemeID="EM">${esc(_ersteMail(data.kaeufermail))}</ram:URIID>
         </ram:URIUniversalCommunication>` : '')}
         ${data.kaeufervat && !nichtSteuerbar ? `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${esc(data.kaeufervat)}</ram:ID></ram:SpecifiedTaxRegistration>` : ''}
       </ram:BuyerTradeParty>
@@ -379,6 +379,11 @@ function _positionsZeitraumXML(p, fmtDate) {
           ${von ? `<ram:StartDateTime><udt:DateTimeString format="102">${fmtDate(von)}</udt:DateTimeString></ram:StartDateTime>` : ''}
           ${bis ? `<ram:EndDateTime><udt:DateTimeString format="102">${fmtDate(bis)}</udt:DateTimeString></ram:EndDateTime>` : ''}
         </ram:BillingSpecifiedPeriod>`;
+}
+
+/* BT-49 ist genau eine Adresse. Stehen mehrere im Feld, gehen sie alle an die Mail, die erste in die XML. */
+function _ersteMail(mail) {
+  return String(mail || '').split(/[;,\s]+/).filter(Boolean)[0] || '';
 }
 
 function _anlagenXML(anlagen, profile) {

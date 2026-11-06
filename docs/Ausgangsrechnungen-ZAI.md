@@ -37,7 +37,9 @@ Die XRechnung braucht eine elektronische Adresse des Empfängers (BT-49), und da
 
 Fehlt die Zeile (ältere Belege), greift die gemerkte Adresse: Die App merkt sich je Werk und Kunde die Adresse, an die exportiert wurde. Beim nächsten Beleg desselben Kunden schlägt sie die Adresse vor. Wird für einen bekannten Kunden eine andere Adresse eingetragen, ersetzt sie nach dem Export die gemerkte, ohne Nachfrage. Gesucht wird nach Kunden-Nr., dann nach USt-IdNr., dann nach dem Namen. Gespeichert wird in SharePoint (Dokumente/E-Rechnung/kunden-rechnungsmail.json), nicht im Code, weil die Seite öffentlich ist.
 
-Trägt jemand eine Adresse der eigenen Firma ein (gleiche Domain wie die Verkäufer-Mail oder die eigene Anmeldung), fragt der Export nach. Solche Adressen merkt sich die App nicht. Kunden mit Leitweg-ID brauchen keine Mail und werden nicht gemerkt.
+Trägt jemand eine Adresse der eigenen Firma ein (gleiche Domain wie die Verkäufer-Mail, die eigene Anmeldung oder eine Konzernadresse bei einem Kunden außerhalb des Konzerns), fragt der Export nach. Solche Adressen merkt sich die App nicht. Kunden mit Leitweg-ID brauchen keine Mail und werden nicht gemerkt.
+
+Export und Mail gleichen die Adresse auch dann mit den gemerkten Adressen ab, wenn sie aus dem PDF kommt: Ist für den Kunden eine andere Adresse gemerkt oder gehört die Adresse im selben Werk zu einem anderen Kunden, fragt die App nach (`kundenMailAbweichung`). Eine Adresse, die keine Mailadresse ist, lässt sich nicht exportieren. Stehen mehrere Adressen im Feld, getrennt mit Semikolon, geht die Mail an alle, in der XML steht die erste, denn BT-49 ist genau eine Adresse.
 
 Die Rechnungsmail („Mail erstellen“) geht als Outlook-Entwurf aus dem Vertriebspostfach von ZAI (Registry `_versandPostfach`). Senden klappt nur mit „Senden als“ oder „Senden im Auftrag von“ auf dieses Postfach. Gegrüßt wird vom Team statt vom Ansprechpartner (`_mailGruss`: „Ihr Team von der“, Firma, Zentrale), darunter steht das Vertriebspostfach. Die Kontakt-Mail aus der Rechnung kommt in der Mail nicht vor. Die .eml-Datei, die ohne Outlook-Zugriff entsteht, hat keinen festen Absender.
 

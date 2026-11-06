@@ -158,6 +158,8 @@ gleich(r.iban, 'DE38820700000126644402', 'IBAN des GBP-Kontos aus dem Beleg');
 gleich(/Bank details|Account holder/.test(r.notiz), false, 'Bankblock nicht im Hinweis');
 const xml = ctx.buildXML({ ...r, kaeufermail: r.kaeufermail }, 'xrechnung');
 gleich([/<ram:InvoiceCurrencyCode>GBP</.test(xml), /currencyID="GBP"/.test(xml), /<ram:LineTwo>Unit 4, Example Park</.test(xml)], [true, true, true], 'XML mit GBP und Adresszusatz');
+const zweiMails = ctx.buildXML({ ...r, kaeufermail: 'erste@samplerail.example; zweite@samplerail.example' }, 'xrechnung');
+gleich([zweiMails.includes('>erste@samplerail.example<'), zweiMails.includes('zweite@samplerail.example')], [true, false], 'BT-49 nur die erste Adresse');
 
 // 3) Französisch, Leerzeichen als Tausendertrenner, innergemeinschaftlich
 r = beleg([

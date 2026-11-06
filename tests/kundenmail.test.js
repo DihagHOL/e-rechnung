@@ -1,6 +1,7 @@
 // node tests/kundenmail.test.js
 const assert = require('assert');
-const { kundenMailFinden, kundenMailIstEigen, kundenMailUebernehmen, kundenMailZeilen } = require('../js/kundenmail.js');
+const { kundenMailFinden, kundenMailIstEigen, kundenMailListe, kundenMailGueltig, kundenMailImKonzern,
+  kundenMailAbweichung, kundenMailUebernehmen, kundenMailZeilen } = require('../js/kundenmail.js');
 
 let n = 0;
 const gleich = (ist, soll, m) => { assert.deepStrictEqual(ist, soll, m + ': ' + JSON.stringify(ist)); n++; };
@@ -61,5 +62,33 @@ gleich(z.eintraege.length, 3, 'drei gültige Zeilen');
 gleich(z.fehler, 2, 'zwei ohne gültige Mail');
 gleich(z.eintraege[1], { werk: 'ZAI', kundennummer: '900002', vat: '', name: 'Muster Motoren AG', mail: 'invoice@muster-motoren.de' }, 'Tabulator aus Excel');
 gleich(z.eintraege[2].name, 'Komma GmbH', 'Komma getrennt');
+
+// Mehrere Adressen im Feld, Format
+gleich(kundenMailListe('a@kunde.de; b@kunde.de'), ['a@kunde.de', 'b@kunde.de'], 'zwei Adressen');
+gleich(kundenMailListe('a@kunde.de, b@kunde.de'), ['a@kunde.de', 'b@kunde.de'], 'mit Komma');
+gleich(kundenMailListe(''), [], 'leer');
+gleich(kundenMailGueltig('a@kunde.de; b@kunde.de'), true, 'zwei gültige');
+gleich(kundenMailGueltig('DSFDSF'), false, 'keine Adresse');
+gleich(kundenMailGueltig('a@kunde.de; DSFDSF'), false, 'eine ungültig');
+gleich(kundenMailGueltig('a@kunde'), false, 'ohne Endung');
+
+// Konzernadresse beim fremden Kunden
+gleich(kundenMailImKonzern('jemand@dihag.com', 'Kunde AG'), true, 'Konzern, fremder Kunde');
+gleich(kundenMailImKonzern('rechnung@dihag-beispiel.com', 'DIHAG Beispiel GmbH'), false, 'Konzern an Konzern');
+gleich(kundenMailImKonzern('rechnung@kunde.de', 'Kunde AG'), false, 'Kundenadresse');
+gleich(kundenMailUebernehmen(liste, { gesellschaft: 'ZAI', kundennummer: '900009', kaeufer: 'Kunde AG', kaeufermail: 'jemand@dihag.com', verkaeuferemail: 'x@werk.de' }), null, 'Konzernadresse wird nicht gemerkt');
+
+// Abgleich mit dem Register
+const ab = (d) => kundenMailAbweichung(liste, Object.assign({ gesellschaft: 'ZAI' }, d));
+gleich(ab({ kundennummer: '900001', kaeufermail: 'rechnung@beispielguss.de' }), null, 'gemerkte Adresse');
+gleich(ab({ kundennummer: '900001', kaeufermail: 'RECHNUNG@beispielguss.de' }), null, 'ohne Groß/klein');
+gleich(ab({ kundennummer: '900002', kaeufer: 'Muster Motoren AG', kaeufermail: 'rechnung@beispielguss.de' }).art, 'gemerkt', 'Adresse eines anderen Kunden');
+gleich(ab({ kundennummer: '900002', kaeufermail: 'rechnung@beispielguss.de' }).eintrag.mail, 'invoice@muster-motoren.de', 'nennt die gemerkte');
+gleich(ab({ kundennummer: '900003', kaeufer: 'Neukunde AG', kaeufermail: 'rechnung@beispielguss.de' }).art, 'fremd', 'neuer Kunde mit fremder Adresse');
+gleich(ab({ kundennummer: '900003', kaeufer: 'Beispielguss Werk 2 GmbH', kaeufermail: 'rechnung@beispielguss.de' }), null, 'gleiche Firma mit neuer Nummer');
+gleich(ab({ kundennummer: '900003', kaeufer: 'Neukunde AG', kaeufermail: 'neu@neukunde.de' }), null, 'neuer Kunde, neue Adresse');
+gleich(ab({ kundennummer: '900001', kaeufermail: 'x@y.de', leitwegid: '991-1' }), null, 'Leitweg-ID statt Mail');
+gleich(ab({ kundennummer: '900001', kaeufermail: '' }), null, 'leer');
+gleich(kundenMailAbweichung(liste, { gesellschaft: 'WGC', kundennummer: '900008', kaeufer: 'Neukunde AG', kaeufermail: 'rechnung@beispielguss.de' }), null, 'anderes Werk zählt nicht');
 
 console.log(`kundenmail: ${n} Prüfungen grün`);

@@ -19,7 +19,10 @@ Object.assign(ctx, {
   document: { getElementById: id => (id === 'opt-render-pdf' ? { checked: zustand.haken } : null) },
   uploadedPdfBytes: 'ORIGINAL',
   buildInvoicePdf: async () => 'AUS-DATEN',
-  embedXMLIntoPDF: async (basis, xml) => basis + '+' + xml,
+  embedXMLIntoPDF: async (basis, xml) => {
+    if (zustand.kaputt && basis === 'ORIGINAL') throw new Error('kaputte Datei');
+    return basis + '+' + xml;
+  },
   getAppConfig: () => ({ apiHost: 'https://beispiel.azurewebsites.net' }),
   showToast: t => zustand.meldungen.push(t),
   fetch: async (url, opt) => {
@@ -60,6 +63,23 @@ const summen = { netTotal: 10, vatTotal: 1.9, grossTotal: 11.9 };
   gleich(await ctx.bauen(daten, summen, 'XML'), 'AUS-DATEN+XML', 'Endpunkt fehlt');
   zustand.status = 200; zustand.urteil = 'ungeprueft';
   gleich(await ctx.bauen(daten, summen, 'XML'), 'AUS-DATEN+XML', 'ungeprüft');
+
+  // Original lässt sich gar nicht umwandeln: aus Daten statt Abbruch
+  zustand.urteil = 'ok'; zustand.kaputt = true;
+  gleich(await ctx.bauen(daten, summen, 'XML'), 'AUS-DATEN+XML', 'nicht umwandelbar');
+  gleich(/nicht umwandeln \(kaputte Datei\)/.test(zustand.meldungen.pop()), true, 'Hinweis nennt den Grund');
+  zustand.kaputt = false;
+
+  // Kein Original hochgeladen: ohne Fehler und ohne Prüfung aus den Daten
+  ctx.uploadedPdfBytes = null;
+  const vorher = [zustand.aufrufe, zustand.meldungen.length];
+  gleich(await ctx.bauen(daten, summen, 'XML'), 'AUS-DATEN+XML', 'ohne Upload');
+  gleich([zustand.aufrufe, zustand.meldungen.length], vorher, 'ohne Prüfung und Hinweis');
+  ctx.uploadedPdfBytes = 'ORIGINAL';
+
+  // Die Option ist im Formular nicht vorbelegt: Standard ist das eigene PDF
+  const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  gleich(/id="opt-render-pdf"[^>]*checked/.test(html), false, 'Haken nicht gesetzt');
 
   console.log(`pdfa-konverter: ${n} Prüfungen grün`);
 })().catch(e => { console.error(e); process.exit(1); });

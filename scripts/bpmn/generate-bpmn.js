@@ -652,7 +652,7 @@ const ERZEUGEN = {
       { id: 'XN_rueck', of: 'X_rueck', lane: 'LXV', c: 7, r: 1, w: 300, h: 72,
         text: 'Ins Ausland geht bei diesen Werken das PDF, bei EIS ins Drittland unterschrieben (Präferenzangaben).' },
       { id: 'XN_zf', of: 'X_zf', lane: 'LXK', c: 12, r: 0, w: 200, h: 84,
-        text: 'PDF aus den Rechnungsdaten. Inland im Profil XRECHNUNG, Ausland EN 16931.' },
+        text: 'Eigenes PDF als PDF/A-3b, im Notfall aus den Rechnungsdaten. Inland im Profil XRECHNUNG, Ausland EN 16931.' },
     ],
   }],
   messages: [],

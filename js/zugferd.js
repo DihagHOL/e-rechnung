@@ -14,9 +14,10 @@
  *     Liberation Sans mit gleichen Laufweiten ersetzt und eingebettet
  *     (§ 6.2.11.4.1, SAP-Adobe-Formulare wie LEG)
  *
- * Known limitation: CIDSet font-descriptor errors in the source PDF
- *   cannot be repaired without re-rendering the original document.
- *   Andere nicht eingebettete Schriften bleiben; dann erzeugt der Konverter
+ *   – CIDSet und CharSet fallen aus den Schriftbeschreibungen weg (§ 6.2.11.4.2,
+ *     Teilschriften aus Word und Co. tragen oft eine unvollständige Liste)
+ *
+ * Grenze: Andere nicht eingebettete Schriften bleiben; dann erzeugt der Konverter
  *   nach der veraPDF-Prüfung das PDF aus den Rechnungsdaten.
  *
  * GuidelineID: urn:cen.eu:en16931:2017 (Mustang Profiles.java / ZUGFeRD 2.4 / Factur-X 1.08)
@@ -129,6 +130,7 @@ async function embedXMLIntoPDF(pdfBytes, xmlString, profile, extraAttachments) {
   if (isZugferd) {
     // 0. Nicht eingebettete Standardschrift Helvetica einbetten (§6.2.11.4.1), z. B. SAP-Adobe-Formulare
     _standardSchriftenEinbetten(pdfDoc);
+    _schriftListenEntfernen(pdfDoc);
 
     // 1. sRGB ICC OutputIntent — satisfies ISO 19005-3 §6.2.4.3 for all DeviceRGB/DeviceGray
     _addOutputIntent(pdfDoc);
@@ -222,6 +224,32 @@ function _standardSchriftenEinbetten(pdfDoc) {
     }
   } catch (e) {
     console.warn('Schriften nicht eingebettet:', e.message);
+  }
+  return n;
+}
+
+/* ── PDF/A: CIDSet und CharSet entfernen (§6.2.11.4.2) ───────────────────
+   Teilschriften tragen oft eine Liste ihrer Glyphen, die nicht zum Schriftprogramm
+   passt. PDF/A-3 verlangt die Listen nicht, es verbietet nur falsche. Ohne sie ändert
+   sich an Schrift und Layout nichts. Gibt die Zahl der entfernten Listen zurück. */
+function _schriftListenEntfernen(pdfDoc) {
+  const { PDFName, PDFDict, PDFRef } = PDFLib;
+  const ctx = pdfDoc.context;
+  const typ = PDFName.of('Type'), beschreibung = PDFName.of('FontDescriptor');
+  let n = 0;
+  try {
+    for (const [, obj] of ctx.enumerateIndirectObjects()) {
+      if (!(obj instanceof PDFDict) || obj.get(typ) !== beschreibung) continue;
+      for (const k of [PDFName.of('CIDSet'), PDFName.of('CharSet')]) {
+        const wert = obj.get(k);
+        if (!wert) continue;
+        obj.delete(k);
+        if (wert instanceof PDFRef) ctx.delete(wert);
+        n++;
+      }
+    }
+  } catch (e) {
+    console.warn('Schriftlisten nicht entfernt:', e.message);
   }
   return n;
 }

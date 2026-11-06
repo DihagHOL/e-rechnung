@@ -21,7 +21,7 @@ function laden(ersatz) {
   const src = fs.readFileSync(path.join(ROOT, 'js/zugferd.js'), 'utf8');
   // eslint-disable-next-line no-new-func
   return new Function('PDFLib', 'fontkit', 'HELVETICA_ERSATZ', 'console', 'atob', 'TextEncoder',
-    `${src}\n;return { embedXMLIntoPDF, _standardSchriftenEinbetten };`)(
+    `${src}\n;return { embedXMLIntoPDF, _standardSchriftenEinbetten, _schriftListenEntfernen };`)(
     PDFLib, fontkit, ersatz, { warn() {}, log() {} }, globalThis.atob, globalThis.TextEncoder);
 }
 const mit = laden(HELV);
@@ -120,6 +120,28 @@ const winAnsi = c => (c === 0xA0 ? 0x20 : c === 0xAD ? 0x2D : [0x7F, 0x81, 0x8D,
   const d2 = await PDFLib.PDFDocument.load(roh);
   gleich(mit._standardSchriftenEinbetten(d2), 2, 'zwei ersetzt');
   gleich(mit._standardSchriftenEinbetten(d2), 0, 'zweiter Lauf ändert nichts');
+
+  // 8) Liste der Glyphen fällt weg (§6.2.11.4.2), das Schriftprogramm bleibt
+  const d3 = await PDFLib.PDFDocument.load(ausDaten);
+  const fds = () => d3.context.enumerateIndirectObjects().map(([, o]) => o)
+    .filter(o => o instanceof PDFDict && N(o, 'Type') === '/FontDescriptor');
+  const fd3 = fds()[0];
+  const liste = d3.context.register(d3.context.flateStream(new Uint8Array([255])));
+  fd3.set(PDFName.of('CIDSet'), liste);
+  fd3.set(PDFName.of('CharSet'), PDFLib.PDFString.of('/A/B'));
+  gleich(mit._schriftListenEntfernen(d3), 2, 'zwei Listen entfernt');
+  gleich([fd3.has(PDFName.of('CIDSet')), fd3.has(PDFName.of('CharSet')), !!d3.context.lookup(liste)], [false, false, false], 'Listen weg');
+  gleich(fd3.has(PDFName.of('FontFile2')) || fd3.has(PDFName.of('FontFile3')), true, 'Schrift bleibt eingebettet');
+  gleich(mit._schriftListenEntfernen(d3), 0, 'zweiter Lauf ändert nichts');
+
+  // 9) Beim Einbetten läuft es mit: Eine Datei mit Liste kommt ohne Liste heraus
+  const d4 = await PDFLib.PDFDocument.load(ausDaten);
+  const fd4 = d4.context.enumerateIndirectObjects().map(([, o]) => o).find(o => o instanceof PDFDict && N(o, 'Type') === '/FontDescriptor');
+  fd4.set(PDFName.of('CIDSet'), d4.context.register(d4.context.flateStream(new Uint8Array([255]))));
+  const mitListe = await d4.save();
+  const ohneListe = await PDFLib.PDFDocument.load(await mit.embedXMLIntoPDF(mitListe, XML, 'zugferd'));
+  const rest = ohneListe.context.enumerateIndirectObjects().map(([, o]) => o).filter(o => o instanceof PDFDict && o.has(PDFName.of('CIDSet')));
+  gleich(rest.length, 0, 'keine Liste im fertigen PDF');
 
   console.log(`pdfa-schriften: ${n} Prüfungen grün`);
 })().catch(e => { console.error(e); process.exit(1); });

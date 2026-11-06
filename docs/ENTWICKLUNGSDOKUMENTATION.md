@@ -416,6 +416,17 @@ höchstens 15 MB). Ist es nicht PDF/A-3b oder lässt es sich nicht prüfen, erze
 aus den Rechnungsdaten und sagt das per Hinweis. So entsteht bei keinem Werk ein Formatfehler beim
 Empfänger. Tests: `tests/pdfa-api.test.js`, `tests/pdfa-konverter.test.js`.
 
+**Nachtrag (06.11.2026): ZUGFeRD mit dem eigenen PDF als Standard**
+Der Haken „PDF aus Rechnungsdaten erzeugen“ ist nicht mehr gesetzt. ZUGFeRD nimmt das hochgeladene PDF, macht
+daraus PDF/A-3b und prüft das Ergebnis mit veraPDF. Aus den Rechnungsdaten entsteht es nur, wenn es kein Original
+gibt (manuelle Rechnung, Formular ohne Upload), wenn jemand den Haken setzt oder wenn sich das Original nicht
+umwandeln oder prüfen lässt, dann mit Hinweis. Das gilt auch, wenn `embedXMLIntoPDF` am Original scheitert: Früher
+brach der Export ab. „Mail erstellen“ legt immer ZUGFeRD an. `embedXMLIntoPDF` entfernt dafür CIDSet und CharSet aus
+den Schriftbeschreibungen (`_schriftListenEntfernen`): Teilschriften tragen oft eine unvollständige Liste (Regel
+6.2.11.4.2), PDF/A-3 verlangt die Listen nicht. Geprüft mit veraPDF an echten Originalen: WGC 40 von 40, ZAI 10 von 10,
+EIS 3 von 3, LEG 2 von 2, SHB 15 von 15 (vor der Änderung 6 von 15). Tests: `tests/pdfa-konverter.test.js`,
+`tests/pdfa-schriften.test.js`.
+
 **Nachtrag (05.11.2026): Kopfdaten beim Eingang, auch aus Scans**
 `/api/intake` liest bei einer PDF ohne E-Rechnung jetzt alles, was das Monitoring zeigt: Lieferant,
 USt-IdNr., Nummer, Datum, Fälligkeit, Netto, Brutto und Währung (`lieferantAusText` in js/lieferant.js).
