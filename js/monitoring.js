@@ -526,10 +526,67 @@ function _monGroup(recs) {
 /* ── Eine Eingangsmail = ein Vorgang ──────────────────────────────────
    Der Eingangs-Flow legt jeden Anhang einzeln ab und schreibt die Kennung der Mail in
    MailVorgang. E-Rechnungen (ZUGFeRD, XRechnung) bleiben je Rechnung eine Zeile, PDF und
-   XML derselben Rechnung zählen einmal. Normale PDFs (Leistungsnachweis, Lieferschein,
-   Belege) kommen als Anlagen an die erste E-Rechnung der Mail. Ohne E-Rechnung ist die
-   ganze Mail eine Zeile, vorne das erste PDF mit Rechnungsnummer, sonst das erste.
-   So arbeitet auch die Archiv-Mail der Flows. */
+   XML derselben Rechnung zählen einmal. Ein normales PDF, das eindeutig eine eigene
+   Rechnung ist (_monEigeneRechnung), bekommt ebenfalls eine Zeile. Alle anderen PDFs
+   (Leistungsnachweis, Lieferschein, Belege) kommen als Anlagen an die erste Rechnung der
+   Mail. Gibt es keine, ist die ganze Mail eine Zeile, vorne das erste PDF mit
+   Rechnungsnummer, sonst das erste. So arbeitet auch die Archiv-Mail der Flows. */
+
+// Auch mit gelesener Nummer keine Rechnung: Lieferscheine und Co. tragen eigene Nummern
+const MON_KEINE_RECHNUNG = /pro-?forma|mahnung|zahlungserinnerung|lieferschein|lieferavis|bestellung|auftrag|angebot|kontoauszug|schreiben|bericht|nachweis|anlage|anhang|kopie|duplikat|statement|(?:^|[^a-z])(?:agb|cmr)(?:[^a-z]|$)/i;
+// „Rechnung“ im Dateinamen. Abkürzungen nur in Großbuchstaben: „RE 123“, nicht „Re: Anfrage“
+const MON_RECHNUNG_IM_NAMEN = /rechnung|invoice|gutschrift|abschlag/i;
+const MON_RECHNUNG_KURZ = /(?:^|[^A-Za-zÄÖÜäöüß])(?:S?RG|RE|REG|GS)(?:[^A-Za-zÄÖÜäöüß]|$)/;
+
+function _monDateiname(g) {
+  return [g.originalName, g.file].filter(Boolean).join(' ').replace(/\.(pdf|xml)\b/gi, ' ');
+}
+
+/** Alle Ziffern ohne führende Nullen: „0092658542“ und „RE 92658542“ ergeben dasselbe. */
+function _monZiffern(s) {
+  return String(s || '').replace(/\D/g, '').replace(/^0+/, '');
+}
+
+/**
+ * Rechnungsnummer als Ziffern, ab vier Stellen, sonst leer. Eine gelesene Nummer zählt ganz
+ * („2026-294“), aus dem Dateinamen nur die längste Folge („RG WGC 261024885“).
+ */
+function _monNummerKern(g) {
+  const quelle = g.nummer || _monDateiname(g);
+  const folgen = String(quelle).match(/\d{4,}/g) || [];
+  const kern = !g.nummerAusDatei && g.nummer ? _monZiffern(g.nummer)
+    : _monZiffern(folgen.sort((x, y) => y.length - x.length)[0]);
+  return kern.length >= 4 ? kern : '';
+}
+
+/**
+ * Ist das PDF eindeutig eine eigene Rechnung? Im Zweifel nein, dann bleibt es Anlage.
+ * Der Name sagt Rechnung und es gibt eine Nummer oder einen Betrag, oder Nummer, Betrag
+ * und Datum sind alle vorhanden. Eine gelesene Nummer allein reicht nicht.
+ */
+function _monEigeneRechnung(g) {
+  const name = _monDateiname(g);
+  if (g.mahnung || MON_KEINE_RECHNUNG.test(name)) return false;
+  const kern = _monNummerKern(g);
+  if ((MON_RECHNUNG_IM_NAMEN.test(name) || MON_RECHNUNG_KURZ.test(name)) && (kern || g.brutto != null)) return true;
+  return !!kern && g.brutto != null && !!g.datum;
+}
+
+/**
+ * Ist das PDF g dieselbe Rechnung wie x (E-Rechnung oder schon erkannte Rechnung der Mail)?
+ * Die Nummer der einen steht bei der anderen. Sonst entscheidet der Betrag, aber nur, wenn
+ * Nummern fehlen oder g die PDF-Ansicht einer E-Rechnung ohne gelesene Nummer ist. Gleiche
+ * Beträge mit verschiedenen Nummern sind getrennte Rechnungen.
+ */
+function _monGleicheRechnung(x, g) {
+  const kernX = _monNummerKern(x), kernG = _monNummerKern(g);
+  const steht = (kern, r) => !!kern && [r.nummer, r.originalName, r.file].some(t => _monZiffern(t).includes(kern));
+  if (steht(kernX, g) || steht(kernG, x)) return true;
+  const gleicherBetrag = x.brutto != null && g.brutto != null && Math.abs(x.brutto - g.brutto) < 0.01;
+  const ansicht = /^(xrechnung|zugferd)/i.test(x.format || '') && g.nummerAusDatei;
+  return gleicherBetrag && (ansicht || !kernX || !kernG);
+}
+
 function _monMailVorgaenge(gruppen) {
   const jeMail = new Map();
   const out = [];
@@ -565,6 +622,11 @@ function _monMailZusammen(arr) {
     if (gleich.netto == null) gleich.netto = g.netto;
     gleich.gobdArchiviert = gleich.gobdArchiviert || g.gobdArchiviert;
   }
+  for (const g of anlagen.slice()) {
+    if (!_monEigeneRechnung(g) || rechnungen.some(x => _monGleicheRechnung(x, g))) continue;
+    rechnungen.push(g);
+    anlagen.splice(anlagen.indexOf(g), 1);
+  }
   if (!rechnungen.length) {
     const mitNummer = anlagen.findIndex(g => g.nummer && !g.nummerAusDatei);
     rechnungen.push(anlagen.splice(Math.max(mitNummer, 0), 1)[0]);
@@ -578,7 +640,7 @@ function _monMailZusammen(arr) {
   }
   haupt.erstellt = sortiert.map(r => r.erstellt).filter(Boolean).sort()[0] || haupt.erstellt;
   // Mehrere Rechnungen in einer Mail: jede Zeile nennt die anderen
-  if (rechnungen.length > 1) for (const r of rechnungen) r.mailRechnungen = rechnungen.filter(x => x !== r).map(x => x.nummer);
+  if (rechnungen.length > 1) for (const r of rechnungen) r.mailRechnungen = rechnungen.filter(x => x !== r).map(x => x.nummer).filter(Boolean);
   return rechnungen;
 }
 

@@ -74,10 +74,22 @@ danach zusammen:
 - E-Rechnungen (ZUGFeRD, XRechnung) bleiben **je Rechnung eine Zeile**. Die Details nennen
   unter „In derselben Mail“ die anderen Nummern. PDF und XML derselben Rechnung (gleiche
   Nummer, gleicher Lieferant) sind eine Zeile und keine Dublette.
-- Normale PDFs (Leistungsnachweis, Lieferschein, Belege einer Reisekostenabrechnung) kommen
-  als **Anlagen** an die erste E-Rechnung der Mail.
-- Ohne E-Rechnung ist die ganze Mail eine Zeile. Vorne steht das erste PDF, in dem der
-  Prüfdienst eine Rechnungsnummer fand, sonst das erste PDF. Die übrigen sind Anlagen.
+- Ein normales PDF bekommt eine **eigene Zeile**, wenn es eindeutig eine eigene Rechnung ist
+  (`_monEigeneRechnung`). Der Dateiname sagt Rechnung (auch Invoice, Gutschrift, Abschlag oder
+  in Großbuchstaben RG, RE, REG, SRG, GS) und es gibt eine Nummer oder einen Betrag, oder
+  Nummer, Betrag und Datum sind alle vorhanden. Eine gelesene Nummer allein reicht nicht, auch
+  Lieferscheine tragen Nummern. Nie als Rechnung gelten Namen mit Proforma, Mahnung, Lieferschein,
+  Bestellung, Auftrag, Angebot, Kontoauszug, Schreiben, Bericht, Nachweis, Anlage, Anhang, Kopie,
+  Duplikat, Statement, AGB oder CMR.
+- Dieselbe Rechnung bleibt eine Zeile (`_monGleicheRechnung`): Die Nummer der einen Datei steht
+  bei der anderen, oder das PDF ist die Ansicht einer E-Rechnung mit gleichem Betrag. Gleiche
+  Beträge mit verschiedenen Nummern sind getrennte Rechnungen.
+- Alle anderen PDFs (Leistungsnachweis, Lieferschein, Belege einer Reisekostenabrechnung) kommen
+  als **Anlagen** an die erste Rechnung der Mail.
+- Gibt es keine erkennbare Rechnung, ist die ganze Mail eine Zeile. Vorne steht das erste PDF,
+  in dem der Prüfdienst eine Rechnungsnummer fand, sonst das erste PDF. Die übrigen sind Anlagen.
+
+Geprüft an den 48 Mails mit mehreren Dateien (Stand 06.11.2026): 24 Mails ergeben mehrere Zeilen.
 
 In der Spalte der Dateien steht eine einzelne Anlage als Abzeichen **Anlage**, mehrere als
 **N Anlagen**. Die Details listen jede Anlage mit dem Namen beim Eingang, die Suche findet

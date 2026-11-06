@@ -137,8 +137,47 @@ vg = M._monGroup([
   mv('Rechnung 260158.pdf', { Title: '260158', Format: 'PDF' }, '2026-11-02T06:56:02Z'),
   mv('Gutschrift 92008753.pdf', { Title: '92008753', Format: 'PDF' }, '2026-11-02T06:56:03Z'),
 ]);
-gleich(vg.map(r => [r.nummer, r.anlagen]), [['260158', ['Aufmass.pdf', 'Gutschrift 92008753.pdf']]],
-  'normale PDFs bleiben zusammen, auch mit Nummer; vorne das erste mit Nummer');
+gleich(vg.map(r => [r.nummer, r.anlagen]), [['260158', ['Aufmass.pdf']], ['92008753', undefined]],
+  'Rechnung und Gutschrift getrennt, das Aufmaß bleibt Anlage');
+
+// Mehrere Rechnungen in einer Mail ohne E-Rechnung: getrennt, aber nur, wenn es eindeutig Rechnungen sind
+const pdfs = liste => M._monGroup(liste.map(([name, felder], i) => mv(name, Object.assign({ Format: 'PDF' }, felder), '2026-11-06T11:14:0' + i + 'Z')));
+const zeilen = v => v.map(r => [r.nummer, r.anlagen || []]);
+vg = pdfs([['Rechnung 500001_Original_20261106-113925-7901.pdf', { Title: '500001' }], ['Rechnung 500002_Original_20261106-114218-4235.pdf', { Title: '500002' }],
+  ['Rechnung 500003_Original_20261106-114234-6940.pdf', { Title: '500003' }]]);
+gleich(zeilen(vg), [['500001', []], ['500002', []], ['500003', []]], 'drei Rechnungen in einer Mail, drei Zeilen');
+gleich(vg[0].mailRechnungen, ['500002', '500003'], 'jede Zeile nennt die anderen');
+
+vg = pdfs([['RG ABC 261024891.pdf', { Bruttobetrag: 1526.69 }], ['RG ABC 261024892.pdf', { Bruttobetrag: 1526.69 }]]);
+gleich(vg.length, 2, 'gleicher Betrag, andere Nummer im Dateinamen: zwei Rechnungen');
+vg = pdfs([['RE 2026-310.pdf', { Title: '2026-310' }], ['RE 2026-294.pdf', { Title: '2026-294' }]]);
+gleich(vg.length, 2, 'Nummern mit gleichem Jahr sind verschieden');
+vg = pdfs([['900111.pdf', { Title: '900111', Bruttobetrag: 2698.49, Rechnungsdatum: '2026-09-23' }], ['900112.pdf', { Title: '900112', Bruttobetrag: 2789.53, Rechnungsdatum: '2026-09-23' }]]);
+gleich(vg.length, 2, 'ohne Rechnung im Namen: Nummer, Betrag und Datum vorhanden');
+vg = pdfs([['26 - 248 Abschlag KW40.pdf', { Bruttobetrag: 107070.25 }], ['26 - 263 Abschlag KW42.pdf', { Bruttobetrag: 51235.45 }]]);
+gleich(vg.length, 2, 'Abschläge ohne lange Nummer, verschiedene Beträge');
+
+// Im Zweifel bleibt es Anlage
+const rg = ['Rechnung 100200.pdf', { Title: '100200', Bruttobetrag: 500 }];
+gleich(zeilen(pdfs([rg, ['LB 2026-70001.pdf', { Title: '2026-70004', Rechnungsdatum: '2026-10-27' }]])), [['100200', ['LB 2026-70001.pdf']]], 'Beleg mit gelesener Nummer');
+gleich(zeilen(pdfs([rg, ['SI CF7501.pdf', { Title: '001/4260433' }]])), [['100200', ['SI CF7501.pdf']]], 'nur eine Nummer reicht nicht');
+gleich(zeilen(pdfs([rg, ['PROFORMA - RECHNUNG 96157.pdf', { Title: '96157', Bruttobetrag: 100.38, Rechnungsdatum: '2026-10-01' }]])),
+  [['100200', ['PROFORMA - RECHNUNG 96157.pdf']]], 'Proforma ist keine Rechnung');
+gleich(zeilen(pdfs([rg, ['Bestellung 20262057.pdf', { Bruttobetrag: 1969.57, Rechnungsdatum: '2026-10-01' }]])), [['100200', ['Bestellung 20262057.pdf']]], 'Bestellung');
+gleich(zeilen(pdfs([rg, ['AGB Muster.pdf', {}], ['1_CMR_A553549.pdf', { Bruttobetrag: 20 }]])), [['100200', ['AGB Muster.pdf', '1_CMR_A553549.pdf']]], 'AGB und Frachtbrief');
+gleich(zeilen(pdfs([rg, ['re_ anfrage 12345.pdf', {}]])), [['100200', ['re_ anfrage 12345.pdf']]], 'kleines re ist keine Rechnung');
+gleich(zeilen(pdfs([['Mahnung 263882.pdf', {}], ['RG 201041797.pdf', { Bruttobetrag: 750 }], ['RG 910369999.pdf', { Bruttobetrag: 9234 }]])),
+  [['RG 201041797', ['Mahnung 263882.pdf']], ['RG 910369999', []]], 'Mahnung ist keine Rechnung, die beiden Rechnungen schon');
+gleich(zeilen(pdfs([['Schreiben vom 08.10.2026.pdf', { Title: '700000' }], ['Rechnung 700000 September.pdf', { Title: '700000' }]])),
+  [['700000', ['Schreiben vom 08.10.2026.pdf']]], 'gleiche Nummer: Rechnung vorn, Schreiben als Anlage');
+gleich(pdfs([['Rechnung 700000.pdf', { Title: '700000' }], ['Rechnung 0700000 Zweitdruck.pdf', { Title: '0700000' }]]).length, 1, 'führende Nullen: dieselbe Nummer');
+gleich(pdfs([['Rechnung A.pdf', { Bruttobetrag: 100 }], ['Rechnung B.pdf', { Bruttobetrag: 100 }]]).length, 1, 'ohne Nummer und gleicher Betrag: nicht eindeutig');
+
+// PDF-Ansicht einer E-Rechnung ist keine zweite Rechnung
+const xmlRe = ['479964_DE111111111.xml', { Title: '479964_DE111111111.xml', Format: 'XRechnung', RechnungsstellerUStID: 'DE111111111', Bruttobetrag: 602.63 }];
+gleich(zeilen(pdfs([xmlRe, ['2026_Muster_RE_479964__.pdf', {}]])), [['479964', ['2026_Muster_RE_479964__.pdf']]], 'Nummer steht im Dateinamen');
+gleich(zeilen(pdfs([xmlRe, ['31628226 - Muster - INVOICE.pdf', { Bruttobetrag: 602.63 }]])), [['479964', ['31628226 - Muster - INVOICE.pdf']]], 'gleicher Betrag, keine gelesene Nummer');
+gleich(zeilen(pdfs([xmlRe, ['Rechnung 900500.pdf', { Title: '900500', Bruttobetrag: 75 }]])), [['479964', []], ['900500', []]], 'zweite Rechnung als PDF neben der E-Rechnung');
 
 vg = M._monGroup([
   mv('RE1_DE296887298.pdf', { Title: 'RE1', Format: 'ZUGFeRD', RechnungsstellerUStID: 'DE296887298' }, '2026-10-30T12:27:00Z'),
