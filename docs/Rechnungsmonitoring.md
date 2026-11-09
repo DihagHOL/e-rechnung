@@ -56,8 +56,11 @@ Bibliotheken, die noch die Site-Rechte erben, bekommen dafür eigene Rechte (Kop
 
 Eine Rechnung besteht oft aus mehreren Dateien (Original-PDF/-XML, extrahierte XML,
 lesbares PDF, KoSIT-Bericht). Sie werden zu **einer Zeile** zusammengefasst (Gruppierung
-über `baseKey` = Dateiname ohne Endung, Sidecar-Suffix und Datum). Die Dateien stehen als
-kurze Abzeichen in der letzten Spalte: **PDF/XML** (Original), **Lesbar**, **Bericht**.
+über `baseKey` = Dateiname ohne Endung und Sidecar-Suffix). Im Ausgang fällt außerdem das Datum
+weg, das der Konverter anhängt (`4260554_20261106`). Im Eingang bleiben Ziffern am Ende stehen,
+dort sind es Scanner- oder Rechnungsnummern. Bis zum 09.11.2026 fielen sie auch im Eingang weg,
+so wurden zwei Scans `…_004711` und `…_004712` aus zwei Mails zu einer Zeile. Die Dateien stehen
+als kurze Abzeichen in der letzten Spalte: **PDF/XML** (Original), **Lesbar**, **Bericht**.
 
 **Rechnungsnummer:** Sie steht im `Title`. Bei XML-Dateien setzt SharePoint den `Title`
 selbst auf den Dateinamen (`20261967_DE811979246.xml`), auch wenn der Flow die Nummer

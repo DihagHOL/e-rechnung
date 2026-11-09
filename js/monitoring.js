@@ -324,7 +324,11 @@ function _monMap(it, f, lib) {
 
   // baseKey = Dateiname ohne Endung/Sidecar/Datum -> Gruppierungsschlüssel.
   // (Title ist im Flow oft leer ODER der ganze Dateiname -> zum Gruppieren untauglich.)
-  const baseKey = stem.replace(/_\d{6,8}$/, '');
+  // Das Datum „_JJJJMMTT“ hängt nur der Konverter im Ausgang an. Im Eingang sind Ziffern am
+  // Ende Scanner- oder Rechnungsnummern („Scan_004711“, „Scan_004712“) und bleiben stehen,
+  // sonst würden zwei Rechnungen zu einer Zeile.
+  const ausgang = (lib.richtung || f.Richtung || '') === 'Ausgang';
+  const baseKey = ausgang ? stem.replace(/_\d{6,8}$/, '') : stem;
   const titleClean = (f.Title && String(f.Title).trim()) || '';
   // Spalte RechnungsstellerUStID trug bis zur Flow-Korrektur den Namen: nur echte USt-IdNr. nehmen
   const ustid = /^[A-Z]{2}[0-9A-Z]{8,12}$/.test(String(f.RechnungsstellerUStID || '').replace(/\s+/g, ''))

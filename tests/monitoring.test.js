@@ -140,6 +140,23 @@ vg = M._monGroup([
 gleich(vg.map(r => [r.nummer, r.anlagen]), [['260158', ['Aufmass.pdf']], ['92008753', undefined]],
   'Rechnung und Gutschrift getrennt, das Aufmaß bleibt Anlage');
 
+// Eingang: Scannernummer am Ende ist kein Datum, zwei Scans aus zwei Mails bleiben zwei Zeilen
+vg = M._monGroup([
+  mv('SCAN-001_004711.pdf', { Title: '480001', Bruttobetrag: 1000 }, '2026-11-09T11:00:33Z', 'LAUF_A'),
+  mv('SCAN-001_004712.pdf', { Title: '4800012', Bruttobetrag: 200 }, '2026-11-09T11:01:32Z', 'LAUF_B'),
+]);
+gleich(vg.map(r => [r.nummer, r.baseKey]), [['480001', 'SCAN-001_004711'], ['4800012', 'SCAN-001_004712']],
+  'Eingang: Ziffern am Ende bleiben im Schlüssel');
+vg = M._monGroup([
+  mv('SCAN_20261106.pdf', { Title: '111' }, '2026-11-09T11:00:01Z', 'LAUF_C'),
+  mv('SCAN_20261107.pdf', { Title: '222' }, '2026-11-09T11:00:02Z', 'LAUF_D'),
+]);
+gleich(vg.length, 2, 'Eingang: auch acht Ziffern am Ende, zwei Mails bleiben zwei Zeilen');
+const libAus = { id: 'L3', werk: 'WGC', richtung: 'Ausgang' };
+const ausDatei = (name, t) => M._monMap({ id: name, createdDateTime: t }, { FileLeafRef: name, Title: '4260554' }, libAus);
+vg = M._monGroup([ausDatei('4260554_20261106.xml', '2026-11-06T10:00:00Z'), ausDatei('4260554_20261106_lesbar.pdf', '2026-11-06T10:00:01Z')]);
+gleich([vg.length, vg[0].baseKey, vg[0].nummer], [1, '4260554', '4260554'], 'Ausgang: Datum im Dateinamen fällt weiter weg');
+
 // Mehrere Rechnungen in einer Mail ohne E-Rechnung: getrennt, aber nur, wenn es eindeutig Rechnungen sind
 const pdfs = liste => M._monGroup(liste.map(([name, felder], i) => mv(name, Object.assign({ Format: 'PDF' }, felder), '2026-11-06T11:14:0' + i + 'Z')));
 const zeilen = v => v.map(r => [r.nummer, r.anlagen || []]);
