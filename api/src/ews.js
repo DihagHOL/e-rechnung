@@ -43,7 +43,12 @@ async function _anfrage(z, inhalt) {
   if (r.status === 401) throw Object.assign(new Error('Anmeldung am Exchange-Server fehlgeschlagen (HTTP 401, Benutzer oder Kennwort)'), { status: 502 });
   const doc = new DOMParser({ errorHandler: { warning() {}, error() {}, fatalError() {} } }).parseFromString(text, 'text/xml');
   const msg = Array.from(doc.getElementsByTagNameNS(NS_M, '*')).find(e => e.localName.endsWith('ResponseMessage'));
-  if (!r.ok || !msg) throw Object.assign(new Error(`Exchange HTTP ${r.status}`), { status: 502 });
+  if (!r.ok || !msg) {
+    // Für die Fehlersuche: Server und Anfang der Antwort, ohne Tags (enthält keine Zugangsdaten)
+    const hinweis = [r.headers && r.headers.get && r.headers.get('server'), text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)]
+      .filter(Boolean).join(' | ');
+    throw Object.assign(new Error(`Exchange HTTP ${r.status}${hinweis ? ': ' + hinweis : ''}`), { status: 502 });
+  }
   if (msg.getAttribute('ResponseClass') === 'Error') {
     const code = _text(msg, NS_M, 'ResponseCode');
     throw Object.assign(new Error(`Exchange ${code || 'Fehler'}`), { status: /NotFound|InvalidId|Malformed/i.test(code) ? 404 : 502 });
