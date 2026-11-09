@@ -28,6 +28,7 @@ const WERK_MUSTER = [
   { werk: 'HOL', woerter: ['dihag holding'] },   // DIHAG Holding GmbH
   { werk: 'MEG', woerter: [] },   // TODO
   { werk: 'SCH', woerter: [] },   // TODO
+  { werk: 'HAS', woerter: ['hasenclever'] },   // Postfach in eigenem Tenant, gelesen über Graph (docs/Postfach-ueber-Graph.md)
 ];
 
 /**

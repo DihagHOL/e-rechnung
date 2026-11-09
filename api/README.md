@@ -264,6 +264,12 @@ Prüfung → `ERAR_<Werk>`) steht in
 und zugleich der Dateiname — als Datei im `ERAR_<Werk>` wird „Datei existiert schon" zur
 echten Dublettenprüfung. Verschiedene Lieferanten mit gleicher Nummer kollidieren nicht.
 
+## Rechnungspostfach über Graph (`/api/postfach`)
+
+Für Postfächer in einem anderen Tenant: `GET /api/postfach?werk=<Kuerzel>` listet Mails mit
+Anhängen, `&id=<ID>` liefert die PDF- und XML-Anhänge einer Mail. Nur lesend, Zugangsdaten aus den
+App-Einstellungen `POSTFACH_<WERK>_*`. Siehe [`../docs/Postfach-ueber-Graph.md`](../docs/Postfach-ueber-Graph.md).
+
 ## Qualifizierte USt-IdNr-Prüfung (`/api/vat`)
 
 Für den **Ausgangsrechnungs**-Prozess (Button im Browser-Tool): bestätigt die
