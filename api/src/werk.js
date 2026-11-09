@@ -22,13 +22,12 @@ const WERK_MUSTER = [
   // Übrige Werke: Erkennungswoerter (Firmenname/Ort/Leitweg des EMPFAENGERS)
   // ergaenzen, sobald bekannt. Leere Listen sind inert (kein Treffer).
   { werk: 'EIS', woerter: [] },   // TODO
-  { werk: 'DSO', woerter: [] },   // TODO
+  { werk: 'DSO', woerter: ['dihag solutions', 'hasenclever'] },   // Dihag Solutions GmbH (Hasenclever)
   { werk: 'LEG', woerter: [] },   // TODO
   { werk: 'EWA', woerter: [] },   // TODO
   { werk: 'HOL', woerter: ['dihag holding'] },   // DIHAG Holding GmbH
   { werk: 'MEG', woerter: [] },   // TODO
   { werk: 'SCH', woerter: [] },   // TODO
-  { werk: 'HAS', woerter: ['hasenclever'] },   // Postfach in eigenem Tenant, gelesen über Graph (docs/Postfach-ueber-Graph.md)
 ];
 
 /**

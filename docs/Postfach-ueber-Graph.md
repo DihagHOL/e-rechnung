@@ -1,7 +1,7 @@
 # Rechnungspostfach über Graph lesen
 
 Power Automate hört Rechnungspostfächer mit dem Outlook-Auslöser ab. Das geht nur im eigenen
-Tenant. Für ein Postfach in einem anderen Tenant (zuerst Hasenclever, Werk `HAS`) liest die
+Tenant. Für ein Postfach in einem anderen Tenant (zuerst Hasenclever, Werk `DSO`, Dihag Solutions GmbH) liest die
 Function das Postfach über Microsoft Graph, und ein Flow legt die Anhänge wie bei den anderen
 Werken in `ERAR_<Werk>` ab.
 
@@ -25,7 +25,7 @@ Die Zugangsdaten stehen nur in den App-Einstellungen der Function, nie im Code o
 Den geheimen Schlüssel trägt die IT selbst ein, etwa so (Wert in Anführungszeichen):
 
 ```bash
-az functionapp config appsettings set -g <Ressourcengruppe> -n <Function-App> --settings POSTFACH_HAS_SECRET="<Wert>"
+az functionapp config appsettings set -g <Ressourcengruppe> -n <Function-App> --settings POSTFACH_DSO_SECRET="<Wert>"
 ```
 
 Läuft der Schlüssel ab, meldet die Function „Anmeldung am Tenant des Postfachs fehlgeschlagen“.
@@ -33,9 +33,9 @@ Dann einen neuen Schlüssel anlegen und die Einstellung ersetzen.
 
 ## Endpunkt `/api/postfach`
 
-- `GET /api/postfach?werk=HAS&tage=2`: Mails mit Anhängen der letzten zwei Tage, älteste zuerst,
+- `GET /api/postfach?werk=DSO&tage=2`: Mails mit Anhängen der letzten zwei Tage, älteste zuerst,
   ohne Inhalt (`id`, `empfangen`, `betreff`, `von`, `antwortAn`). Höchstens 200 Mails.
-- `GET /api/postfach?werk=HAS&id=<ID>`: eine Mail mit ihren PDF- und XML-Anhängen
+- `GET /api/postfach?werk=DSO&id=<ID>`: eine Mail mit ihren PDF- und XML-Anhängen
   (`anhaenge`: `name`, `contentType`, `size`, `contentBytes` in Base64). Eingebettete Bilder und
   angehängte Mails fallen weg.
 

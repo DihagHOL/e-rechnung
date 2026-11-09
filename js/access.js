@@ -39,8 +39,8 @@ const WERKE_ALLE = [
   ['WGC', 'Walzengießerei Coswig GmbH'],
   ['SHB', 'Stahl- und Hartgusswerk Bösdorf GmbH'],
   ['ZAI', 'Dihag Zaigler GmbH'],
-  ['EIS', 'DIHAG Gienanth GmbH'], ['DSO', 'Werk DSO'], ['LEG', 'Lintorfer Eisengießerei GmbH'], ['EWA', 'Eisenwerk Arnstadt GmbH'],
-  ['HOL', 'DIHAG Holding GmbH'], ['MEG', 'Meuselwitz Guss Eisengießerei GmbH'], ['SCH', 'Werk SCH'], ['HAS', 'Hasenclever'],
+  ['EIS', 'DIHAG Gienanth GmbH'], ['DSO', 'Dihag Solutions GmbH'], ['LEG', 'Lintorfer Eisengießerei GmbH'], ['EWA', 'Eisenwerk Arnstadt GmbH'],
+  ['HOL', 'DIHAG Holding GmbH'], ['MEG', 'Meuselwitz Guss Eisengießerei GmbH'], ['SCH', 'Werk SCH'],
 ];
 
 /* ── Laufzeit-Config (wird aus SharePoint geladen) ── */

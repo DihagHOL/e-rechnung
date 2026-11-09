@@ -78,6 +78,7 @@ const GESELLSCHAFT = {
   LEG: 'Lintorfer Eisengießerei GmbH',
   EWA: 'Eisenwerk Arnstadt GmbH',
   HOL: 'DIHAG Holding GmbH',
+  DSO: 'Dihag Solutions GmbH',
 };
 
 /** Taugt die Adresse als Empfänger? Keine noreply-Adressen. */
