@@ -96,7 +96,9 @@ global.fetch = async (url, opt = {}) => {
       ] });
     }
     if (/\/mailFolders\/F-AR\/childFolders\?/.test(url)) return ok({ value: [{ id: 'F-AR-IRIS', displayName: 'IRIS', childFolderCount: 0, totalItemCount: 0 }] });
-    if (/\/mailFolders\/F-VK\/messages\?/.test(url)) return ok({ value: [{ id: 'V1', receivedDateTime: '2026-11-10T07:00:00Z', subject: 'Vorkasse 1', from: { emailAddress: { address: 'a@x.example' } } }] });
+    if (/\/mailFolders\/F-VK\/messages\?/.test(url)) return ok({ value: [{ id: 'V1', receivedDateTime: '2026-11-10T07:00:00Z', lastModifiedDateTime: '2026-11-10T09:00:00Z', subject: 'Vorkasse 1', from: { emailAddress: { address: 'a@x.example' } } }] });
+    if (/\/mailFolders\/F-IN\/messages\?/.test(url)) return ok({ value: [{ id: 'I1', receivedDateTime: '2026-11-10T08:00:00Z', lastModifiedDateTime: '2026-11-10T08:30:00Z', subject: 'Eingang 1', from: { emailAddress: { address: 'b@x.example' } } }] });
+    if (/\/mailFolders\/F-IRIS\/messages\?/.test(url)) return ok({ value: [] });
     if (/\/messages\/V1\/move$/.test(url)) return ok({ id: 'V1' });
     throw new Error('unerwartet: ' + url);
   };
@@ -113,6 +115,17 @@ global.fetch = async (url, opt = {}) => {
   await P.mailsSeit(z, '2026-11-08T00:00:00Z', 'F-VK', true);
   const vk2 = decodeURIComponent(ordnerAufrufe.filter(a => /F-VK\/messages/.test(a.url)).pop().url);
   gleich([/lastModifiedDateTime ge 2026-11-08T00:00:00Z and hasAttachments eq true/.test(vk2), /\$orderby=lastModifiedDateTime asc/.test(vk2)], [true, true], 'Ordner nach Änderung');
+  // Ordner samt Unterordnern, nach Änderung sortiert, mit Stichtag
+  gleich(await P.ordnerMitUnterordnern(z, 'Posteingang'), ['F-IN', 'F-IRIS', 'F-VK'], 'Posteingang mit Unterordnern');
+  gleich(await P.ordnerMitUnterordnern(z, 'Vorkasse'), ['F-VK'], 'ohne Unterordner nur er selbst');
+  const zusammen = await P.mailsSeit(z, '2026-11-08T00:00:00Z', ['F-IN', 'F-IRIS', 'F-VK'], true, '2026-11-09T00:00:00Z');
+  gleich(zusammen.map(m => m.id), ['I1', 'V1'], 'mehrere Ordner, nach letzter Änderung sortiert');
+  gleich(Object.keys(zusammen[0]).sort(), ['antwortAn', 'betreff', 'empfangen', 'id', 'von'], 'keine Hilfsfelder in der Antwort');
+  const mitAb = decodeURIComponent(ordnerAufrufe.filter(a => /F-IN\/messages/.test(a.url)).pop().url);
+  gleich(/lastModifiedDateTime ge 2026-11-08T00:00:00Z and receivedDateTime ge 2026-11-09T00:00:00Z and hasAttachments eq true/.test(mitAb), true, 'Stichtag im Filter');
+  await P.mailsSeit(z, '2026-11-08T00:00:00Z', 'F-VK', false, '2026-11-09T00:00:00Z');
+  const nachEingang = decodeURIComponent(ordnerAufrufe.filter(a => /F-VK\/messages/.test(a.url)).pop().url);
+  gleich(/receivedDateTime ge 2026-11-09T00:00:00Z and hasAttachments eq true/.test(nachEingang), true, 'Stichtag nach dem Fenster ersetzt den Beginn');
   gleich(await P.verschieben(z, 'V1', 'Posteingang/IRIS'), { id: 'V1', ordner: 'Posteingang/IRIS' }, 'verschoben');
   const zug = ordnerAufrufe.find(a => /\/move$/.test(a.url));
   gleich([zug.opt.method, JSON.parse(zug.opt.body), zug.opt.headers['Content-Type']], ['POST', { destinationId: 'F-IRIS' }, 'application/json'], 'Verschieben per POST mit Ziel-ID');

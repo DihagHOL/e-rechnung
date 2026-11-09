@@ -111,6 +111,15 @@ async function ordnerId(z, angabe) {
   throw Object.assign(new Error(`Ordner „${a}“ nicht gefunden`), { status: 404 });
 }
 
+/** Ein Ordner und alle Ordner darunter (IDs), für Quellen wie „Vorkassen“ mit Unterordnern. */
+async function ordnerMitUnterordnern(z, angabe) {
+  const id = await ordnerId(z, angabe);
+  const baum = await ordnerBaum(z);
+  const basis = baum.find(o => o.id === id);
+  if (!basis) return [id];
+  return [id, ...baum.filter(o => o.pfad.toLowerCase().startsWith(basis.pfad.toLowerCase() + '/')).map(o => o.id)];
+}
+
 /** Mail in einen Ordner verschieben. Die unveränderliche ID bleibt dabei gleich. */
 async function verschieben(z, id, ziel) {
   if (z.art !== 'graph') throw Object.assign(new Error('Verschieben geht nur über Graph'), { status: 400 });
@@ -134,27 +143,36 @@ async function graphDiagnose(z) {
 }
 
 /**
- * Mails mit Anhängen seit `seit` (ISO, UTC), älteste zuerst, ohne Inhalt. Ordner: ID, sonst z.ordner.
- * geaendert: nach letzter Änderung statt Eingang filtern. Wer eine ältere Mail später in einen
- * Ordner zieht, ändert sie dabei, so fällt sie trotzdem ins Zeitfenster.
+ * Mails mit Anhängen seit `seit` (ISO, UTC), älteste zuerst, ohne Inhalt.
+ * ordner: eine ID oder mehrere (Liste), sonst z.ordner.
+ * geaendert: nach letzter Änderung statt Eingang filtern. Wer eine Mail später in einen Ordner
+ *   zieht, ändert sie dabei, so fällt sie trotzdem ins Zeitfenster.
+ * ab: Stichtag (ISO, UTC), nur Mails, die ab dann eingegangen sind. So zählt eine alte Mail nicht als
+ *   neu, nur weil jemand sie zwischen Ordnern verschiebt.
  */
-async function mailsSeit(z, seit, ordner, geaendert) {
+async function mailsSeit(z, seit, ordner, geaendert, ab) {
   if (z.art === 'ews') return ewsMailsSeit(z, seit);
   const feld = geaendert ? 'lastModifiedDateTime' : 'receivedDateTime';
+  const filter = [`${feld} ge ${seit}`, ab && feld !== 'receivedDateTime' ? `receivedDateTime ge ${ab}` : '', 'hasAttachments eq true'].filter(Boolean);
+  if (ab && feld === 'receivedDateTime' && ab > seit) filter[0] = `${feld} ge ${ab}`;
   const q = [
-    '$filter=' + encodeURIComponent(`${feld} ge ${seit} and hasAttachments eq true`),
+    '$filter=' + encodeURIComponent(filter.join(' and ')),
     '$orderby=' + encodeURIComponent(`${feld} asc`),
-    '$select=id,receivedDateTime,subject,from,replyTo',
+    `$select=id,receivedDateTime,lastModifiedDateTime,subject,from,replyTo`,
     '$top=50',
   ].join('&');
-  let pfad = `${_postfach(z)}/mailFolders/${encodeURIComponent(ordner || z.ordner)}/messages?${q}`;
+  const ids = [].concat(ordner || z.ordner);
   const mails = [];
-  while (pfad && mails.length < MAX_MAILS) {
-    const d = await _graph(z, pfad);
-    mails.push(...(d.value || []).map(_kopf));
-    pfad = d['@odata.nextLink'] || '';
+  for (const id of ids) {
+    let pfad = `${_postfach(z)}/mailFolders/${encodeURIComponent(id)}/messages?${q}`;
+    while (pfad && mails.length < MAX_MAILS) {
+      const d = await _graph(z, pfad);
+      mails.push(...(d.value || []).map(m => Object.assign(_kopf(m), { _zeit: m[feld] || '' })));
+      pfad = d['@odata.nextLink'] || '';
+    }
   }
-  return mails.slice(0, MAX_MAILS);
+  mails.sort((x, y) => (x._zeit < y._zeit ? -1 : x._zeit > y._zeit ? 1 : 0));
+  return mails.slice(0, MAX_MAILS).map(({ _zeit, ...m }) => m);
 }
 
 /** PDF oder XML als Datei, keine eingebetteten Bilder und keine angehängten Mails. */
@@ -184,4 +202,4 @@ async function mailMitAnhaengen(z, id) {
   return Object.assign(_kopf(m), { anhaenge });
 }
 
-module.exports = { zugang, mailsSeit, mailMitAnhaengen, istRechnungsanhang, ordnerBaum, ordnerId, verschieben, graphDiagnose, _token, _baum };
+module.exports = { zugang, mailsSeit, mailMitAnhaengen, istRechnungsanhang, ordnerBaum, ordnerId, ordnerMitUnterordnern, verschieben, graphDiagnose, _token, _baum };

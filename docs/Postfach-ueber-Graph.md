@@ -62,10 +62,13 @@ von einem vorgeschalteten Proxy heißt gesperrt. Zugangsdaten werden dabei nicht
 - `GET /api/postfach?werk=DSO&id=<ID>`: eine Mail mit ihren PDF- und XML-Anhängen
   (`anhaenge`: `name`, `contentType`, `size`, `contentBytes` in Base64). Eingebettete Bilder und
   angehängte Mails fallen weg.
-- `GET /api/postfach?werk=DSO&ordner=Vorkasse&zeit=geaendert`: Liste aus einem anderen Ordner.
-  Der Ordner steht mit Namen da (`Vorkasse`) oder mit Pfad (`Posteingang/Vorkasse`), wenn der Name
-  mehrfach vorkommt. `zeit=geaendert` filtert nach der letzten Änderung statt nach dem Eingang. So
-  fällt auch eine ältere Mail ins Zeitfenster, die jemand später in den Ordner gezogen hat.
+- `GET /api/postfach?werk=DSO&ordner=Vorkassen&unterordner=1&zeit=geaendert&ab=2026-11-09`: Liste
+  aus einem anderen Ordner. Der Ordner steht mit Namen da (`Vorkassen`) oder mit Pfad
+  (`Posteingang/IRISEingang`), wenn der Name mehrfach vorkommt. `unterordner=1` nimmt alle Ordner
+  darunter mit. `zeit=geaendert` filtert nach der letzten Änderung statt nach dem Eingang, so fällt
+  auch eine Mail ins Zeitfenster, die jemand später in den Ordner gezogen hat. `ab` ist ein
+  Stichtag: Nur Mails, die ab diesem Tag eingegangen sind, zählen. Eine alte Mail, die jemand
+  zwischen Unterordnern verschiebt, gilt so nicht als neu.
 - `POST /api/postfach?werk=DSO&id=<ID>&nach=<Ordner>`: verschiebt die Mail. Das ist der einzige
   schreibende Aufruf, er braucht `Mail.ReadWrite`. Die ID der Mail bleibt dabei gleich.
 - `GET /api/postfach?werk=DSO&diagnose=1`: Rechte der App laut Token und alle Ordner mit Pfad und
@@ -96,11 +99,15 @@ Der Flow liest bei DSO nicht den Posteingang, sondern zwei Ordner, nacheinander:
 
 | Quelle | Archiv-Mail | landet in |
 |---|---|---|
-| `IRIS` | „[ARCHIV] Rechnung …“ | `ArchiviertUndGeprueftIRIS` |
-| `Vorkasse` | „[ARCHIV OHNE IRIS] Rechnung …“ | `ArchiviertUndGeprueftOhneIRIS` |
+| `Posteingang/IRISEingang` | „[ARCHIV] Rechnung …“ | `Posteingang/ArchiviertUndGeprueftIRIS` |
+| `Vorkassen` mit allen Unterordnern | „[ARCHIV OHNE IRIS] Rechnung …“ | `Posteingang/ArchiviertUndGeprueftOhneIRIS` |
 
 Die Ordner stehen mit Namen im Flow, die Function sucht ihre ID. Gelesen wird mit
-`zeit=geaendert`, so zählt auch eine Mail, die jemand später in einen der Ordner zieht.
+`zeit=geaendert`, so zählt auch eine Mail, die jemand später in einen der Ordner zieht. Der
+Stichtag `ab=2026-11-09` hält die Mails von vorher heraus. Unter Vorkassen liegen Tausende, die
+beim Weiterschieben (Gebucht, Zahllauf, Bezahlt) sonst als neu gälten. Wandert eine schon
+abgelegte Mail weiter, etwa von IRISEingang nach Vorkassen, bleibt es bei der ersten Ablage und
+Archiv-Mail.
 
 Wie bei HOL geht nach der Ablage je E-Rechnung eine Archiv-Mail raus, ohne E-Rechnung eine für die
 ganze Mail (Aufbau siehe [Eingangsrechnungen-Flow.md](Eingangsrechnungen-Flow.md)). Absender ist
