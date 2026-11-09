@@ -1,4 +1,4 @@
-# Rechnungspostfach über Graph lesen
+# Rechnungspostfach über Graph oder EWS lesen
 
 Power Automate hört Rechnungspostfächer mit dem Outlook-Auslöser ab. Das geht nur im eigenen
 Tenant. Für ein Postfach in einem anderen Tenant (zuerst Hasenclever, Werk `DSO`, Dihag Solutions GmbH) liest die
@@ -30,6 +30,24 @@ az functionapp config appsettings set -g <Ressourcengruppe> -n <Function-App> --
 
 Läuft der Schlüssel ab, meldet die Function „Anmeldung am Tenant des Postfachs fehlgeschlagen“.
 Dann einen neuen Schlüssel anlegen und die Einstellung ersetzen.
+
+## Exchange im eigenen Haus (EWS)
+
+Liegt das Postfach auf einem Exchange-Server im eigenen Haus (EIS, Gienanth), liest die Function
+es über Exchange Web Services (`src/ews.js`) mit dem Konto des Postfachs. Angemeldet wird mit
+Basic über HTTPS, unverschlüsseltes HTTP lehnt die Function ab. Benutzt werden nur FindItem,
+GetItem und GetAttachment, die am Postfach nichts ändern, auch nicht den Status „gelesen“.
+
+| Einstellung | Inhalt |
+|---|---|
+| `POSTFACH_<WERK>_EWS` | Adresse von EWS, etwa `https://<server>/EWS/Exchange.asmx` |
+| `POSTFACH_<WERK>_BENUTZER` | Konto in der Form `DOMÄNEkonto` |
+| `POSTFACH_<WERK>_KENNWORT` | Kennwort des Kontos, trägt die IT selbst ein |
+| `POSTFACH_<WERK>_ADRESSE` | optional, nur zur Anzeige |
+
+Die `id` einer Mail ist hier die EWS-ItemId. Sie ändert sich, wenn jemand die Mail in einen anderen
+Ordner verschiebt und wieder zurück. Dann legt der Flow sie ein zweites Mal ab, das Monitoring
+zeigt das als Dublette.
 
 ## Endpunkt `/api/postfach`
 

@@ -7,10 +7,13 @@
  * Zugriff. Die Zugangsdaten je Werk stehen nur in den App-Einstellungen der Function:
  *   POSTFACH_<WERK>_TENANT, POSTFACH_<WERK>_CLIENT, POSTFACH_<WERK>_SECRET, POSTFACH_<WERK>_ADRESSE
  *   POSTFACH_<WERK>_ORDNER (optional, Standard inbox)
+ * Exchange im eigenen Haus (EWS) statt Graph: POSTFACH_<WERK>_EWS, _BENUTZER, _KENNWORT (src/ews.js).
  *
  * Es wird nur gelesen: nichts verschoben, nichts als gelesen markiert. Welche Mail schon
  * abgelegt ist, sieht der Flow an der Spalte MailVorgang (unveränderliche Graph-ID der Mail).
  */
+const { ewsMailsSeit, ewsMailMitAnhaengen } = require('./ews');
+
 const GRAPH = 'https://graph.microsoft.com/v1.0';
 const ZEIT_MS = 30000;
 const MAX_MAILS = 200;
@@ -21,7 +24,12 @@ function zugang(werk) {
   const w = String(werk || '').toUpperCase();
   if (!/^[A-Z]{2,8}$/.test(w)) return null;
   const e = k => String(process.env[`POSTFACH_${w}_${k}`] || '').trim();
-  const z = { werk: w, tenant: e('TENANT'), client: e('CLIENT'), secret: e('SECRET'), adresse: e('ADRESSE'), ordner: e('ORDNER') || 'inbox' };
+  const ordner = e('ORDNER') || 'inbox';
+  if (e('EWS')) {
+    const z = { werk: w, art: 'ews', ews: e('EWS'), benutzer: e('BENUTZER'), kennwort: e('KENNWORT'), adresse: e('ADRESSE') || e('BENUTZER'), ordner };
+    return /^https:\/\//.test(z.ews) && z.benutzer && z.kennwort ? z : null;
+  }
+  const z = { werk: w, art: 'graph', tenant: e('TENANT'), client: e('CLIENT'), secret: e('SECRET'), adresse: e('ADRESSE'), ordner };
   return z.tenant && z.client && z.secret && z.adresse ? z : null;
 }
 
@@ -56,6 +64,7 @@ const _postfach = z => `/users/${encodeURIComponent(z.adresse)}`;
 
 /** Mails mit Anhängen seit `seit` (ISO, UTC), älteste zuerst, ohne Inhalt. */
 async function mailsSeit(z, seit) {
+  if (z.art === 'ews') return ewsMailsSeit(z, seit);
   const q = [
     '$filter=' + encodeURIComponent(`receivedDateTime ge ${seit} and hasAttachments eq true`),
     '$orderby=' + encodeURIComponent('receivedDateTime asc'),
@@ -87,6 +96,7 @@ function _dateiname(a) {
 
 /** Eine Mail mit ihren PDF- und XML-Anhängen. Die Felder heißen wie im Outlook-Auslöser (name, contentBytes). */
 async function mailMitAnhaengen(z, id) {
+  if (z.art === 'ews') return ewsMailMitAnhaengen(z, id, istRechnungsanhang, _dateiname);
   const basis = `${_postfach(z)}/messages/${encodeURIComponent(id)}`;
   const m = await _graph(z, `${basis}?$select=id,receivedDateTime,subject,from,replyTo`);
   const liste = await _graph(z, `${basis}/attachments?$select=id,name,contentType,size,isInline`);
