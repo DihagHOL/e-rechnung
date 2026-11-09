@@ -126,4 +126,34 @@ async function ewsMailMitAnhaengen(z, id, istRechnungsanhang, dateiname) {
   return Object.assign(_kopf(el), { id, anhaenge });
 }
 
-module.exports = { ewsMailsSeit, ewsMailMitAnhaengen };
+/** Eine leere EWS-Anfrage ohne Anmeldung an genau eine IP des Servers (SNI und Host bleiben der Servername). */
+function _ohneAnmeldung(url, ip) {
+  const leer = _umschlag('');
+  return new Promise(res => {
+    const req = require('https').request({
+      host: ip, servername: url.hostname, port: url.port || 443, path: url.pathname, method: 'POST', timeout: 15000,
+      headers: { Host: url.host, 'Content-Type': 'text/xml; charset=utf-8', 'Content-Length': Buffer.byteLength(leer) },
+    }, r => { r.resume(); r.on('end', () => res({ status: r.statusCode, server: r.headers.server || null })); });
+    req.on('timeout', () => { req.destroy(); res({ status: null, fehler: 'Zeitüberschreitung' }); });
+    req.on('error', e => res({ status: null, fehler: e.code || e.message }));
+    req.end(leer);
+  });
+}
+
+/**
+ * Fehlersuche ohne Zugangsdaten: Mit welcher IP geht die Function hinaus, und was antwortet jede IP des
+ * Servers auf eine Anfrage ohne Anmeldung? 401 vom IIS heißt durchgelassen, 403 vom Proxy heißt gesperrt.
+ */
+async function ewsDiagnose(z) {
+  const url = new URL(z.ews);
+  const aussen = await fetch('https://www.cloudflare.com/cdn-cgi/trace', { signal: AbortSignal.timeout(10000) })
+    .then(r => r.text())
+    .then(t => Object.fromEntries(t.trim().split('\n').map(zeile => zeile.split('='))))
+    .catch(() => ({}));
+  const ips = await require('dns').promises.resolve4(url.hostname).catch(() => []);
+  const server = [];
+  for (const ip of ips) server.push({ ip, ...(await _ohneAnmeldung(url, ip)) });
+  return { ausgehendeIp: aussen.ip || null, land: aussen.loc || null, server };
+}
+
+module.exports = { ewsMailsSeit, ewsMailMitAnhaengen, ewsDiagnose };

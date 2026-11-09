@@ -49,6 +49,11 @@ Die `id` einer Mail ist hier die EWS-ItemId. Sie ändert sich, wenn jemand die M
 Ordner verschiebt und wieder zurück. Dann legt der Flow sie ein zweites Mal ab, das Monitoring
 zeigt das als Dublette.
 
+Kommt die Function nicht durch, hilft `GET /api/postfach?werk=EIS&diagnose=1`. Die Antwort nennt die
+IP, mit der die Function ins Internet geht, und das Land, in dem diese IP verortet wird. Dazu für jede IP
+des Servers die Antwort auf eine leere Anfrage ohne Anmeldung: 401 vom IIS heißt durchgelassen, 403
+von einem vorgeschalteten Proxy heißt gesperrt. Zugangsdaten werden dabei nicht gesendet.
+
 ## Endpunkt `/api/postfach`
 
 - `GET /api/postfach?werk=DSO&tage=2`: Mails mit Anhängen der letzten zwei Tage, älteste zuerst,

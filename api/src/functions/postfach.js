@@ -4,12 +4,14 @@
  * =============================================================================
  *   GET /api/postfach?werk=<Kürzel>[&tage=2]   -> { werk, postfach, seit, anzahl, mails: [{ id, empfangen, betreff, von, antwortAn }] }
  *   GET /api/postfach?werk=<Kürzel>&id=<ID>    -> { id, empfangen, betreff, von, antwortAn, anhaenge: [{ name, contentType, size, contentBytes }] }
+ *   GET /api/postfach?werk=<Kürzel>&diagnose=1 -> nur EWS: { ausgehendeIp, land, server: [{ ip, status, server }] }, ohne Anmeldung
  *
  * authLevel "function": Der Flow „E-R-Rechnung_<Werk> (nur Monitoring)“ ruft es mit dem Function-Key auf.
  * Ohne vollständige App-Einstellungen POSTFACH_<WERK>_* antwortet es mit 404.
  */
 const { app } = require('@azure/functions');
 const { zugang, mailsSeit, mailMitAnhaengen } = require('../postfach');
+const { ewsDiagnose } = require('../ews');
 
 app.http('postfach', {
   methods: ['GET'],
@@ -21,6 +23,7 @@ app.http('postfach', {
       return { status: 404, jsonBody: { error: 'Für dieses Werk ist kein Postfach eingerichtet (App-Einstellungen POSTFACH_<WERK>_*).' } };
     }
     try {
+      if (request.query.get('diagnose') && z.art === 'ews') return { status: 200, jsonBody: await ewsDiagnose(z) };
       const id = request.query.get('id');
       if (id) return { status: 200, jsonBody: await mailMitAnhaengen(z, id) };
       const tage = Math.min(Math.max(parseFloat(request.query.get('tage')) || 2, 0.05), 14);

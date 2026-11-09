@@ -83,5 +83,26 @@ global.fetch = async (url, opt) => {
   await assert.rejects(P.mailsSeit(P.zugang('EWT'), '2026-11-07T00:00:00Z'), e => /401/.test(e.message) && !/falsch|geheim/.test(e.message));
   n++;
 
+  // Diagnose: ausgehende IP, je Server-IP eine Anfrage ohne Anmeldung (dns und https ersetzt)
+  const dns = require('dns'), https = require('https'), { EventEmitter } = require('events');
+  const ohne = [];
+  dns.promises.resolve4 = async host => (host === 'mail.beispiel.example' ? ['192.0.2.1', '192.0.2.2'] : []);
+  https.request = (opt, cb) => {
+    ohne.push(opt);
+    const req = new EventEmitter();
+    req.end = () => {
+      const r = new EventEmitter();
+      Object.assign(r, { statusCode: opt.host === '192.0.2.1' ? 401 : 403, headers: { server: opt.host === '192.0.2.1' ? 'Microsoft-IIS/8.5' : 'nginx' }, resume() {} });
+      cb(r); r.emit('end');
+    };
+    return req;
+  };
+  global.fetch = async url => ({ text: async () => (/cdn-cgi\/trace$/.test(url) ? 'fl=1\nip=198.51.100.7\nloc=DE\n' : '') });
+  const d = await require('../api/src/ews').ewsDiagnose(P.zugang('EWT'));
+  gleich(d, { ausgehendeIp: '198.51.100.7', land: 'DE', server: [
+    { ip: '192.0.2.1', status: 401, server: 'Microsoft-IIS/8.5' }, { ip: '192.0.2.2', status: 403, server: 'nginx' }] }, 'Diagnose');
+  gleich(ohne.map(o => [o.servername, o.headers.Host, o.path, o.headers.Authorization]),
+    [['mail.beispiel.example', 'mail.beispiel.example', '/EWS/Exchange.asmx', undefined], ['mail.beispiel.example', 'mail.beispiel.example', '/EWS/Exchange.asmx', undefined]], 'Diagnose ohne Anmeldung, SNI und Host');
+
   console.log(`ews: ${n} Prüfungen grün`);
 })().catch(e => { console.error(e); process.exit(1); });
