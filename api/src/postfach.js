@@ -78,6 +78,13 @@ function istRechnungsanhang(a) {
     && (/\.(pdf|xml)$/i.test(a.name || '') || /\/(pdf|xml)$/i.test(a.contentType || ''));
 }
 
+/** Name mit Endung: Der Flow erkennt PDF und XML an „.pdf“ und „.xml“. */
+function _dateiname(a) {
+  const name = String(a.name || 'Anhang').trim();
+  if (/\.(pdf|xml)$/i.test(name)) return name;
+  return name + (/pdf$/i.test(a.contentType || '') ? '.pdf' : '.xml');
+}
+
 /** Eine Mail mit ihren PDF- und XML-Anhängen. Die Felder heißen wie im Outlook-Auslöser (name, contentBytes). */
 async function mailMitAnhaengen(z, id) {
   const basis = `${_postfach(z)}/messages/${encodeURIComponent(id)}`;
@@ -86,7 +93,7 @@ async function mailMitAnhaengen(z, id) {
   const anhaenge = [];
   for (const a of (liste.value || []).filter(istRechnungsanhang)) {
     const voll = await _graph(z, `${basis}/attachments/${encodeURIComponent(a.id)}`);
-    anhaenge.push({ name: a.name || '', contentType: a.contentType || '', size: a.size || 0, contentBytes: voll.contentBytes || '' });
+    anhaenge.push({ name: _dateiname(a), contentType: a.contentType || '', size: a.size || 0, contentBytes: voll.contentBytes || '' });
   }
   return Object.assign(_kopf(m), { anhaenge });
 }

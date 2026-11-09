@@ -61,7 +61,7 @@ global.fetch = async (url, opt = {}) => {
 
   // Eine Mail: nur PDF und XML als Datei, Inhalt Base64
   const m = await P.mailMitAnhaengen(z, 'M/1');
-  gleich(m.anhaenge.map(a => [a.name, a.contentBytes]), [['Rechnung.pdf', 'UERG'], ['xrechnung', 'WE1M']], 'Logo und angehängte Mail fallen weg');
+  gleich(m.anhaenge.map(a => [a.name, a.contentBytes]), [['Rechnung.pdf', 'UERG'], ['xrechnung.xml', 'WE1M']], 'Logo und angehängte Mail fallen weg, Endung ergänzt');
   gleich([m.id, m.von], ['M/1', 'buha@lieferant.example'], 'Kopf der Mail');
 
   // Fehler ohne Zugangsdaten im Text
