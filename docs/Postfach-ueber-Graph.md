@@ -81,7 +81,10 @@ auch wenn jemand die Mail im Postfach verschiebt.
 
 Der Flow ist eine Kopie von „E-R-Rechnung_MEG (nur Monitoring)“ mit anderem Auslöser:
 
-1. Wiederholung alle 15 Minuten.
+1. Wiederholung alle 15 Minuten. DSO läuft seit 09.11.2026 alle 3 Minuten, etwa so schnell wie der
+   Outlook-Auslöser der anderen Werke, und nie zweimal gleichzeitig (Parallelität des Auslösers 1).
+   Damit nicht jeder Lauf alle Mails der letzten zwei Tage prüft, schaut er normal 72 Minuten
+   zurück (`tage=0.05`). Der erste Lauf jeder Stunde nimmt zwei Tage, als Netz nach Ausfällen.
 2. `/api/postfach?werk=<Werk>&tage=2` holt die Liste.
 3. Je Mail, nacheinander: Gibt es in `ERAR_<Werk>` schon eine Datei mit dieser Mail in
    `MailVorgang`, ist die Mail erledigt. Sonst holt `/api/postfach?…&id=` die Anhänge, und jeder
