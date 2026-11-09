@@ -81,10 +81,11 @@ auch wenn jemand die Mail im Postfach verschiebt.
 
 Der Flow ist eine Kopie von „E-R-Rechnung_MEG (nur Monitoring)“ mit anderem Auslöser:
 
-1. Wiederholung alle 15 Minuten. DSO läuft seit 09.11.2026 alle 3 Minuten, etwa so schnell wie der
-   Outlook-Auslöser der anderen Werke, und nie zweimal gleichzeitig (Parallelität des Auslösers 1).
+1. Wiederholung alle 15 Minuten. DSO läuft seit 09.11.2026 jede Minute, so oft wie der
+   Outlook-Auslöser bei SHB nachsieht, und nie zweimal gleichzeitig (Parallelität des Auslösers 1).
    Damit nicht jeder Lauf alle Mails der letzten zwei Tage prüft, schaut er normal 72 Minuten
-   zurück (`tage=0.05`). Der erste Lauf jeder Stunde nimmt zwei Tage, als Netz nach Ausfällen.
+   zurück (`tage=0.05`). In den ersten zwei Minuten jeder Stunde nimmt er zwei Tage, als Netz
+   nach Ausfällen.
 2. `/api/postfach?werk=<Werk>&tage=2` holt die Liste.
 3. Je Mail, nacheinander: Gibt es in `ERAR_<Werk>` schon eine Datei mit dieser Mail in
    `MailVorgang`, ist die Mail erledigt. Sonst holt `/api/postfach?…&id=` die Anhänge, und jeder
@@ -115,10 +116,10 @@ Archiv-Mail.
 Wie bei HOL geht nach der Ablage je E-Rechnung eine Archiv-Mail raus, ohne E-Rechnung eine für die
 ganze Mail (Aufbau siehe [Eingangsrechnungen-Flow.md](Eingangsrechnungen-Flow.md)). Absender ist
 das Konto der Outlook-Verbindung des Flows, Empfänger das Postfach selbst. Die Mail kommt im
-Posteingang an. Am Ende jedes Laufs wartet der Flow eine Minute und verschiebt dann die
-Archiv-Mails dieses Absenders aus dem Posteingang: mit „[ARCHIV OHNE IRIS]“ nach
-`ArchiviertUndGeprueftOhneIRIS`, sonst nach `ArchiviertUndGeprueftIRIS`. Was später ankommt,
-nimmt der nächste Lauf mit. Dafür braucht die App `Mail.ReadWrite`, eine Posteingangsregel ist
+Posteingang an. Zu Beginn jedes Laufs verschiebt der Flow die Archiv-Mails dieses Absenders aus
+dem Posteingang: mit „[ARCHIV OHNE IRIS]“ nach `ArchiviertUndGeprueftOhneIRIS`, sonst nach
+`ArchiviertUndGeprueftIRIS`. Eine Archiv-Mail liegt so höchstens ein bis zwei Minuten im
+Posteingang. Dafür braucht die App `Mail.ReadWrite`, eine Posteingangsregel ist
 nicht nötig.
 
 Eine Archiv-Mail in einem der Quellordner überspringt der Flow, wenn Betreff und Absender passen.
