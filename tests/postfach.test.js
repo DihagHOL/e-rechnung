@@ -74,5 +74,54 @@ global.fetch = async (url, opt = {}) => {
   n++;
   global.fetch = echt;
 
+  // Ordner: Baum, Suche nach Name oder Pfad, Liste aus einem Ordner, Verschieben, Diagnose
+  P._token.clear(); P._baum.clear();
+  const nutzlast = Buffer.from(JSON.stringify({ roles: ['Mail.ReadWrite', 'Mail.Read'] })).toString('base64url');
+  const ordnerAufrufe = [];
+  global.fetch = async (url, opt = {}) => {
+    url = String(url);
+    ordnerAufrufe.push({ url, opt });
+    const ok = body => ({ ok: true, status: 200, json: async () => body });
+    if (/login\.microsoftonline\.com/.test(url)) return ok({ access_token: 'kopf.' + nutzlast + '.sig', expires_in: 3600 });
+    if (/\/mailFolders\?/.test(url)) {
+      return ok({ value: [
+        { id: 'F-IN', displayName: 'Posteingang', childFolderCount: 2, totalItemCount: 12 },
+        { id: 'F-AR', displayName: 'Archiv', childFolderCount: 1, totalItemCount: 0 },
+      ] });
+    }
+    if (/\/mailFolders\/F-IN\/childFolders\?/.test(url)) {
+      return ok({ value: [
+        { id: 'F-IRIS', displayName: 'IRIS', childFolderCount: 0, totalItemCount: 5 },
+        { id: 'F-VK', displayName: 'Vorkasse', childFolderCount: 0, totalItemCount: 2 },
+      ] });
+    }
+    if (/\/mailFolders\/F-AR\/childFolders\?/.test(url)) return ok({ value: [{ id: 'F-AR-IRIS', displayName: 'IRIS', childFolderCount: 0, totalItemCount: 0 }] });
+    if (/\/mailFolders\/F-VK\/messages\?/.test(url)) return ok({ value: [{ id: 'V1', receivedDateTime: '2026-11-10T07:00:00Z', subject: 'Vorkasse 1', from: { emailAddress: { address: 'a@x.example' } } }] });
+    if (/\/messages\/V1\/move$/.test(url)) return ok({ id: 'V1' });
+    throw new Error('unerwartet: ' + url);
+  };
+  const baum = await P.ordnerBaum(z);
+  gleich(baum.map(o => [o.pfad, o.anzahl]), [['Posteingang', 12], ['Posteingang/IRIS', 5], ['Posteingang/Vorkasse', 2], ['Archiv', 0], ['Archiv/IRIS', 0]], 'Ordnerbaum mit Pfad');
+  gleich([await P.ordnerId(z, 'vorkasse'), await P.ordnerId(z, 'Posteingang/IRIS'), await P.ordnerId(z, 'inbox')], ['F-VK', 'F-IRIS', 'inbox'], 'Name, Pfad, bekannter Ordner');
+  await assert.rejects(P.ordnerId(z, 'IRIS'), e => e.status === 409 && /Posteingang\/IRIS, Archiv\/IRIS/.test(e.message));
+  n++;
+  await assert.rejects(P.ordnerId(z, 'Gibtsnicht'), e => e.status === 404);
+  n++;
+  gleich((await P.mailsSeit(z, '2026-11-08T00:00:00Z', await P.ordnerId(z, 'Vorkasse'))).map(m => m.id), ['V1'], 'Liste aus einem Ordner');
+  const vk = decodeURIComponent(ordnerAufrufe.filter(a => /F-VK\/messages/.test(a.url)).pop().url);
+  gleich(/receivedDateTime ge 2026-11-08T00:00:00Z/.test(vk), true, 'Ordner nach Eingang');
+  await P.mailsSeit(z, '2026-11-08T00:00:00Z', 'F-VK', true);
+  const vk2 = decodeURIComponent(ordnerAufrufe.filter(a => /F-VK\/messages/.test(a.url)).pop().url);
+  gleich([/lastModifiedDateTime ge 2026-11-08T00:00:00Z and hasAttachments eq true/.test(vk2), /\$orderby=lastModifiedDateTime asc/.test(vk2)], [true, true], 'Ordner nach Änderung');
+  gleich(await P.verschieben(z, 'V1', 'Posteingang/IRIS'), { id: 'V1', ordner: 'Posteingang/IRIS' }, 'verschoben');
+  const zug = ordnerAufrufe.find(a => /\/move$/.test(a.url));
+  gleich([zug.opt.method, JSON.parse(zug.opt.body), zug.opt.headers['Content-Type']], ['POST', { destinationId: 'F-IRIS' }, 'application/json'], 'Verschieben per POST mit Ziel-ID');
+  gleich(ordnerAufrufe.filter(a => a.opt.method === 'POST' && !/login/.test(a.url)).length, 1, 'sonst nur lesend');
+  const diag = await P.graphDiagnose(z);
+  gleich([diag.rollen, diag.ordner.length, JSON.stringify(diag).includes(nutzlast)], [['Mail.Read', 'Mail.ReadWrite'], 5, false], 'Diagnose: Rechte, Ordner, kein Token');
+  await assert.rejects(P.verschieben(P.zugang('EWT') || { art: 'ews' }, 'X', 'IRIS'), e => e.status === 400);
+  n++;
+  global.fetch = echt;
+
   console.log(`postfach: ${n} Prüfungen grün`);
 })().catch(e => { console.error(e); process.exit(1); });

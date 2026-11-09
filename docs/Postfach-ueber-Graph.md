@@ -9,8 +9,9 @@ Werken in `ERAR_<Werk>` ab.
 
 Im Tenant des Postfachs gibt es eine App-Registrierung mit der Anwendungsberechtigung
 `Mail.Read`. Sinnvoll ist eine Application Access Policy, die die App auf dieses eine Postfach
-beschränkt. Mehr braucht es nicht: Die Function liest nur, sie verschiebt nichts und markiert
-nichts als gelesen.
+beschränkt. Zum Lesen reicht das, die Function markiert nichts als gelesen. Soll der Flow Mails in
+Ordner verschieben (Archiv-Mails bei DSO), braucht die App `Mail.ReadWrite`. Welche Rechte die App
+wirklich hat, zeigt `?diagnose=1`.
 
 Die Zugangsdaten stehen nur in den App-Einstellungen der Function, nie im Code oder im Flow:
 
@@ -61,6 +62,14 @@ von einem vorgeschalteten Proxy heißt gesperrt. Zugangsdaten werden dabei nicht
 - `GET /api/postfach?werk=DSO&id=<ID>`: eine Mail mit ihren PDF- und XML-Anhängen
   (`anhaenge`: `name`, `contentType`, `size`, `contentBytes` in Base64). Eingebettete Bilder und
   angehängte Mails fallen weg.
+- `GET /api/postfach?werk=DSO&ordner=Vorkasse&zeit=geaendert`: Liste aus einem anderen Ordner.
+  Der Ordner steht mit Namen da (`Vorkasse`) oder mit Pfad (`Posteingang/Vorkasse`), wenn der Name
+  mehrfach vorkommt. `zeit=geaendert` filtert nach der letzten Änderung statt nach dem Eingang. So
+  fällt auch eine ältere Mail ins Zeitfenster, die jemand später in den Ordner gezogen hat.
+- `POST /api/postfach?werk=DSO&id=<ID>&nach=<Ordner>`: verschiebt die Mail. Das ist der einzige
+  schreibende Aufruf, er braucht `Mail.ReadWrite`. Die ID der Mail bleibt dabei gleich.
+- `GET /api/postfach?werk=DSO&diagnose=1`: Rechte der App laut Token und alle Ordner mit Pfad und
+  Zahl der Mails, ohne Inhalte.
 
 Die `id` ist die unveränderliche Graph-ID (`Prefer: IdType="ImmutableId"`). Sie bleibt gleich,
 auch wenn jemand die Mail im Postfach verschiebt.

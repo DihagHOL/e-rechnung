@@ -9,8 +9,10 @@
  *   POSTFACH_<WERK>_ORDNER (optional, Standard inbox)
  * Exchange im eigenen Haus (EWS) statt Graph: POSTFACH_<WERK>_EWS, _BENUTZER, _KENNWORT (src/ews.js).
  *
- * Es wird nur gelesen: nichts verschoben, nichts als gelesen markiert. Welche Mail schon
- * abgelegt ist, sieht der Flow an der Spalte MailVorgang (unveränderliche Graph-ID der Mail).
+ * Gelesen wird ohne Spuren: nichts als gelesen markiert. Welche Mail schon abgelegt ist, sieht
+ * der Flow an der Spalte MailVorgang (unveränderliche Graph-ID der Mail, bleibt beim Verschieben).
+ * Verschieben (verschieben) ist der einzige schreibende Aufruf und braucht Mail.ReadWrite.
+ * Ordner gibt der Flow mit Namen an („IRIS“ oder „Posteingang/IRIS“), die Function sucht die ID.
  */
 const { ewsMailsSeit, ewsMailMitAnhaengen } = require('./ews');
 
@@ -18,6 +20,8 @@ const GRAPH = 'https://graph.microsoft.com/v1.0';
 const ZEIT_MS = 30000;
 const MAX_MAILS = 200;
 const _token = new Map();   // Werk -> { wert, bis }
+const _baum = new Map();    // Werk -> { liste, bis }, Ordnerbaum für 10 Minuten
+const BEKANNT = ['inbox', 'archive', 'sentitems', 'deleteditems', 'junkemail', 'drafts'];
 
 /** Zugangsdaten eines Werks aus den App-Einstellungen, null wenn unvollständig. */
 function zugang(werk) {
@@ -46,11 +50,12 @@ async function _anmelden(z) {
   return j.access_token;
 }
 
-async function _graph(z, pfad) {
-  const r = await fetch(/^https:\/\//.test(pfad) ? pfad : GRAPH + pfad, {
-    headers: { Authorization: 'Bearer ' + await _anmelden(z), Prefer: 'IdType="ImmutableId"' },
-    signal: AbortSignal.timeout(ZEIT_MS),
-  });
+async function _graph(z, pfad, body) {
+  const kopf = { Authorization: 'Bearer ' + await _anmelden(z), Prefer: 'IdType="ImmutableId"' };
+  if (body) kopf['Content-Type'] = 'application/json';
+  const r = await fetch(/^https:\/\//.test(pfad) ? pfad : GRAPH + pfad, Object.assign({
+    headers: kopf, signal: AbortSignal.timeout(ZEIT_MS),
+  }, body ? { method: 'POST', body: JSON.stringify(body) } : {}));
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
     throw Object.assign(new Error(`Graph HTTP ${r.status}${j.error && j.error.code ? ', ' + j.error.code : ''}`), { status: r.status });
@@ -62,16 +67,87 @@ const _adresse = a => (a && a.emailAddress && a.emailAddress.address) || '';
 const _kopf = m => ({ id: m.id, empfangen: m.receivedDateTime || '', betreff: m.subject || '', von: _adresse(m.from), antwortAn: _adresse((m.replyTo || [])[0]) });
 const _postfach = z => `/users/${encodeURIComponent(z.adresse)}`;
 
-/** Mails mit Anhängen seit `seit` (ISO, UTC), älteste zuerst, ohne Inhalt. */
-async function mailsSeit(z, seit) {
+/**
+ * Alle Ordner des Postfachs mit Pfad („Posteingang/IRIS“), ID und Zahl der Mails, höchstens
+ * vier Ebenen tief. Bleibt zehn Minuten im Speicher, ein Lauf des Flows fragt ihn oft.
+ */
+async function ordnerBaum(z, frisch) {
+  const c = _baum.get(z.werk);
+  if (!frisch && c && c.bis > Date.now()) return c.liste;
+  const felder = '$select=id,displayName,childFolderCount,totalItemCount&$top=250';
+  const liste = [];
+  const ebene = async (pfad, vorne, tiefe) => {
+    for (let url = pfad; url;) {
+      const d = await _graph(z, url);
+      for (const f of d.value || []) {
+        const eintrag = { id: f.id, name: f.displayName || '', pfad: vorne + (f.displayName || ''), anzahl: f.totalItemCount || 0 };
+        liste.push(eintrag);
+        if (f.childFolderCount > 0 && tiefe < 4) await ebene(`${_postfach(z)}/mailFolders/${encodeURIComponent(f.id)}/childFolders?${felder}`, eintrag.pfad + '/', tiefe + 1);
+      }
+      url = d['@odata.nextLink'] || '';
+    }
+  };
+  await ebene(`${_postfach(z)}/mailFolders?${felder}`, '', 1);
+  _baum.set(z.werk, { liste, bis: Date.now() + 600000 });
+  return liste;
+}
+
+/**
+ * Ordner-ID zu einer Angabe: bekannter Name (inbox), voller Pfad oder ein eindeutiger
+ * Ordnername, Groß- und Kleinschreibung egal. Sonst Fehler 404 oder 409 (mehrdeutig).
+ */
+async function ordnerId(z, angabe) {
+  const a = String(angabe || '').trim().replace(/^\/+|\/+$/g, '');
+  if (!a || BEKANNT.includes(a.toLowerCase())) return a.toLowerCase() || 'inbox';
+  const klein = a.toLowerCase();
+  for (const frisch of [false, true]) {
+    const baum = await ordnerBaum(z, frisch);
+    const pfad = baum.filter(o => o.pfad.toLowerCase() === klein);
+    const name = baum.filter(o => o.name.toLowerCase() === klein);
+    const treffer = pfad.length ? pfad : name;
+    if (treffer.length === 1) return treffer[0].id;
+    if (treffer.length > 1) throw Object.assign(new Error(`Ordner „${a}“ gibt es mehrfach, bitte mit Pfad angeben (${treffer.map(o => o.pfad).join(', ')})`), { status: 409 });
+  }
+  throw Object.assign(new Error(`Ordner „${a}“ nicht gefunden`), { status: 404 });
+}
+
+/** Mail in einen Ordner verschieben. Die unveränderliche ID bleibt dabei gleich. */
+async function verschieben(z, id, ziel) {
+  if (z.art !== 'graph') throw Object.assign(new Error('Verschieben geht nur über Graph'), { status: 400 });
+  const m = await _graph(z, `${_postfach(z)}/messages/${encodeURIComponent(id)}/move`, { destinationId: await ordnerId(z, ziel) });
+  return { id: m.id || id, ordner: ziel };
+}
+
+/** Rechte der App laut Token (roles), ohne den Token selbst. */
+function _rollen(token) {
+  try {
+    const teil = String(token).split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(Buffer.from(teil, 'base64').toString('utf8')).roles || [];
+  } catch { return []; }
+}
+
+/** Fehlersuche: Rechte der App und Ordner mit Anzahl, keine Mailinhalte. */
+async function graphDiagnose(z) {
+  const rollen = _rollen(await _anmelden(z)).sort();
+  const ordner = (await ordnerBaum(z, true)).map(o => ({ pfad: o.pfad, anzahl: o.anzahl }));
+  return { art: 'graph', postfach: z.adresse, rollen, ordner };
+}
+
+/**
+ * Mails mit Anhängen seit `seit` (ISO, UTC), älteste zuerst, ohne Inhalt. Ordner: ID, sonst z.ordner.
+ * geaendert: nach letzter Änderung statt Eingang filtern. Wer eine ältere Mail später in einen
+ * Ordner zieht, ändert sie dabei, so fällt sie trotzdem ins Zeitfenster.
+ */
+async function mailsSeit(z, seit, ordner, geaendert) {
   if (z.art === 'ews') return ewsMailsSeit(z, seit);
+  const feld = geaendert ? 'lastModifiedDateTime' : 'receivedDateTime';
   const q = [
-    '$filter=' + encodeURIComponent(`receivedDateTime ge ${seit} and hasAttachments eq true`),
-    '$orderby=' + encodeURIComponent('receivedDateTime asc'),
+    '$filter=' + encodeURIComponent(`${feld} ge ${seit} and hasAttachments eq true`),
+    '$orderby=' + encodeURIComponent(`${feld} asc`),
     '$select=id,receivedDateTime,subject,from,replyTo',
     '$top=50',
   ].join('&');
-  let pfad = `${_postfach(z)}/mailFolders/${encodeURIComponent(z.ordner)}/messages?${q}`;
+  let pfad = `${_postfach(z)}/mailFolders/${encodeURIComponent(ordner || z.ordner)}/messages?${q}`;
   const mails = [];
   while (pfad && mails.length < MAX_MAILS) {
     const d = await _graph(z, pfad);
@@ -108,4 +184,4 @@ async function mailMitAnhaengen(z, id) {
   return Object.assign(_kopf(m), { anhaenge });
 }
 
-module.exports = { zugang, mailsSeit, mailMitAnhaengen, istRechnungsanhang, _token };
+module.exports = { zugang, mailsSeit, mailMitAnhaengen, istRechnungsanhang, ordnerBaum, ordnerId, verschieben, graphDiagnose, _token, _baum };

@@ -267,8 +267,9 @@ echten Dublettenprüfung. Verschiedene Lieferanten mit gleicher Nummer kollidier
 ## Rechnungspostfach über Graph (`/api/postfach`)
 
 Für Postfächer in einem anderen Tenant: `GET /api/postfach?werk=<Kuerzel>` listet Mails mit
-Anhängen, `&id=<ID>` liefert die PDF- und XML-Anhänge einer Mail. Nur lesend, Zugangsdaten aus den
-App-Einstellungen `POSTFACH_<WERK>_*`. Siehe [`../docs/Postfach-ueber-Graph.md`](../docs/Postfach-ueber-Graph.md).
+Anhängen, `&id=<ID>` liefert die PDF- und XML-Anhänge einer Mail, `&ordner=<Name>` liest einen
+anderen Ordner. `POST …&id=<ID>&nach=<Ordner>` verschiebt eine Mail (Graph, `Mail.ReadWrite`).
+Zugangsdaten aus den App-Einstellungen `POSTFACH_<WERK>_*`. Siehe [`../docs/Postfach-ueber-Graph.md`](../docs/Postfach-ueber-Graph.md).
 Bei einem Exchange im eigenen Haus (EWS) meldet `&diagnose=1` die ausgehende IP der Function und
 was jede IP des Servers auf eine Anfrage ohne Anmeldung antwortet.
 
