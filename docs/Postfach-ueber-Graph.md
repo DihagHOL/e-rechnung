@@ -80,3 +80,18 @@ Weil das Postfach nur gelesen wird, entscheidet allein `MailVorgang`, ob eine Ma
 abgelegt ist. Das Zeitfenster von zwei Tagen überbrückt Ausfälle bis zu dieser Dauer. Eine Mail
 ohne PDF oder XML wird bei jedem Lauf im Fenster neu angesehen, abgelegt wird nichts.
 Lieferantenmails sind aus, denn aus einem fremden Postfach kann der Flow nicht senden.
+
+### Archiv-Mail (DSO, seit 09.11.2026)
+
+Wie bei HOL schickt der Flow nach der Ablage je E-Rechnung eine Archiv-Mail, ohne E-Rechnung
+eine für die ganze Mail (Aufbau siehe [Eingangsrechnungen-Flow.md](Eingangsrechnungen-Flow.md)).
+Absender ist das Konto der Outlook-Verbindung des Flows, Empfänger das Postfach selbst. Die App
+im fremden Tenant braucht dafür kein Senderecht. In den Ordner `ArchiviertUndGeprueft` kommt die
+Mail über eine Posteingangsregel im Postfach: Absender ist das Konto der Verbindung und der Betreff
+enthält „[ARCHIV]“. Die Regel prüft den Absender mit, damit eine fremde Mail mit „[ARCHIV]“ im
+Betreff nicht ungeprüft im Ordner landet.
+
+Erreicht eine Archiv-Mail doch den Posteingang, überspringt der Flow sie, wenn Betreff und
+Absender passen. Scheitert ein Anhang oder die Archiv-Mail, merkt sich der Flow die Mail und
+beendet den Lauf am Ende als Fehler. Die Mail gilt trotzdem als abgelegt und wird nicht
+wiederholt, die fehlende Archiv-Mail muss dann jemand von Hand nachholen.
