@@ -90,17 +90,28 @@ abgelegt ist. Das Zeitfenster von zwei Tagen überbrückt Ausfälle bis zu diese
 ohne PDF oder XML wird bei jedem Lauf im Fenster neu angesehen, abgelegt wird nichts.
 Lieferantenmails sind aus, denn aus einem fremden Postfach kann der Flow nicht senden.
 
-### Archiv-Mail (DSO, seit 09.11.2026)
+### Archiv-Mail und Ordner (DSO, seit 09.11.2026)
 
-Wie bei HOL schickt der Flow nach der Ablage je E-Rechnung eine Archiv-Mail, ohne E-Rechnung
-eine für die ganze Mail (Aufbau siehe [Eingangsrechnungen-Flow.md](Eingangsrechnungen-Flow.md)).
-Absender ist das Konto der Outlook-Verbindung des Flows, Empfänger das Postfach selbst. Die App
-im fremden Tenant braucht dafür kein Senderecht. In den Ordner `ArchiviertUndGeprueft` kommt die
-Mail über eine Posteingangsregel im Postfach: Absender ist das Konto der Verbindung und der Betreff
-enthält „[ARCHIV]“. Die Regel prüft den Absender mit, damit eine fremde Mail mit „[ARCHIV]“ im
-Betreff nicht ungeprüft im Ordner landet.
+Der Flow liest bei DSO nicht den Posteingang, sondern zwei Ordner, nacheinander:
 
-Erreicht eine Archiv-Mail doch den Posteingang, überspringt der Flow sie, wenn Betreff und
-Absender passen. Scheitert ein Anhang oder die Archiv-Mail, merkt sich der Flow die Mail und
-beendet den Lauf am Ende als Fehler. Die Mail gilt trotzdem als abgelegt und wird nicht
+| Quelle | Archiv-Mail | landet in |
+|---|---|---|
+| `IRIS` | „[ARCHIV] Rechnung …“ | `ArchiviertUndGeprueftIRIS` |
+| `Vorkasse` | „[ARCHIV OHNE IRIS] Rechnung …“ | `ArchiviertUndGeprueftOhneIRIS` |
+
+Die Ordner stehen mit Namen im Flow, die Function sucht ihre ID. Gelesen wird mit
+`zeit=geaendert`, so zählt auch eine Mail, die jemand später in einen der Ordner zieht.
+
+Wie bei HOL geht nach der Ablage je E-Rechnung eine Archiv-Mail raus, ohne E-Rechnung eine für die
+ganze Mail (Aufbau siehe [Eingangsrechnungen-Flow.md](Eingangsrechnungen-Flow.md)). Absender ist
+das Konto der Outlook-Verbindung des Flows, Empfänger das Postfach selbst. Die Mail kommt im
+Posteingang an. Am Ende jedes Laufs wartet der Flow eine Minute und verschiebt dann die
+Archiv-Mails dieses Absenders aus dem Posteingang: mit „[ARCHIV OHNE IRIS]“ nach
+`ArchiviertUndGeprueftOhneIRIS`, sonst nach `ArchiviertUndGeprueftIRIS`. Was später ankommt,
+nimmt der nächste Lauf mit. Dafür braucht die App `Mail.ReadWrite`, eine Posteingangsregel ist
+nicht nötig.
+
+Eine Archiv-Mail in einem der Quellordner überspringt der Flow, wenn Betreff und Absender passen.
+Scheitert ein Anhang, die Archiv-Mail oder das Verschieben, merkt sich der Flow das und beendet den
+Lauf am Ende als Fehler. Eine Mail mit Fehler gilt trotzdem als abgelegt und wird nicht
 wiederholt, die fehlende Archiv-Mail muss dann jemand von Hand nachholen.
