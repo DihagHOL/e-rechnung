@@ -41,7 +41,7 @@ GetItem und GetAttachment, die am Postfach nichts ändern, auch nicht den Status
 | Einstellung | Inhalt |
 |---|---|
 | `POSTFACH_<WERK>_EWS` | Adresse von EWS, etwa `https://<server>/EWS/Exchange.asmx` |
-| `POSTFACH_<WERK>_BENUTZER` | Konto in der Form `DOMÄNEkonto` |
+| `POSTFACH_<WERK>_BENUTZER` | Konto in der Form `DOMÄNE\konto` |
 | `POSTFACH_<WERK>_KENNWORT` | Kennwort des Kontos, trägt die IT selbst ein |
 | `POSTFACH_<WERK>_ADRESSE` | optional, nur zur Anzeige |
 
