@@ -296,5 +296,9 @@ gleich(M._monVorMonaten('2026-11-05T12:00:00Z', 6), '2026-05-05', 'sechs Monate 
   gleich(geladen, ['a.pdf', 'b.pdf', 'c.pdf', 'd.pdf', 'e.pdf'], 'ohne Sortierung alles');
   gleich(M._monWeiter.size, 0, 'dann kein „Ältere laden“');
 
-  console.log(`monitoring: ${n} Prüfungen grün`);
+  // Rechnungsart: Code aus dem Eingang mit Bezeichnung, Ausgang und Unbekanntes unverändert
+gleich(['380', '381', ' 325 ', '380 - Rechnung', '999', '', null].map(M._monRechnungsart),
+  ['380 - Rechnung', '381 - Gutschrift', '325 - Proformarechnung', '380 - Rechnung', '999', '', ''], 'Rechnungsart mit Bezeichnung');
+
+console.log(`monitoring: ${n} Prüfungen grün`);
 })().catch(e => { console.error(e); process.exit(1); });

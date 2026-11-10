@@ -1392,7 +1392,7 @@ function _monDetail(r, idx) {
   return `<div class="mon-det">`
     + block('Rechnung', [['Nummer', t(r.nummer) + (r.nummerAusDatei && r.nummer ? ' (aus dem Dateinamen)' : '')], ['Datum', t(_monDate(r.datum))],
         ['Erstellt am', t(_monZeit(r.erstellt))], ['Fällig am', t(_monDate(r.faelligkeit))],
-        ['Werk', t(r.werk)], ['Richtung', t(r.richtung)], ['Typ', t(_monKlass(r))], ['Rechnungsart', r.mahnung ? 'Mahnung (keine Rechnung)' : t(r.art)],
+        ['Werk', t(r.werk)], ['Richtung', t(r.richtung)], ['Typ', t(_monKlass(r))], ['Rechnungsart', r.mahnung ? 'Mahnung (keine Rechnung)' : t(_monRechnungsart(r.art))],
         ['In derselben Mail', r.mailRechnungen ? t('Rechnung ' + r.mailRechnungen.join(', ')) : '']])
     + block(r.richtung === 'Eingang' ? 'Lieferant' : 'Kunde', [
         ['Name', p.name ? t(p.name) + t(_monPartnerQuelle(r, p)) : ''],
@@ -1989,6 +1989,21 @@ function _monTodayIso() {
 }
 
 // Klassifizierung aus Format/Endung ableiten (ZUGFeRD | XRechnung | PDF ohne E-Rechnung).
+/**
+ * Rechnungsart (BT-3, UNTDID 1001) mit Bezeichnung. Die Eingangs-Flows speichern nur den Code
+ * („380“), der Konverter im Ausgang schon „380 - Rechnung“. Unbekannte Codes bleiben, wie sie sind.
+ */
+const MON_RECHNUNGSART = {
+  '326': 'Teilrechnung', '380': 'Rechnung', '381': 'Gutschrift', '383': 'Belastungsanzeige', '384': 'Rechnungskorrektur',
+  '386': 'Vorauszahlungsrechnung', '389': 'Gutschrift (Selbstfakturierung)', '325': 'Proformarechnung', '261': 'Gutschrift (Selbstfakturierung)',
+  '262': 'Sammelgutschrift', '393': 'Factoring-Rechnung', '394': 'Leasingrechnung', '395': 'Konsignationsrechnung', '396': 'Factoring-Gutschrift',
+  '751': 'Rechnungsinformation für die Buchhaltung', '875': 'Teilrechnung Bauleistung', '876': 'Teilschlussrechnung Bauleistung', '877': 'Schlussrechnung Bauleistung',
+};
+function _monRechnungsart(art) {
+  const s = String(art == null ? '' : art).trim();
+  return /^\d{3}$/.test(s) && MON_RECHNUNGSART[s] ? `${s} - ${MON_RECHNUNGSART[s]}` : s;
+}
+
 function _monKlass(r) {
   const f = (r.format || '').toLowerCase();
   if (f.includes('zugferd') || f.includes('factur')) return 'ZUGFeRD';
@@ -2254,6 +2269,6 @@ function _esc(s) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { _monFetchLib, _monVorMonaten, _monWeiter, _monHinweis, _monFormatmangel, _monGeprueftMoeglich, _monSichtbareSpalten, _monFilter, _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
+  module.exports = { _monRechnungsart, _monFetchLib, _monVorMonaten, _monWeiter, _monHinweis, _monFormatmangel, _monGeprueftMoeglich, _monSichtbareSpalten, _monFilter, _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
     _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMatchFlag, _monMitNeuenSpalten, _monLibErlaubt, _monIstMahnung };
 }
