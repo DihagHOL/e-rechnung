@@ -300,10 +300,16 @@ Alle Berechnungen, XML-Generierung und PDF-Manipulation erfolgen im Browser des 
 | Library | Version | Pfad | Lizenz |
 |---|---|---|---|
 | MSAL.js (msal-browser) | 2.x | `js/vendor/msal-browser.min.js` | MIT |
-| PDF.js | — | `js/vendor/pdf.min.js` | Apache 2.0 |
+| PDF.js (legacy-Fassung) | 6.4.299 | `js/vendor/pdf-6.4.299.min.mjs`, Worker `js/vendor/pdf-6.4.299.worker.min.mjs`, geladen über `js/pdfjs-laden.mjs` und `js/pdfjs-worker.mjs` | Apache 2.0 |
 | pdf-lib | 1.17.1 | `js/vendor/pdf-lib.min.js` | MIT |
 
 > Alle Bibliotheken sind lokal eingebettet. Es werden keine externen CDNs geladen, um Edge Tracking Prevention und Datenschutzprobleme zu vermeiden.
+
+> Auch die legacy-Fassung von PDF.js setzt `Promise.withResolvers` voraus. Ältere Browser kennen es
+> nicht (Chrome und Edge vor 119, Firefox vor 121, Safari vor 17.4), dort scheiterte jedes PDF mit
+> „Promise.withResolvers is not a function“. `js/vendor/promise-withresolvers.mjs` ergänzt es,
+> auf der Seite über `pdfjs-laden.mjs` und im Worker über `pdfjs-worker.mjs`. Neuere Browser bleiben
+> unberührt. Test: `tests/pdfjs-ersatz.test.js`.
 
 ### 4.3 Implementierte Standards
 
