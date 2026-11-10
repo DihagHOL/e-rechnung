@@ -43,11 +43,12 @@ Dann einen neuen Schlüssel anlegen und die Einstellung ersetzen.
 > an, hilft Weiterleiten statt Umleiten. Lieferantenmails sind aus.
 >
 > Dazu die Archiv-Logik von HOL: je E-Rechnung eine Archiv-Mail, ohne E-Rechnung eine je Mail,
-> Betreff „[ARCHIV] Rechnung …“. Sie geht über die Outlook-Verbindung des Flows zurück an das
-> Rechnungspostfach von EIS. Dort verschiebt eine Regel sie in `ArchiviertUndGeprueft`, und zwar vor
-> der Umleitung und mit „keine weiteren Regeln“, damit sie nicht zurückkommt. Kommt sie doch zurück,
-> verarbeitet der Flow sie nicht („[ARCHIV]“ im Betreff). Scheitert ein Anhang oder die Archiv-Mail,
-> endet der Lauf als Fehler. Der Weg über EWS unten bleibt für Postfächer, die die Function erreicht.
+> Betreff „[ARCHIV] Rechnung …“. Sie geht über die Outlook-Verbindung des Flows an zwei Empfänger:
+> zurück an das Rechnungspostfach von EIS und an das freigegebene Postfach. Dort löst sie den Flow
+> erneut aus, und er verschiebt sie wie bei HOL nach `Posteingang/ArchiviertUndGeprueft`. Bei EIS
+> verschiebt eine Regel sie in deren Ordner, und zwar vor der Umleitung und mit „keine weiteren
+> Regeln“, sonst käme eine zweite Kopie zurück. Scheitert ein Anhang oder die Archiv-Mail, endet der
+> Lauf als Fehler. Der Weg über EWS unten bleibt für Postfächer, die die Function erreicht.
 
 Liegt das Postfach auf einem Exchange-Server im eigenen Haus (EIS, Gienanth), liest die Function
 es über Exchange Web Services (`src/ews.js`) mit dem Konto des Postfachs. Angemeldet wird mit
