@@ -34,6 +34,15 @@ Dann einen neuen Schlüssel anlegen und die Einstellung ersetzen.
 
 ## Exchange im eigenen Haus (EWS)
 
+> **EIS seit 10.11.2026 über Weiterleitung.** Der Exchange von EIS steht hinter einem Proxy, der
+> Anfragen aus Azure-Rechenzentren sperrt (HTTP 403, siehe `?diagnose=1`). Deshalb leitet eine
+> Posteingangsregel im Rechnungspostfach von EIS jede Mail an ein freigegebenes Postfach in Exchange
+> Online weiter. Der Flow „E-R-Rechnung_EIS (nur Monitoring)“ ist eine Kopie von
+> „E-R-Rechnung_SHB (nur Monitoring)“ mit dem Outlook-Auslöser auf dieses Postfach. Weiterleiten
+> statt Umleiten: Absender ist dann das EIS-Postfach, so scheitert keine Mail an einer strengen
+> DMARC-Regel des Lieferanten. Lieferantenmails bleiben deshalb aus, sie gingen sonst an EIS.
+> Der Weg über EWS unten bleibt für Postfächer, die die Function erreicht.
+
 Liegt das Postfach auf einem Exchange-Server im eigenen Haus (EIS, Gienanth), liest die Function
 es über Exchange Web Services (`src/ews.js`) mit dem Konto des Postfachs. Angemeldet wird mit
 Basic über HTTPS, unverschlüsseltes HTTP lehnt die Function ab. Benutzt werden nur FindItem,
