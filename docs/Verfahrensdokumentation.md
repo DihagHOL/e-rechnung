@@ -123,6 +123,14 @@ und Unversehrtheit allein (§ 14 Abs. 3 UStG).
   Parsing‑Fehlern oder **manuellen Eingriffen** entstehen. Manuelle Änderungen,
   Quell‑PDF‑Hash und Prüfer werden protokolliert (`ManuelleAenderungen`,
   `QuellPdfHash`, `GeprueftVon`, `Pruefstatus`).
+- **Stammdaten des Rechnungsstellers** (Name, Anschrift, USt‑IdNr., Steuernummer,
+  Bankverbindung, Registerangaben, Geschäftsführung) kommen aus den hinterlegten
+  Stammdaten des Werks und sind im Konverter gesperrt. Seit 11.11.2026 lassen sie sich
+  dort nicht mehr entsperren. Geändert werden sie nur von der IT in der Registry
+  (`js/parser.js`), nachvollziehbar über die Versionsverwaltung. IBAN und BIC übernimmt
+  der Konverter aus dem Beleg des Werks (Zahlungskonto, Factoring). Vor Export und Mail
+  prüft er alle Werte erneut gegen die Stammdaten des gewählten Werks. Weicht etwas ab,
+  entsteht keine Datei.
 - **Automatische Validierung** (KoSIT/EN 16931): Der Aussteller kann sich auf das
   Format‑/Geschäftsregel‑Ergebnis verlassen; der Validierungsbericht wird aufbewahrt.
 - **Materielle Richtigkeit** (z. B. korrekter Steuersatz) wird durch **inhaltliche

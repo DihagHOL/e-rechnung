@@ -57,7 +57,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:sequenceFlow id="Flow_F_send_F_end" sourceRef="F_send" targetRef="F_end" />
       <bpmn:textAnnotation id="N_edi"><bpmn:text>Gilt nicht für EIS, EWA und LEG: Ihre SAP-Belege wandelt der Konverter.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_edi" associationDirection="None" sourceRef="F_edi" targetRef="N_edi" />
-      <bpmn:textAnnotation id="N_vorl"><bpmn:text>HOL und EIS: Umlagen, Weiterbelastungen, Dienstleistungen. Nummer aus dem Nummernkreis, abgeglichen mit AR_&lt;Werk&gt;.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="N_vorl"><bpmn:text>HOL und EIS: Umlagen, Weiterbelastungen, Dienstleistungen. Nummer aus dem Nummernkreis, abgeglichen mit AR_&lt;Werk&gt;. Stammdaten des Werks gesperrt.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_vorl" associationDirection="None" sourceRef="K_vorl" targetRef="N_vorl" />
       <bpmn:textAnnotation id="N_abl"><bpmn:text>Ablegen darf, wer im Werk FIBU oder Vertrieb ist (Mitwirken auf AR_&lt;Werk&gt;).</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_abl" associationDirection="None" sourceRef="S_abl" targetRef="N_abl" />
@@ -110,8 +110,8 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNEdge id="Flow_F_send_F_end_di" bpmnElement="Flow_F_send_F_end"><di:waypoint x="2201" y="410" /><di:waypoint x="2287" y="410" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_edi_di" bpmnElement="N_edi" bioc:stroke="#8A8F98" bioc:fill="#F1F1F3" color:background-color="#F1F1F3" color:border-color="#8A8F98"><dc:Bounds x="1040" y="622" width="300" height="56" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_N_edi_di" bpmnElement="Assoc_N_edi"><di:waypoint x="1115" y="572" /><di:waypoint x="1115" y="622" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNShape id="N_vorl_di" bpmnElement="N_vorl" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="700" y="1114" width="300" height="72" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Assoc_N_vorl_di" bpmnElement="Assoc_N_vorl"><di:waypoint x="775" y="1072" /><di:waypoint x="775" y="1114" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="N_vorl_di" bpmnElement="N_vorl" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="700" y="1108" width="300" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_N_vorl_di" bpmnElement="Assoc_N_vorl"><di:waypoint x="775" y="1072" /><di:waypoint x="775" y="1108" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_abl_di" bpmnElement="N_abl" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="1550" y="1382" width="300" height="56" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_N_abl_di" bpmnElement="Assoc_N_abl"><di:waypoint x="1625" y="1332" /><di:waypoint x="1625" y="1382" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_mail_di" bpmnElement="N_mail" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="1890" y="874" width="260" height="72" /></bpmndi:BPMNShape>

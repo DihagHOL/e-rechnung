@@ -538,6 +538,7 @@ Da die Anwendung client-seitig ist, gibt es kein Server-Monitoring. Verfügbarke
 | SharePoint API Breaking Change | Niedrig | Niedrig | SharePoint-Archivierung ist optional; XML/PDF-Download funktioniert unabhängig |
 | Browser-Kompatibilität | Niedrig | Mittel | Getestet in Microsoft Edge (Chromium) und Chrome; IE11 nicht unterstützt |
 | Datenverlust LocalStorage | Niedrig | Niedrig | Nur Verlaufsanzeige; Rechnungsdaten sind im XML/PDF enthalten |
+| Falsche Bankverbindung oder Stammdaten im Ausgang | Niedrig | Hoch | Seit 11.11.2026 Stammdaten nur aus der Registry (`js/parser.js`), im Konverter ohne Entsperren gesperrt; Export und Mail prüfen sie gegen das gewählte Werk (`stammdatenAbweichungen`, Test `tests/stammdaten.test.js`) |
 
 ---
 

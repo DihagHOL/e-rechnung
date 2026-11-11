@@ -11,9 +11,8 @@
   <style>
     /* Risikominimierung: gesperrte Stammdaten + Render-Option */
     input.locked { background: var(--gray-100, #f1f5f9); color: var(--gray-500, #64748b); cursor: not-allowed; }
-    #btn-seller-lock { margin-left: auto; font-size: 11px; padding: 4px 10px; border: 1px solid var(--gray-300, #cbd5e1);
-                       border-radius: 6px; background: #fff; cursor: pointer; white-space: nowrap; }
-    #btn-seller-lock.unlocked { border-color: var(--orange, #f08300); color: var(--orange, #f08300); }
+    #stammdaten-gesperrt { margin-left: auto; font-size: 11px; padding: 4px 10px; border: 1px solid var(--gray-300, #cbd5e1);
+                           border-radius: 6px; background: #fff; color: var(--gray-500, #64748b); white-space: nowrap; cursor: default; }
     #opt-render-pdf-wrap { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; font-size: 12.5px;
                            color: #fff; line-height: 1.35; }
     #opt-render-pdf-wrap strong { color: #fff; }
@@ -157,7 +156,7 @@
             <div class="form-group full-width">
               <label for="vl-vorlage">Vorlage</label>
               <select id="vl-vorlage"></select>
-              <span class="hint">„Übernehmen“ füllt das Formular. Danach lässt sich jede Angabe ändern, die Vorlage selbst bleibt, bis Sie sie neu speichern. {monat} in Texten wird zum Leistungsmonat.</span>
+              <span class="hint">„Übernehmen“ füllt das Formular. Danach lässt sich jede Angabe außer den Stammdaten des Rechnungsstellers ändern, die Vorlage selbst bleibt, bis Sie sie neu speichern. {monat} in Texten wird zum Leistungsmonat.</span>
             </div>
           </div>
           <div class="vl-knoepfe">
@@ -174,8 +173,8 @@
         <div class="card-header">
           <span class="card-icon">🏢</span>
           <h3>Rechnungssteller</h3>
-          <button type="button" id="btn-seller-lock" style="display:none;"
-                  title="Stammdaten (IBAN, USt-IdNr. …) gegen versehentliche Änderung gesperrt. Klicken zum Entsperren.">🔒 Stammdaten gesperrt</button>
+          <span id="stammdaten-gesperrt"
+                title="Name, Anschrift, USt-IdNr., Steuernummer, Bank und Registerangaben kommen aus den Stammdaten des Werks und lassen sich hier nicht ändern. Änderungen nur über die IT.">🔒 Stammdaten gesperrt</span>
         </div>
         <div class="card-body">
           <div class="form-grid">
@@ -660,7 +659,7 @@
 <script src="js/xrechnung.js?v=91c2a144d8"></script>
 <script src="js/zugferd.js?v=823f9e9cf6"></script>
 <script src="js/history.js?v=fe3f8462a5"></script>
-<script src="js/parser.js?v=c3ee1b8024"></script>
+<script src="js/parser.js?v=cbb9979642"></script>
 <script src="js/ocr.js?v=ca1f1ec809"></script>
 <script src="js/sharepoint.js?v=a622b8f687"></script>
 <script src="js/kundenmail.js?v=310eebf2d8"></script>
@@ -670,8 +669,8 @@
 <script src="js/vendor/font-embed.js?v=5b0f5e05c5"></script>
 <script src="js/vendor/font-helvetica.js?v=c43cc78226"></script>
 <script src="js/xml2pdf.js?v=99d10d2855"></script>
-<script src="js/app.js?v=ae5d1746fd"></script>
-<script src="js/vorlagen.js?v=b9f6f51fae"></script>
+<script src="js/app.js?v=61a4dcb131"></script>
+<script src="js/vorlagen.js?v=8f5178dc4f"></script>
 <script src="js/vat.js?v=e2acbf779c"></script>
 <script src="js/seite-index.js?v=157f254d40"></script>
 

@@ -72,6 +72,8 @@ aktualisiert. Der angemeldete Benutzer braucht das Recht, Site Collections anzul
   Konformität, Validierungs-/Fehlermeldung, Eingangs-/Konvertierzeitpunkt.
 - **Prüfpfad/GoBD** (Konverter schreibt): Pruefstatus, ManuelleAenderungen,
   QuellPdfHash, XmlHash, GeprueftVon, StammdatenEntsperrt, GoBDArchiviert.
+  `StammdatenEntsperrt` ist seit 11.11.2026 immer „Nein“, weil sich die Stammdaten im
+  Konverter nicht mehr entsperren lassen. Die Spalte bleibt für ältere Einträge.
 
 `Richtung` und `Gesellschaft` bekommen je Bibliothek einen passenden Default,
 damit automatisch eingelieferte Dateien direkt korrekt getaggt sind.

@@ -1984,6 +1984,63 @@ function werkDrittlandUnterschrift(werk) {
   return !!(e && e._drittlandUnterschrift);
 }
 
+/* ── Stammdaten des Rechnungsstellers: im Konverter gesperrt ──
+ * Denis, 11.11.2026: komplett gesperrt, auch nicht nach Rückfrage zu entsperren. Sie kommen nur aus der
+ * Registry oben, geändert werden sie dort über einen Commit der IT. Ansprechpartner, Telefon und
+ * Kontakt-Mail gehören nicht dazu. */
+const STAMMDATEN_FELDER = {
+  verkaeufer: 'Firma', verkaeufstrasse: 'Straße', verkaeufplz: 'PLZ', verkaeufstadt: 'Ort', verkaeufland: 'Land',
+  verkaeufervat: 'USt-IdNr.', verkaeufersteuernr: 'Steuernummer', iban: 'IBAN', bic: 'BIC',
+  handelsregister: 'Registergericht', registernr: 'Registernummer', geschaeftsfuehrung: 'Geschäftsführung',
+};
+
+/** Stammdaten eines aktiven Werks, im Reiter „Manuelle Rechnung“ mit den Abweichungen aus _manuell. null = kein aktives Werk. */
+function werkStammdaten(werk, manuell) {
+  const e = _COMPANY_REGISTRY[String(werk || '').toUpperCase()];
+  if (!e || e._aktiv === false || !e._detect) return null;
+  const s = {};
+  for (const k of Object.keys(STAMMDATEN_FELDER)) s[k] = e[k] || '';
+  if (!s.verkaeufland) s.verkaeufland = 'DE';
+  if (manuell && e._manuell) for (const k of Object.keys(STAMMDATEN_FELDER)) if (e._manuell[k]) s[k] = e._manuell[k];
+  return s;
+}
+
+/**
+ * Welche Stammdaten weichen von denen des Werks ab? Liefert die Feldnamen, leer heißt: alles passt.
+ * beleg: die erkannten Daten des hochgeladenen PDF. Stammt es vom selben Werk, gelten zusätzlich dessen
+ * IBAN und BIC (Factoring, Zahlungskonto laut Beleg) und dessen Werte für Felder ohne Eintrag in der Registry.
+ */
+function stammdatenAbweichungen(werk, daten, beleg, manuell) {
+  const soll = werkStammdaten(werk, manuell);
+  if (!soll) return ['Werk ' + (werk || '?') + ' ohne Stammdaten'];
+  const vomWerk = beleg && String(beleg.gesellschaft || '').toUpperCase() === String(werk).toUpperCase() ? beleg : null;
+  const norm = (k, x) => {
+    const s = String(x == null ? '' : x).trim().replace(/\s+/g, ' ');
+    return k === 'iban' || k === 'bic' ? s.replace(/ /g, '').toUpperCase() : s;
+  };
+  const d = daten || {};
+  const out = [];
+  for (const [k, name] of Object.entries(STAMMDATEN_FELDER)) {
+    const erlaubt = [];
+    if (soll[k]) erlaubt.push(soll[k]);
+    if (vomWerk && (k === 'iban' || k === 'bic') && vomWerk[k]) erlaubt.push(vomWerk[k]);
+    if (!soll[k]) erlaubt.push(vomWerk ? vomWerk[k] : '');
+    if (!erlaubt.some(x => norm(k, x) === norm(k, d[k]))) out.push(name);
+  }
+  return out;
+}
+
+/** Die Stammdaten fürs Formular: vom Beleg, wenn er von diesem Werk stammt, sonst aus der Registry. */
+function stammdatenFuerWerk(werk, beleg, manuell) {
+  const soll = werkStammdaten(werk, manuell);
+  if (!soll) return null;
+  const vomWerk = beleg && String(beleg.gesellschaft || '').toUpperCase() === String(werk).toUpperCase() ? beleg : null;
+  if (!vomWerk) return soll;
+  const s = {};
+  for (const k of Object.keys(STAMMDATEN_FELDER)) s[k] = vomWerk[k] || soll[k];
+  return s;
+}
+
 /**
  * Anschrift aus den Kopfzeilen: Name (eine oder mehrere Zeilen), Straße,
  * PLZ und Ort, im Ausland zuletzt das Land in Großbuchstaben.

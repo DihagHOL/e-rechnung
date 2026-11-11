@@ -12,12 +12,14 @@ const ZOOM_STEPS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0];
 let _extractedSnapshot = null;   // ursprünglich extrahierte Daten (für Manuell-Änderungs-Diff)
 let _sourcePdfText     = '';     // Textebene des Quell-PDF (für PDF↔XML-Abgleich)
 let _sourceViaOcr      = false;  // Quelle war OCR (kein echter Textlayer)
-let _sellerLocked      = false;  // Verkäufer-Stammdaten gesperrt?
-let _sellerUnlocked    = false;  // wurde in dieser Sitzung entsperrt? (Audit)
-const _SELLER_MASTER_IDS = [
-  'verkaeufer', 'iban', 'bic', 'verkaeufer-vat', 'verkaeufer-steuernr',
-  'verkaeufer-handelsregister', 'verkaeufer-registernr', 'verkaeufer-gf',
-];
+// Stammdaten des Rechnungsstellers (Schlüssel wie STAMMDATEN_FELDER in parser.js) -> Formularfeld
+const _STAMM_IDS = {
+  verkaeufer: 'verkaeufer', verkaeufstrasse: 'verkaeufer-strasse', verkaeufplz: 'verkaeufer-plz',
+  verkaeufstadt: 'verkaeufer-stadt', verkaeufland: 'verkaeufer-land', verkaeufervat: 'verkaeufer-vat',
+  verkaeufersteuernr: 'verkaeufer-steuernr', iban: 'iban', bic: 'bic', handelsregister: 'verkaeufer-handelsregister',
+  registernr: 'verkaeufer-registernr', geschaeftsfuehrung: 'verkaeufer-gf',
+};
+const _SELLER_MASTER_IDS = Object.values(_STAMM_IDS);
 
 /* ── Init ── */
 document.addEventListener('DOMContentLoaded', () => {
@@ -37,14 +39,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-export-xrechnung').addEventListener('click', () => exportInvoice('xrechnung'));
   document.getElementById('btn-export-zugferd').addEventListener('click', () => exportInvoice('zugferd'));
   document.getElementById('btn-mail').addEventListener('click', () => createInvoiceMail());
-  const lockBtn = document.getElementById('btn-seller-lock');
-  if (lockBtn) lockBtn.addEventListener('click', toggleSellerLock);
+  lockSellerMaster();
 
   // Runtime-Config laden, dann Selector + Admin-Nav initialisieren
   onAuthReady(async () => {
     await loadRuntimeAccessConfig();
     initAdminNav();
     setupGesellschaftSelector();
+    _stammdatenEinsetzen(v('gesellschaft'));
   });
 });
 
@@ -78,6 +80,18 @@ function setupGesellschaftSelector() {
     const label = (typeof GESELLSCHAFT_LABELS !== 'undefined' && GESELLSCHAFT_LABELS[g.toLowerCase()]) || g;
     return `<option value="${g}">${label}</option>`;
   }).join('');
+  // Anderes Werk: dessen Stammdaten einsetzen (die Felder sind gesperrt)
+  if (!sel.dataset.stammdaten) {
+    sel.dataset.stammdaten = '1';
+    sel.addEventListener('change', () => {
+      const beleg = _belegWerk();
+      _stammdatenEinsetzen(sel.value);
+      if (beleg && sel.value && beleg !== sel.value) {
+        showToast(`Der Beleg wurde als Rechnung von ${beleg} erkannt. Rechnungssteller jetzt aus den Stammdaten von ${sel.value}, `
+          + 'bitte prüfen.', 'info');
+      }
+    });
+  }
 }
 
 /* ── Pflichtfeld-Toggles für "mind. eines von zwei" ── */
@@ -175,6 +189,7 @@ async function handleFileUpload(file) {
 /* ── Auto-Fill ── */
 async function autoFillFromPDF() {
   if (!pdfDocument) return;
+  _extractedSnapshot = null;   // die vorige Rechnung gilt nicht mehr (auch nicht für die Stammdatenprüfung)
   showLoading(true, 'Rechnungsdaten werden erkannt...');
   try {
     // 1) Text aus der PDF-Textebene sammeln
@@ -185,6 +200,7 @@ async function autoFillFromPDF() {
     // 2) Kaum Text vorhanden → gescanntes PDF → OCR-Texterkennung
     if (txtLen < 40) {
       if (typeof ocrCollectItems !== 'function') {
+        _stammdatenEinsetzen(v('gesellschaft'));
         showLoading(false);
         showToast('Gescanntes PDF erkannt — Texterkennung nicht verfügbar. Bitte Felder manuell ausfüllen.', 'info');
         return;
@@ -206,8 +222,12 @@ async function autoFillFromPDF() {
     _sourceViaOcr      = viaOcr;
 
     const count = fillFormFromExtracted(data);
+    if (!data.gesellschaft) _stammdatenEinsetzen(v('gesellschaft'));
     await _kundenMailVorschlagen(data);
     showLoading(false);
+    if (!data.gesellschaft && v('gesellschaft')) {
+      showToast(`Werk im Beleg nicht erkannt. Rechnungssteller aus den Stammdaten von ${v('gesellschaft')}, bitte prüfen.`, 'info');
+    }
     if (data.proforma) {
       showToast('Proformarechnung: Das ist keine Rechnung im Sinne von § 14 UStG, dafür gibt es keine E-Rechnungspflicht. '
         + 'Sie geht wie bisher als PDF.', 'info');
@@ -497,48 +517,52 @@ async function _kundenMailMerken(data) {
   }
 }
 
-/* ── #1: Verkäufer-Stammdaten sperren/entsperren ──
- * Aus Stammdaten befüllte Verkäufer-Kernfelder (Name, IBAN, USt-IdNr.,
- * Register …) werden schreibgeschützt. Das verhindert genau das Szenario
- * „falsche IBAN einsetzen". Bewusstes Entsperren wird protokolliert (#7). */
+/* ── #1: Stammdaten des Rechnungsstellers sperren ──
+ * Denis, 11.11.2026: komplett gesperrt, ohne Entsperren. Die Felder füllt nur der Konverter aus der
+ * Registry (bei einem erkannten Beleg des Werks IBAN und BIC laut Beleg). Das verhindert etwa eine falsche
+ * IBAN. Export und Mail prüfen die Werte zusätzlich gegen die Registry (_stammdatenGeprueft). */
 function lockSellerMaster() {
-  let anyLocked = false;
   _SELLER_MASTER_IDS.forEach(id => {
     const el = document.getElementById(id);
-    if (el && el.value.trim() !== '') {
-      el.readOnly = true;
-      el.classList.add('locked');
-      el.title = 'Stammdaten – gegen versehentliche Änderung gesperrt. Über „Stammdaten gesperrt" entsperren.';
-      anyLocked = true;
-    }
+    if (!el) return;
+    el.readOnly = true;
+    el.classList.add('locked');
+    el.title = 'Stammdaten des Werks, gesperrt. Ändern lassen sie sich nur über die IT.';
   });
-  _sellerLocked = anyLocked;
-  const btn = document.getElementById('btn-seller-lock');
-  if (btn) {
-    btn.style.display = anyLocked ? '' : 'none';
-    btn.textContent = '🔒 Stammdaten gesperrt';
-    btn.classList.remove('unlocked');
-  }
 }
 
-function toggleSellerLock() {
-  const btn = document.getElementById('btn-seller-lock');
-  if (_sellerLocked) {
-    const ok = window.confirm(
-      'Verkäufer-Stammdaten (u. a. IBAN, USt-IdNr.) entsperren?\n\n' +
-      'Manuelle Änderungen an diesen Feldern werden im Prüfpfad protokolliert.'
-    );
-    if (!ok) return;
-    _SELLER_MASTER_IDS.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) { el.readOnly = false; el.classList.remove('locked'); el.title = ''; }
-    });
-    _sellerLocked = false;
-    _sellerUnlocked = true;
-    if (btn) { btn.textContent = '🔓 entsperrt (wird protokolliert)'; btn.classList.add('unlocked'); }
-  } else {
-    lockSellerMaster();
+/** Werk, von dem der hochgeladene Beleg stammt (Konverter), sonst ''. */
+function _belegWerk() {
+  return (!_istManuell() && _extractedSnapshot && _extractedSnapshot.gesellschaft) || '';
+}
+
+function _istManuell() {
+  return typeof vlIstManuell === 'function' && vlIstManuell();
+}
+
+/** Rechnungssteller aus den Stammdaten des Werks einsetzen (vom Beleg, wenn er von diesem Werk ist). */
+function _stammdatenEinsetzen(werk) {
+  const s = typeof stammdatenFuerWerk === 'function'
+    ? stammdatenFuerWerk(werk, _istManuell() ? null : _extractedSnapshot, _istManuell()) : null;
+  if (!s) return;
+  for (const [k, id] of Object.entries(_STAMM_IDS)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.value = s[k] || '';
+    el.classList.remove('autofilled', 'field-error', 'error');
+    el.dispatchEvent(new Event('input'));
   }
+  lockSellerMaster();
+}
+
+/** Stammdaten gegen die Registry des gewählten Werks: Weicht etwas ab, gibt es keinen Export und keine Mail. */
+function _stammdatenGeprueft(data) {
+  if (typeof stammdatenAbweichungen !== 'function') return true;
+  const ab = stammdatenAbweichungen(data.gesellschaft, data, _istManuell() ? null : _extractedSnapshot, _istManuell());
+  if (!ab.length) return true;
+  showToast(`Die Stammdaten des Rechnungsstellers passen nicht zu ${data.gesellschaft} (${ab.join(', ')}). `
+    + 'Sie lassen sich hier nicht ändern. Bitte das Werk neu wählen oder die Seite neu laden.', 'error');
+  return false;
 }
 
 function showAutofillBanner(count) {
@@ -1015,6 +1039,7 @@ function validateForm(data) {
 async function exportInvoice(format) {
   if (!_werkZugewiesen()) return;
   const data = collectFormData();
+  if (!_stammdatenGeprueft(data)) return;
   const errors = validateForm(data);
 
   if (errors.length > 0) {
@@ -1203,6 +1228,7 @@ async function _imMonitoringAblegen(data, totals, xml, pdfBytes, format, ust) {
 async function createInvoiceMail() {
   if (!_werkZugewiesen()) return;
   const data = collectFormData();
+  if (!_stammdatenGeprueft(data)) return;
   const errors = validateForm(data);
   if (errors.length > 0) {
     showToast('Pflichtfelder fehlen: ' + errors.slice(0, 3).join(', ') + (errors.length > 3 ? ' ...' : ''), 'error');
@@ -1625,7 +1651,7 @@ async function _buildAudit(data) {
     quellPdfName:        uploadedFileName || '',
     quellPdfHash:        hash,
     quellViaOcr:         !!_sourceViaOcr,
-    stammdatenEntsperrt: !!_sellerUnlocked,
+    stammdatenEntsperrt: false,   // seit 11.11.2026 nicht mehr möglich, Spalte bleibt für ältere Einträge
     manuelleAenderungen: changes,
     geprueftVon:         user ? (user.username || user.name || '') : '',
     geprueftAm:          new Date().toISOString(),

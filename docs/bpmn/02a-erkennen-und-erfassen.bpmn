@@ -4,7 +4,7 @@
     <bpmn:participant id="P_Erf" name="Erkennen und erfassen" processRef="Process_ERechnung_Erfassen" />
   </bpmn:collaboration>
   <bpmn:process id="Process_ERechnung_Erfassen" name="E-Rechnung Erkennen und erfassen" isExecutable="false">
-    <bpmn:documentation>Der Konverter liest das Rechnungs-PDF (bei Scans per Texterkennung), erkennt Werk und Layout, befüllt die Felder vor und schlägt die gemerkte Rechnungsadresse des Kunden vor. Der Vertrieb prüft und ergänzt.
+    <bpmn:documentation>Der Konverter liest das Rechnungs-PDF (bei Scans per Texterkennung), erkennt Werk und Layout, befüllt die Felder vor und schlägt die gemerkte Rechnungsadresse des Kunden vor. Die Stammdaten des Rechnungsstellers kommen aus der Registry des Werks und sind gesperrt, IBAN und BIC laut Beleg. Der Vertrieb prüft und ergänzt die übrigen Angaben.
 Eingebunden in: E-Rechnung Rechnungsausgang.
 Anwender-Ansicht: https://e-rechnung.dihag-extern.com/prozess.html#ausgang
 Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflichten
@@ -17,7 +17,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:exclusiveGateway id="E_gwText" name="Textebene vorhanden?"><bpmn:incoming>Flow_E_start_E_gwText</bpmn:incoming><bpmn:outgoing>Flow_E_gwText_E_werk</bpmn:outgoing><bpmn:outgoing>Flow_E_gwText_E_ocr</bpmn:outgoing></bpmn:exclusiveGateway>
       <bpmn:serviceTask id="E_ocr" name="Text erkennen (OCR)"><bpmn:incoming>Flow_E_gwText_E_ocr</bpmn:incoming><bpmn:outgoing>Flow_E_ocr_E_werk</bpmn:outgoing></bpmn:serviceTask>
       <bpmn:serviceTask id="E_werk" name="Werk erkennen, passenden Rechnungs-Parser wählen"><bpmn:incoming>Flow_E_gwText_E_werk</bpmn:incoming><bpmn:incoming>Flow_E_ocr_E_werk</bpmn:incoming><bpmn:outgoing>Flow_E_werk_E_fill</bpmn:outgoing></bpmn:serviceTask>
-      <bpmn:serviceTask id="E_fill" name="Felder vorbefüllen, Verkäufer-Stammdaten sperren"><bpmn:incoming>Flow_E_werk_E_fill</bpmn:incoming><bpmn:outgoing>Flow_E_fill_E_check</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:serviceTask id="E_fill" name="Felder vorbefüllen, Stammdaten des Werks einsetzen und sperren"><bpmn:incoming>Flow_E_werk_E_fill</bpmn:incoming><bpmn:outgoing>Flow_E_fill_E_check</bpmn:outgoing></bpmn:serviceTask>
       <bpmn:userTask id="E_check" name="Daten prüfen und ergänzen (Belegart, Zahlungsart, Leitweg-ID)"><bpmn:incoming>Flow_E_fill_E_check</bpmn:incoming><bpmn:outgoing>Flow_E_check_E_gwEU</bpmn:outgoing></bpmn:userTask>
       <bpmn:exclusiveGateway id="E_gwEU" name="Kunde im EU-Ausland mit USt-IdNr?"><bpmn:incoming>Flow_E_check_E_gwEU</bpmn:incoming><bpmn:outgoing>Flow_E_gwEU_E_fmt</bpmn:outgoing><bpmn:outgoing>Flow_E_gwEU_E_vat</bpmn:outgoing></bpmn:exclusiveGateway>
       <bpmn:serviceTask id="E_vat" name="USt-IdNr qualifiziert prüfen (BZSt / VIES) und Nachweis sichern"><bpmn:incoming>Flow_E_gwEU_E_vat</bpmn:incoming><bpmn:outgoing>Flow_E_vat_E_fmt</bpmn:outgoing></bpmn:serviceTask>
@@ -36,7 +36,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:sequenceFlow id="Flow_E_fmt_E_end" sourceRef="E_fmt" targetRef="E_end" />
       <bpmn:textAnnotation id="EN_werk"><bpmn:text>Eigene Parser: WGC, SHB, ZAI, EIS, EWA, LEG, MEG.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_EN_werk" associationDirection="None" sourceRef="E_werk" targetRef="EN_werk" />
-      <bpmn:textAnnotation id="EN_fill"><bpmn:text>Entsperren nur bewusst, es landet im Prüfpfad. Die Rechnungsadresse des Kunden ist gemerkt.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="EN_fill"><bpmn:text>Stammdaten ohne Entsperren, ändern nur über die IT. Werk nicht erkannt: Stammdaten des gewählten Werks.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_EN_fill" associationDirection="None" sourceRef="E_fill" targetRef="EN_fill" />
       <bpmn:textAnnotation id="EN_fmt"><bpmn:text>Standard ist ZUGFeRD. XRechnung z. B. für öffentliche Auftraggeber mit Leitweg-ID.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_EN_fmt" associationDirection="None" sourceRef="E_fmt" targetRef="EN_fmt" />
@@ -69,8 +69,8 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNEdge id="Flow_E_fmt_E_end_di" bpmnElement="Flow_E_fmt_E_end"><di:waypoint x="1625" y="468" /><di:waypoint x="1625" y="250" /><di:waypoint x="1777" y="250" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="EN_werk_di" bpmnElement="EN_werk" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="700" y="94" width="160" height="72" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_EN_werk_di" bpmnElement="Assoc_EN_werk"><di:waypoint x="775" y="208" /><di:waypoint x="775" y="166" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNShape id="EN_fill_di" bpmnElement="EN_fill" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="870" y="88" width="160" height="84" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Assoc_EN_fill_di" bpmnElement="Assoc_EN_fill"><di:waypoint x="945" y="208" /><di:waypoint x="945" y="172" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="EN_fill_di" bpmnElement="EN_fill" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="870" y="80" width="160" height="100" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_EN_fill_di" bpmnElement="Assoc_EN_fill"><di:waypoint x="945" y="208" /><di:waypoint x="945" y="180" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="EN_fmt_di" bpmnElement="EN_fmt" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="1720" y="474" width="200" height="72" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_EN_fmt_di" bpmnElement="Assoc_EN_fmt"><di:waypoint x="1691" y="510" /><di:waypoint x="1720" y="510" /></bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>

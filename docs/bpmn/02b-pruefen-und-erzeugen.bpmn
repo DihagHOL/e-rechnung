@@ -5,7 +5,7 @@
     <bpmn:participant id="P_Erz" name="Prüfen und E-Rechnung erzeugen" processRef="Process_ERechnung_Erzeugen" />
   </bpmn:collaboration>
   <bpmn:process id="Process_ERechnung_Erzeugen" name="E-Rechnung Prüfen und erzeugen" isExecutable="false">
-    <bpmn:documentation>Vor dem Export prüft der Konverter Pflichtfelder (auch Telefon und Mail des Ansprechpartners), IBAN, Summen und USt-IdNr. EIS, EWA und LEG senden E-Rechnungen nur an Kunden im Inland und fragen sonst nach. Danach entsteht die XML nach EN 16931, wird zurückgelesen und als ZUGFeRD oder XRechnung mit Prüfpfad ausgegeben.
+    <bpmn:documentation>Vor dem Export prüft der Konverter die Stammdaten des Rechnungsstellers gegen die Registry des Werks, Pflichtfelder (auch Telefon und Mail des Ansprechpartners), IBAN, Summen und USt-IdNr. EIS, EWA und LEG senden E-Rechnungen nur an Kunden im Inland und fragen sonst nach. Danach entsteht die XML nach EN 16931, wird zurückgelesen und als ZUGFeRD oder XRechnung mit Prüfpfad ausgegeben.
 Eingebunden in: E-Rechnung Rechnungsausgang.
 Anwender-Ansicht: https://e-rechnung.dihag-extern.com/prozess.html#ausgang
 Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflichten
@@ -16,7 +16,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
     </bpmn:laneSet>
       <bpmn:startEvent id="X_start" name="Export angestoßen"><bpmn:outgoing>Flow_X_start_X_pflicht</bpmn:outgoing></bpmn:startEvent>
       <bpmn:serviceTask id="X_pflicht" name="Pflichtfelder prüfen (auch Telefon und Mail des Ansprechpartners)"><bpmn:incoming>Flow_X_start_X_pflicht</bpmn:incoming><bpmn:outgoing>Flow_X_pflicht_X_pre</bpmn:outgoing></bpmn:serviceTask>
-      <bpmn:serviceTask id="X_pre" name="Vorab prüfen (IBAN-Prüfziffer, Summen, USt-IdNr-Format)"><bpmn:incoming>Flow_X_pflicht_X_pre</bpmn:incoming><bpmn:outgoing>Flow_X_pre_X_gwHard</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:serviceTask id="X_pre" name="Vorab prüfen (Stammdaten des Werks, IBAN-Prüfziffer, Summen, USt-IdNr-Format)"><bpmn:incoming>Flow_X_pflicht_X_pre</bpmn:incoming><bpmn:outgoing>Flow_X_pre_X_gwHard</bpmn:outgoing></bpmn:serviceTask>
       <bpmn:exclusiveGateway id="X_gwHard" name="Harter Fehler?"><bpmn:incoming>Flow_X_pre_X_gwHard</bpmn:incoming><bpmn:outgoing>Flow_X_gwHard_X_err1</bpmn:outgoing><bpmn:outgoing>Flow_X_gwHard_X_gwSoft</bpmn:outgoing></bpmn:exclusiveGateway>
       <bpmn:endEvent id="X_err1" name="Prüfung nicht bestanden"><bpmn:incoming>Flow_X_gwHard_X_err1</bpmn:incoming><bpmn:errorEventDefinition id="X_err1_def" errorRef="Error_Pruefung" /></bpmn:endEvent>
       <bpmn:exclusiveGateway id="X_gwSoft" name="Abweichung zum Original-PDF?"><bpmn:incoming>Flow_X_gwHard_X_gwSoft</bpmn:incoming><bpmn:outgoing>Flow_X_gwSoft_X_gwAusl</bpmn:outgoing><bpmn:outgoing>Flow_X_gwSoft_X_confirm</bpmn:outgoing></bpmn:exclusiveGateway>
@@ -58,7 +58,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:sequenceFlow id="Flow_X_xr_X_audit" sourceRef="X_xr" targetRef="X_audit" />
       <bpmn:sequenceFlow id="Flow_X_audit_X_dl" sourceRef="X_audit" targetRef="X_dl" />
       <bpmn:sequenceFlow id="Flow_X_dl_X_end" sourceRef="X_dl" targetRef="X_end" />
-      <bpmn:textAnnotation id="XN_pre"><bpmn:text>Harte Fehler: IBAN-Prüfziffer falsch, Summe nicht plausibel, Netto + MwSt ≠ Brutto.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="XN_pre"><bpmn:text>Harte Fehler: Stammdaten passen nicht zum Werk, IBAN-Prüfziffer falsch, Summe nicht plausibel, Netto + MwSt ≠ Brutto.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_XN_pre" associationDirection="None" sourceRef="X_pre" targetRef="XN_pre" />
       <bpmn:textAnnotation id="XN_confirm"><bpmn:text>„Abbrechen“ beendet den Export, es entsteht keine Datei.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_XN_confirm" associationDirection="None" sourceRef="X_confirm" targetRef="XN_confirm" />
@@ -116,8 +116,8 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNEdge id="Flow_X_xr_X_audit_di" bpmnElement="Flow_X_xr_X_audit"><di:waypoint x="2371" y="370" /><di:waypoint x="2390" y="370" /><di:waypoint x="2390" y="250" /><di:waypoint x="2409" y="250" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_X_audit_X_dl_di" bpmnElement="Flow_X_audit_X_dl"><di:waypoint x="2541" y="250" /><di:waypoint x="2579" y="250" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_X_dl_X_end_di" bpmnElement="Flow_X_dl_X_end"><di:waypoint x="2711" y="250" /><di:waypoint x="2797" y="250" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNShape id="XN_pre_di" bpmnElement="XN_pre" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="530" y="94" width="160" height="72" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Assoc_XN_pre_di" bpmnElement="Assoc_XN_pre"><di:waypoint x="605" y="208" /><di:waypoint x="605" y="166" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="XN_pre_di" bpmnElement="XN_pre" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="530" y="80" width="160" height="100" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_XN_pre_di" bpmnElement="Assoc_XN_pre"><di:waypoint x="605" y="208" /><di:waypoint x="605" y="180" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="XN_confirm_di" bpmnElement="XN_confirm" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="1040" y="602" width="200" height="56" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_XN_confirm_di" bpmnElement="Assoc_XN_confirm"><di:waypoint x="1115" y="552" /><di:waypoint x="1115" y="602" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="XN_rueck_di" bpmnElement="XN_rueck" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="1380" y="594" width="300" height="72" /></bpmndi:BPMNShape>

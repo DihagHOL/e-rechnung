@@ -446,11 +446,6 @@ async function vlUebernehmen(ohneRueckfrage) {
     if (![...ges.options].some(o => o.value === werk)) ges.add(new Option(werk, werk));
     ges.value = werk;
   }
-  // Sperre lösen, sonst bleiben readOnly-Felder des vorigen Werks stehen; danach neu sperren
-  for (const id of (typeof _SELLER_MASTER_IDS !== 'undefined' ? _SELLER_MASTER_IDS : [])) {
-    const el = _vlEl(id);
-    if (el) { el.readOnly = false; el.classList.remove('locked'); }
-  }
   for (const [k, id] of Object.entries(VL_FORM_IDS)) {
     const el = _vlEl(id);
     if (el && k in felder) { el.value = felder[k] == null ? '' : felder[k]; el.classList.remove('autofilled', 'field-error'); }
@@ -599,7 +594,7 @@ function _vlSeiteUmstellen() {
   const p = document.querySelector('.hero p');
   if (h1) h1.textContent = 'Manuelle Rechnung aus Vorlage';
   if (p) p.textContent = 'Vorlage wählen, Leistungsmonat setzen und übernehmen. Danach lassen sich alle Angaben im '
-    + 'Formular ändern. Erzeugt wird wie im Konverter eine E-Rechnung (ZUGFeRD oder XRechnung), die im Monitoring abgelegt wird.';
+    + 'Formular ändern, nur die Stammdaten des Rechnungsstellers sind gesperrt. Erzeugt wird wie im Konverter eine E-Rechnung (ZUGFeRD oder XRechnung), die im Monitoring abgelegt wird.';
   const titel = document.querySelector('.pdf-viewer-panel .panel-header h3');
   if (titel) titel.textContent = '📄 Vorschau';
   const ph = document.querySelector('#pdf-placeholder p');

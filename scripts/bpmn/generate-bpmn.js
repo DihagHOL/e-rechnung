@@ -268,8 +268,8 @@ const AUSGANG = {
       annotations: [
         { id: 'N_edi', of: 'F_edi', lane: 'LF', c: 5, r: 2, w: 300, h: 56, tone: 'plan',
           text: 'Gilt nicht für EIS, EWA und LEG: Ihre SAP-Belege wandelt der Konverter.' },
-        { id: 'N_vorl', of: 'K_vorl', lane: 'LK', c: 3, r: 3, w: 300, h: 72,
-          text: 'HOL und EIS: Umlagen, Weiterbelastungen, Dienstleistungen. Nummer aus dem Nummernkreis, abgeglichen mit AR_<Werk>.' },
+        { id: 'N_vorl', of: 'K_vorl', lane: 'LK', c: 3, r: 3, w: 300, h: 84,
+          text: 'HOL und EIS: Umlagen, Weiterbelastungen, Dienstleistungen. Nummer aus dem Nummernkreis, abgeglichen mit AR_<Werk>. Stammdaten des Werks gesperrt.' },
         { id: 'N_abl', of: 'S_abl', lane: 'LS', c: 8, r: 1, w: 300, h: 56,
           text: 'Ablegen darf, wer im Werk FIBU oder Vertrieb ist (Mitwirken auf AR_<Werk>).' },
         { id: 'N_mail', of: 'K_mail', lane: 'LK', c: 10, r: 1, w: 260, h: 72,
@@ -561,7 +561,7 @@ const FREIGABE = {
 const ERFASSEN = {
   key: 'erfassen', file: '02a-erkennen-und-erfassen.bpmn', tab: 'ausgang', von: 'ausgang',
   name: 'E-Rechnung Erkennen und erfassen', kennung: 'Process_ERechnung_Erfassen',
-  doku: 'Der Konverter liest das Rechnungs-PDF (bei Scans per Texterkennung), erkennt Werk und Layout, befüllt die Felder vor und schlägt die gemerkte Rechnungsadresse des Kunden vor. Der Vertrieb prüft und ergänzt.',
+  doku: 'Der Konverter liest das Rechnungs-PDF (bei Scans per Texterkennung), erkennt Werk und Layout, befüllt die Felder vor und schlägt die gemerkte Rechnungsadresse des Kunden vor. Die Stammdaten des Rechnungsstellers kommen aus der Registry des Werks und sind gesperrt, IBAN und BIC laut Beleg. Der Vertrieb prüft und ergänzt die übrigen Angaben.',
   pools: [{
     id: 'P_Erf', name: 'Erkennen und erfassen', main: true,
     lanes: [
@@ -573,7 +573,7 @@ const ERFASSEN = {
       { id: 'E_gwText', k: 'gw', n: 'Textebene vorhanden?', lane: 'LKK', c: 1, r: 1 },
       { id: 'E_ocr', k: 'service', n: 'Text erkennen (OCR)', lane: 'LKK', c: 2, r: 2 },
       { id: 'E_werk', k: 'service', n: 'Werk erkennen, passenden Rechnungs-Parser wählen', lane: 'LKK', c: 3, r: 1 },
-      { id: 'E_fill', k: 'service', n: 'Felder vorbefüllen, Verkäufer-Stammdaten sperren', lane: 'LKK', c: 4, r: 1 },
+      { id: 'E_fill', k: 'service', n: 'Felder vorbefüllen, Stammdaten des Werks einsetzen und sperren', lane: 'LKK', c: 4, r: 1 },
       { id: 'E_check', k: 'user', n: 'Daten prüfen und ergänzen (Belegart, Zahlungsart, Leitweg-ID)', lane: 'LKV', c: 5, r: 0 },
       { id: 'E_gwEU', k: 'gw', n: 'Kunde im EU-Ausland mit USt-IdNr?', lane: 'LKK', c: 6, r: 1 },
       { id: 'E_vat', k: 'service', n: 'USt-IdNr qualifiziert prüfen (BZSt / VIES) und Nachweis sichern', lane: 'LKK', c: 7, r: 2 },
@@ -590,8 +590,8 @@ const ERFASSEN = {
     annotations: [
       { id: 'EN_werk', of: 'E_werk', lane: 'LKK', c: 3, r: 0, w: 160, h: 72,
         text: 'Eigene Parser: WGC, SHB, ZAI, EIS, EWA, LEG, MEG.' },
-      { id: 'EN_fill', of: 'E_fill', lane: 'LKK', c: 4, r: 0, w: 160, h: 84,
-        text: 'Entsperren nur bewusst, es landet im Prüfpfad. Die Rechnungsadresse des Kunden ist gemerkt.' },
+      { id: 'EN_fill', of: 'E_fill', lane: 'LKK', c: 4, r: 0, w: 160, h: 100,
+        text: 'Stammdaten ohne Entsperren, ändern nur über die IT. Werk nicht erkannt: Stammdaten des gewählten Werks.' },
       { id: 'EN_fmt', of: 'E_fmt', lane: 'LKV', c: 9, r: 0, w: 200, h: 72,
         text: 'Standard ist ZUGFeRD. XRechnung z. B. für öffentliche Auftraggeber mit Leitweg-ID.' },
     ],
@@ -602,7 +602,7 @@ const ERFASSEN = {
 const ERZEUGEN = {
   key: 'erzeugen', file: '02b-pruefen-und-erzeugen.bpmn', tab: 'ausgang', von: 'ausgang',
   name: 'E-Rechnung Prüfen und erzeugen', kennung: 'Process_ERechnung_Erzeugen',
-  doku: 'Vor dem Export prüft der Konverter Pflichtfelder (auch Telefon und Mail des Ansprechpartners), IBAN, Summen und USt-IdNr. EIS, EWA und LEG senden E-Rechnungen nur an Kunden im Inland und fragen sonst nach. Danach entsteht die XML nach EN 16931, wird zurückgelesen und als ZUGFeRD oder XRechnung mit Prüfpfad ausgegeben.',
+  doku: 'Vor dem Export prüft der Konverter die Stammdaten des Rechnungsstellers gegen die Registry des Werks, Pflichtfelder (auch Telefon und Mail des Ansprechpartners), IBAN, Summen und USt-IdNr. EIS, EWA und LEG senden E-Rechnungen nur an Kunden im Inland und fragen sonst nach. Danach entsteht die XML nach EN 16931, wird zurückgelesen und als ZUGFeRD oder XRechnung mit Prüfpfad ausgegeben.',
   pools: [{
     id: 'P_Erz', name: 'Prüfen und E-Rechnung erzeugen', main: true,
     lanes: [
@@ -612,7 +612,7 @@ const ERZEUGEN = {
     nodes: [
       { id: 'X_start', k: 'start', n: 'Export angestoßen', lane: 'LXK', c: 0, r: 1 },
       { id: 'X_pflicht', k: 'service', n: 'Pflichtfelder prüfen (auch Telefon und Mail des Ansprechpartners)', lane: 'LXK', c: 1, r: 1 },
-      { id: 'X_pre', k: 'service', n: 'Vorab prüfen (IBAN-Prüfziffer, Summen, USt-IdNr-Format)', lane: 'LXK', c: 2, r: 1 },
+      { id: 'X_pre', k: 'service', n: 'Vorab prüfen (Stammdaten des Werks, IBAN-Prüfziffer, Summen, USt-IdNr-Format)', lane: 'LXK', c: 2, r: 1 },
       { id: 'X_gwHard', k: 'gw', n: 'Harter Fehler?', lane: 'LXK', c: 3, r: 1 },
       { id: 'X_err1', k: 'errEnd', n: 'Prüfung nicht bestanden', lane: 'LXK', c: 4, r: 0 },
       { id: 'X_gwSoft', k: 'gw', n: 'Abweichung zum Original-PDF?', lane: 'LXK', c: 4, r: 1 },
@@ -645,8 +645,8 @@ const ERZEUGEN = {
       F('X_audit', 'X_dl'), F('X_dl', 'X_end'),
     ],
     annotations: [
-      { id: 'XN_pre', of: 'X_pre', lane: 'LXK', c: 2, r: 0, w: 160, h: 72,
-        text: 'Harte Fehler: IBAN-Prüfziffer falsch, Summe nicht plausibel, Netto + MwSt ≠ Brutto.' },
+      { id: 'XN_pre', of: 'X_pre', lane: 'LXK', c: 2, r: 0, w: 160, h: 100,
+        text: 'Harte Fehler: Stammdaten passen nicht zum Werk, IBAN-Prüfziffer falsch, Summe nicht plausibel, Netto + MwSt ≠ Brutto.' },
       { id: 'XN_confirm', of: 'X_confirm', lane: 'LXV', c: 5, r: 1, w: 200, h: 56,
         text: '„Abbrechen“ beendet den Export, es entsteht keine Datei.' },
       { id: 'XN_rueck', of: 'X_rueck', lane: 'LXV', c: 7, r: 1, w: 300, h: 72,

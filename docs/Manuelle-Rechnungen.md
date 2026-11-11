@@ -8,11 +8,12 @@ müssen E-Rechnungen sein. Der Reiter nutzt dafür das Formular und den Export d
 ## Ablauf
 
 1. Werk wählen, z. B. HOL. Die Stammdaten des Rechnungsstellers kommen aus der Registry in
-   `js/parser.js` und sind gesperrt wie im Konverter.
+   `js/parser.js` und sind wie im Konverter gesperrt. Entsperren lassen sie sich nicht, ein anderes
+   Werk bringt seine eigenen Stammdaten mit.
 2. Vorlage und Leistungsmonat wählen, „Übernehmen“. Das Formular füllt sich mit Empfänger, Texten,
    Positionen und Steuerangaben. Rechnungsdatum ist heute, Fälligkeit und Leistungszeitraum folgen
    aus der Vorlage, die Rechnungsnummer aus dem Nummernkreis.
-3. Alles prüfen und bei Bedarf ändern (z. B. die Menge in MWh). Die Vorschau links zeigt das PDF so,
+3. Alles außer den Stammdaten prüfen und bei Bedarf ändern (z. B. die Menge in MWh). Die Vorschau links zeigt das PDF so,
    wie es erzeugt wird.
 4. Wie im Konverter „ZUGFeRD“ oder „XRechnung“ erzeugen oder „Mail erstellen“. Die Rechnung landet in
    `AR_<Werk>` im Monitoring. Wer dort ablegen soll, braucht „Mitwirken“ auf dieser Bibliothek.

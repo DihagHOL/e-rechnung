@@ -407,7 +407,7 @@
             <li><span class="chip a-erp">Versand</span>bucht den Warenausgang, wenn Ware geliefert wird.</li>
             <li><span class="chip a-mensch">Vertrieb</span>legt die Faktura im ERP an und erzeugt das PDF. Werke, die über EDIzone senden, haben einen eigenen SAP-Prozess. EIS, EWA und LEG drucken aus SAP und nutzen den Konverter.</li>
             <li><span class="chip a-mensch">Vertrieb</span>legt Rechnungen ohne ERP im Reiter „Manuelle Rechnung“ aus einer Vorlage an, zum Beispiel Umlagen und Weiterbelastungen bei HOL und EIS. Die Nummer kommt aus dem Nummernkreis des Werks.</li>
-            <li><span class="chip a-app">Konverter</span>bekommt das PDF. Er erkennt Werk und Layout (WGC, SHB, ZAI, EIS, EWA, LEG, MEG), liest die Felder aus, bei Scans per Texterkennung, sperrt die Verkäufer-Stammdaten und schlägt die gemerkte Rechnungsadresse des Kunden vor.</li>
+            <li><span class="chip a-app">Konverter</span>bekommt das PDF. Er erkennt Werk und Layout (WGC, SHB, ZAI, EIS, EWA, LEG, MEG), liest die Felder aus, bei Scans per Texterkennung, setzt die Stammdaten des Werks ein und schlägt die gemerkte Rechnungsadresse des Kunden vor. Die Stammdaten sind gesperrt, IBAN und BIC kommen aus dem Beleg.</li>
             <li><span class="chip a-mensch">Vertrieb</span>prüft und ergänzt die Daten, etwa Belegart und Zahlungsart. Bei Kunden im EU-Ausland läuft eine qualifizierte USt-IdNr-Prüfung beim BZSt. Dann das Format wählen: ZUGFeRD als Standard, XRechnung für öffentliche Auftraggeber.</li>
             <li><span class="chip a-app">Konverter</span>prüft vor dem Erzeugen Pflichtfelder, IBAN, Summen und den Abgleich mit dem Original. EIS, EWA und LEG fragen bei Kunden im Ausland nach, ob statt der E-Rechnung das PDF gehen soll. Danach liest der Konverter die XML zurück und vergleicht sie (Selbstprüfung). Bei einem Fehler geht es zurück zur Korrektur.</li>
             <li><span class="chip a-archiv">SharePoint</span>bekommt E-Rechnung, lesbares PDF und Prüfpfad (Hash, Änderungen, Prüfer) in AR_&lt;Werk&gt;. Ablegen kann, wer im Werk FIBU oder Vertrieb ist.</li>
@@ -417,7 +417,7 @@
         <div class="side-box">
           <h4 class="box-title">Worauf das Tool achtet</h4>
           <table class="rules">
-            <tr><td><span class="chip t-err">Stopp</span></td><td>IBAN-Prüfziffer falsch, Gesamtbetrag nicht plausibel, Netto plus MwSt ergibt nicht Brutto.</td></tr>
+            <tr><td><span class="chip t-err">Stopp</span></td><td>Stammdaten passen nicht zum gewählten Werk, IBAN-Prüfziffer falsch, Gesamtbetrag nicht plausibel, Netto plus MwSt ergibt nicht Brutto.</td></tr>
             <tr><td><span class="chip t-warn">Warnung</span></td><td>Werte fehlen im Original-PDF oder die USt-IdNr sieht ungewöhnlich aus. Du entscheidest: fortfahren oder abbrechen.</td></tr>
             <tr><td><span class="chip t-err">Selbstprüfung</span></td><td>Weicht die erzeugte XML von der Anzeige ab, entsteht keine Datei.</td></tr>
             <tr><td><span class="chip t-warn">Ausland</span></td><td>EIS, EWA und LEG senden E-Rechnungen nur an Kunden im Inland. Sonst fragt das Tool nach, bei EIS ins Drittland geht das PDF unterschrieben.</td></tr>
@@ -495,7 +495,7 @@
       </div>
       <div class="card-body">
         <ul class="chk">
-          <li><strong>Gesperrte Stammdaten</strong>, Entsperren wird protokolliert.</li>
+          <li><strong>Gesperrte Stammdaten</strong> ohne Entsperren. Ändern lassen sie sich nur über die IT, Export und Mail prüfen sie gegen das Werk.</li>
           <li><strong>IBAN-Prüfziffer</strong>, USt-IdNr-Format und Summensperre.</li>
           <li><strong>Abgleich mit dem Original</strong> und Selbstprüfung der XML.</li>
           <li><strong>Eingangsprüfung</strong> mit Mustang und KoSIT, Prüfbericht als Nachweis.</li>
