@@ -142,7 +142,7 @@ async function loadMonitoring(accessList, optionen) {
         `Keine Bibliothek ließ sich lesen (${fehlerLibs.join(', ')}). Details in der Browser-Konsole.`);
     }
     _monUpdate(recs);
-    _monStand = { libs: libs.length - fehlerLibs.length, nurAusgang, fehlerLibs };
+    _monStand = { libs: libs.length - fehlerLibs.length, nurAusgang, fehlerLibs, zeit: new Date(), teil: null };
     _monStandZeigen();
     // Inhalt der Dubletten vergleichen (Prüfsummen nachladen), nicht fatal
     _monDublettenInhalt(lauf, token).catch(e => console.warn('Monitoring: Dubletten-Vergleich:', e));
@@ -152,10 +152,13 @@ async function loadMonitoring(accessList, optionen) {
   }
 }
 
-/** Bibliotheken nacheinander laden, liefert die Namen derer mit Fehler. */
-async function _monLibsLaden(libs, token, lauf) {
+/**
+ * Bibliotheken nacheinander laden, liefert die Namen derer mit Fehler. Die Dateien kommen
+ * nach recs und werden je Seite gezeichnet. Mit sofort = false (Aktualisieren eines Werks)
+ * bleiben die alten Zeilen stehen, bis alles da ist.
+ */
+async function _monLibsLaden(libs, token, lauf, recs = _monDateien, sofort = true) {
   const sub = document.getElementById('mon-subtitle');
-  const recs = _monDateien;
   const fehlerLibs = [];
   for (let i = 0; i < libs.length; i++) {
     const lib = libs[i];
@@ -165,7 +168,7 @@ async function _monLibsLaden(libs, token, lauf) {
       await _monFetchLib(_monSiteId, lib, token, seite => {
         if (lauf !== _monLadeLauf) return false;   // neuer Ladevorgang -> diesen abbrechen
         recs.push(...seite);
-        _monUpdate(recs);
+        if (sofort) _monUpdate(recs);
         zeile();
         return true;
       }, _monAb);
@@ -196,7 +199,8 @@ function _monStandZeigen() {
     const einstFehler = typeof _bh !== 'undefined' && _bh.einstFehler;
     const registerFehler = typeof _ug !== 'undefined' && _ug.fehler;
     sub.textContent =
-      `${_monRecords.length} Rechnung(en) (${_monDateien.length} Datei(en)) aus ${s.libs} Bibliothek(en) · Stand ${new Date().toLocaleString('de-DE')}`
+      `${_monRecords.length} Rechnung(en) (${_monDateien.length} Datei(en)) aus ${s.libs} Bibliothek(en) · Stand ${(s.zeit || new Date()).toLocaleString('de-DE')}`
+      + (s.teil ? `, ${s.teil.werk} neu geladen ${s.teil.zeit.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr` : '')
       + (_monWeiter.size ? ` · geladen ab ${_monDate(_monAb)}, Dubletten nur in diesem Zeitraum` : '')
       + (s.nurAusgang ? ' · Rolle Vertrieb: nur Ausgangsrechnungen' : '')
       + (s.fehlerLibs.length ? ` · nicht geladen: ${s.fehlerLibs.join(', ')}` : '')
@@ -227,6 +231,89 @@ async function _monAeltereLaden() {
   if (_monStand) _monStand.fehlerLibs = fehlerLibs;
   _monStandZeigen();
   _monDublettenInhalt(lauf, token).catch(e => console.warn('Monitoring: Dubletten-Vergleich:', e));
+}
+
+/**
+ * Welche Bibliotheken lädt „Aktualisieren“ neu? Mit gewähltem Werk nur dessen Bibliotheken
+ * (bei gewählter Richtung nur diese) und die Eingangsstufe, in der noch nicht einsortierte
+ * Rechnungen aller Werke liegen. null heißt alles neu laden (Alle Werke).
+ */
+function _monLibsZumAktualisieren(libs, f) {
+  if (!f.werk) return null;
+  const auswahl = libs.filter(l => (l.intake
+    ? f.richtung !== 'Ausgang'
+    : l.werk === f.werk && (!f.richtung || l.richtung === f.richtung)));
+  return auswahl.some(l => !l.intake) ? auswahl : null;
+}
+
+/**
+ * Dateien der neu geladenen Bibliotheken (ids) gegen die neuen tauschen. Bei einer
+ * Bibliothek mit Fehler (fehlerIds) bleiben die alten Dateien. Reihenfolge wie beim
+ * ersten Laden: nach Bibliothek, darin wie geliefert.
+ */
+function _monDateienTauschen(alt, neu, ids, fehlerIds, libs) {
+  const pos = new Map(libs.map((l, i) => [l.id, i]));
+  const rang = d => (pos.has(d.listId) ? pos.get(d.listId) : libs.length);
+  return alt.filter(d => !ids.has(d.listId) || fehlerIds.has(d.listId))
+    .concat(neu.filter(d => !fehlerIds.has(d.listId)))
+    .sort((a, b) => rang(a) - rang(b));
+}
+
+/**
+ * Knopf „Aktualisieren“: Mit gewähltem Werk nur dessen Rechnungen neu laden, die anderen
+ * Werke bleiben stehen. Geladen wird derselbe Zeitraum wie bisher (auch nach „Ältere
+ * laden“). Bei „Alle Werke“ oder solange das erste Laden läuft, wird alles neu geladen.
+ */
+async function _monAktualisieren() {
+  if (!_monAufruf) return;
+  const libs = _monLaedt || !_monStand ? null : _monLibsZumAktualisieren(_monLibs, _monFilter);
+  if (!libs) {
+    return loadMonitoring(_monAufruf.accessList, Object.assign({}, _monAufruf.optionen, { standardWerk: '' }));
+  }
+  const token = await acquireToken(SP.scopes);
+  if (!token) return;
+  const knopf = document.getElementById('mon-aktualisieren');
+  const werk = _monFilter.werk;
+  const lauf = ++_monLadeLauf;
+  const ids = new Set(libs.map(l => l.id));
+  const weiterVorher = new Map(libs.filter(l => _monWeiter.has(l.id)).map(l => [l.id, _monWeiter.get(l.id)]));
+  libs.forEach(l => _monWeiter.delete(l.id));   // von der neuesten Rechnung an laden
+  _monLaedt = true;
+  if (knopf) knopf.disabled = true;
+  _monStandZeigen();
+  try {
+    // Lieferantenregister und Mailaufträge sind klein und ändern sich durch andere Benutzer
+    // und den Versand-Flow. Sie gehören zum Eingang.
+    if (libs.some(l => l.richtung === 'Eingang') && !_monStand.nurAusgang) {
+      if (typeof ugLaden === 'function') await ugLaden(_monSiteId, token);
+      if (typeof ugMailsLaden === 'function' && typeof _ug !== 'undefined') {
+        await ugMailsLaden(_monSiteId, token, _ug.mailListId ? [{ id: _ug.mailListId, name: UG.mailListe }] : []);
+      }
+    }
+    const neu = [];
+    const fehlerLibs = await _monLibsLaden(libs, token, lauf, neu, false);
+    if (lauf !== _monLadeLauf) return;
+    const fehlerIds = new Set(libs.filter(l => fehlerLibs.includes(l.name)).map(l => l.id));
+    for (const [id, url] of weiterVorher) if (fehlerIds.has(id)) _monWeiter.set(id, url);
+    _monDateien = _monDateienTauschen(_monDateien, neu, ids, fehlerIds, _monLibs);
+    _monLaedt = false;
+    _monUpdate(_monDateien);
+    _monBuildFilterOptions(_monLibs);
+    _monSyncControls();
+    const s = _monStand;
+    s.fehlerLibs = s.fehlerLibs.filter(name => !libs.some(l => l.name === name)).concat(fehlerLibs);
+    s.libs = _monLibs.length - s.fehlerLibs.length;
+    s.teil = { werk, zeit: new Date() };
+    _monStandZeigen();
+    _monDublettenInhalt(lauf, token).catch(e => console.warn('Monitoring: Dubletten-Vergleich:', e));
+  } catch (e) {
+    // Alte Zeilen bleiben, „Ältere laden“ macht dort weiter, wo es vorher stand
+    for (const [id, url] of weiterVorher) if (!_monWeiter.has(id)) _monWeiter.set(id, url);
+    console.warn('Monitoring: Aktualisieren:', e);
+  } finally {
+    if (lauf === _monLadeLauf) { _monLaedt = false; _monStandZeigen(); }
+    if (knopf) knopf.disabled = false;
+  }
 }
 
 /**
@@ -2149,12 +2236,9 @@ function monInitFilterEvents() {
   if (q) q.addEventListener('input', () => { _monFilter.q = q.value; _monApply(); });
   const reset = document.getElementById('mon-reset');
   if (reset) reset.addEventListener('click', _monResetFilters);
-  // Neu laden ohne Seitenwechsel. Filter, Sortierung und das gewählte Werk bleiben.
+  // Neu laden ohne Seitenwechsel, mit gewähltem Werk nur dieses. Filter und Sortierung bleiben.
   const neu = document.getElementById('mon-aktualisieren');
-  if (neu) neu.addEventListener('click', () => {
-    if (!_monAufruf) return;
-    loadMonitoring(_monAufruf.accessList, Object.assign({}, _monAufruf.optionen, { standardWerk: '' }));
-  });
+  if (neu) neu.addEventListener('click', () => _monAktualisieren());
   const aeltere = document.getElementById('mon-aeltere');
   if (aeltere) aeltere.addEventListener('click', () => _monAeltereLaden());
   const sammel = document.getElementById('mon-800k');
@@ -2270,5 +2354,6 @@ function _esc(s) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { _monRechnungsart, _monFetchLib, _monVorMonaten, _monWeiter, _monHinweis, _monFormatmangel, _monGeprueftMoeglich, _monSichtbareSpalten, _monFilter, _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
-    _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMatchFlag, _monMitNeuenSpalten, _monLibErlaubt, _monIstMahnung };
+    _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMatchFlag, _monMitNeuenSpalten, _monLibErlaubt, _monIstMahnung,
+    _monLibsZumAktualisieren, _monDateienTauschen };
 }

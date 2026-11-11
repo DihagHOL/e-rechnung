@@ -251,7 +251,9 @@ länger als einige Minuten „Angefordert bei …, wartet auf den Flow“, läuf
 Werk nicht. Dann die IT informieren.
 
 „↻ Aktualisieren“ in der Leiste über der Tabelle (neben „Vollbild“) lädt die Rechnungen neu. Filter, Sortierung und das gewählte
-Werk bleiben stehen.
+Werk bleiben stehen. Ist ein Werk gewählt, lädt der Knopf nur dessen Bibliotheken neu (bei gewählter Richtung nur diese) und
+die zentrale Eingangsstufe. Die anderen Werke bleiben, wie sie waren, bis „Alle Werke“ gewählt und aktualisiert wird. Die Zeile
+unter dem Titel zeigt, wann das Werk neu geladen wurde.
 
 ### Versionsverlauf
 

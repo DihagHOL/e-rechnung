@@ -296,6 +296,28 @@ gleich(M._monVorMonaten('2026-11-05T12:00:00Z', 6), '2026-05-05', 'sechs Monate 
   gleich(geladen, ['a.pdf', 'b.pdf', 'c.pdf', 'd.pdf', 'e.pdf'], 'ohne Sortierung alles');
   gleich(M._monWeiter.size, 0, 'dann kein „Ältere laden“');
 
+  // Aktualisieren: mit gewähltem Werk nur dessen Bibliotheken und die Eingangsstufe
+  const libsAlle = [{ id: 'E1', werk: 'WGC', richtung: 'Eingang' }, { id: 'A1', werk: 'WGC', richtung: 'Ausgang' },
+    { id: 'E2', werk: 'SHB', richtung: 'Eingang' }, { id: 'A2', werk: 'SHB', richtung: 'Ausgang' },
+    { id: 'I', werk: '', richtung: 'Eingang', intake: true }];
+  const zumNeuladen = (werk, richtung) => {
+    const r = M._monLibsZumAktualisieren(libsAlle, Object.assign({}, M._monFilter, { werk, richtung }));
+    return r && r.map(l => l.id);
+  };
+  gleich(zumNeuladen('', ''), null, 'Alle Werke: alles neu');
+  gleich(zumNeuladen('SHB', ''), ['E2', 'A2', 'I'], 'SHB mit Eingangsstufe');
+  gleich(zumNeuladen('SHB', 'Ausgang'), ['A2'], 'SHB Ausgang ohne Eingangsstufe');
+  gleich(zumNeuladen('WGC', 'Eingang'), ['E1', 'I'], 'WGC Eingang');
+  gleich(zumNeuladen('XYZ', ''), null, 'Werk ohne Bibliothek: alles neu');
+
+  const d = (listId, file) => ({ listId, file });
+  const alt = [d('E1', 'w1'), d('E2', 's1'), d('E2', 's2'), d('A2', 'sa1'), d('I', 'i1')];
+  const neuGeladen = [d('E2', 's3'), d('E2', 's1'), d('A2', 'sa1'), d('I', 'i2')];
+  gleich(M._monDateienTauschen(alt, neuGeladen, new Set(['E2', 'A2', 'I']), new Set(), libsAlle).map(x => x.file),
+    ['w1', 's3', 's1', 'sa1', 'i2'], 'SHB getauscht, WGC unverändert, Reihenfolge nach Bibliothek');
+  gleich(M._monDateienTauschen(alt, [d('E2', 's3'), d('I', 'i2')], new Set(['E2', 'A2', 'I']), new Set(['A2']), libsAlle).map(x => x.file),
+    ['w1', 's3', 'sa1', 'i2'], 'Bibliothek mit Fehler behält die alten Dateien');
+
   // Rechnungsart: Code aus dem Eingang mit Bezeichnung, Ausgang und Unbekanntes unverändert
 gleich(['380', '381', ' 325 ', '380 - Rechnung', '999', '', null].map(M._monRechnungsart),
   ['380 - Rechnung', '381 - Gutschrift', '325 - Proformarechnung', '380 - Rechnung', '999', '', ''], 'Rechnungsart mit Bezeichnung');
