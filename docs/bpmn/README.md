@@ -75,7 +75,10 @@ beim Speichern im Editor in die Dokumentation der Kollaboration, der Import in d
 Prozesses. Beides muss erhalten bleiben (`procXmlDokuNeu` für den Prozess, die
 Kollaborations-Doku unverändert übernehmen).
 
-Letzte Übernahme: 05.11.2026 abends, Rechnungseingang v0.13 (ohne Fehler-Mail) und Eingangsprüfung
+Letzte Übernahme: 11.11.2026, Rechnungsausgang v0.10, Erkennen und erfassen v0.7, Prüfen und erzeugen v0.7
+(Stammdaten komplett gesperrt, harte Prüfung gegen das Werk, Notiz zum ZUGFeRD-PDF aus dem eigenen Original).
+
+Davor: 05.11.2026 abends, Rechnungseingang v0.13 (ohne Fehler-Mail) und Eingangsprüfung
 v0.8 (Kopfdaten und Beträge aus dem PDF, Scans per OCR-Dienst). Davor Rechnungseingang v0.12 (Notiz zum Status), mittags
 Rechnungseingang (v0.11, WGC und SHB ohne alte Eingangsrechnungsliste) und Eingangsrechnung freigeben (v0.3, WGC und SHB im Monitoring).
 Vormittags: v0.10 und v0.2 (Entscheidung „Wo wird genehmigt?“, ohne Abfrage je Werk).
