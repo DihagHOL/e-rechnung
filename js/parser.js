@@ -953,15 +953,22 @@ function extractMeg(fullText) {
     if (kd) { r.kundennummer = kd[1]; r.bestellnummer = kd[3]; }
   }
 
-  // Zweite Tabelle: Auftrags-Nr., unser Zeichen, Bearbeiter (Ansprechpartner, BR-DE-5), USt-IdNr. des Kunden
+  // Zweite Tabelle: Auftrags-Nr., Unsere Zeichen, Ihren Auftrag bearbeitet, USt-IdNr. des Kunden.
+  // Ansprechpartner (BR-DE-5) ist die Sachbearbeiterin unter „Unsere Zeichen“ (Nachname). Name und
+  // Mail schlägt der Konverter im Firmenverzeichnis nach (kontaktZeichen, js/kontakt.js).
   const iAuf = z.findIndex(l => /^(?:Unsere\s+Auftrags-Nr\.|our\s+order-no\.)/i.test(l));
   const auf = iAuf >= 0 ? (z[iAuf + 1] || '') : '';
   const vatM = auf.match(/\s([A-Z]{2}U?\s?\d[\d ]{5,14}\d)$/);
   if (vatM) r.kaeufervat = vatM[1].replace(/\s+/g, '');
   const aufTeile = (vatM ? auf.slice(0, vatM.index) : auf).trim().split(/\s+/);
-  if (aufTeile.length >= 3 && /^\d+$/.test(aufTeile[0])) {
-    r.verkaeufkontakt = aufTeile.slice(2).join(' ');
-    r._kontaktAusBeleg = { verkaeufkontakt: r.verkaeufkontakt };   // geht vor „Vertrieb“ aus der Registry
+  if (aufTeile.length >= 2 && /^\d+$/.test(aufTeile[0])) {
+    const rest = aufTeile.slice(1);
+    const anrede = rest.findIndex(t => /^(?:Herr|Frau|Hr\.?|Fr\.?|Mr\.?|Mrs\.?|Ms\.?)$/i.test(t));
+    const zeichen = (anrede > 0 ? rest.slice(0, anrede) : anrede < 0 ? rest.slice(0, 1) : []).join(' ');
+    const bearbeiter = (anrede >= 0 ? rest.slice(anrede) : rest.slice(1)).join(' ');
+    r.verkaeufkontakt = zeichen || bearbeiter;
+    if (zeichen) r.kontaktZeichen = zeichen;
+    if (r.verkaeufkontakt) r._kontaktAusBeleg = { verkaeufkontakt: r.verkaeufkontakt };   // geht vor „Vertrieb“ aus der Registry
   }
 
   // Kopfangaben bis zur Positionstabelle: Lieferant-Nr., Zahlungsbedingung, Preisstellung, Freitext
@@ -1019,6 +1026,7 @@ function extractMeg(fullText) {
   }
 
   const preisRe = /^(.*?)\s*(-?[\d.]*,\d{2,3})\s*EUR\/\s*(\S+)\s+_*\s*(-?[\d.]+,\d{2})\s*EUR$/;
+  const lieferscheine = [];
   for (const b of bloecke) {
     const preise = [];
     const info = { details: [] };
@@ -1039,7 +1047,8 @@ function extractMeg(fullText) {
     const lsNotiz = info.ls ? `Lieferschein ${info.ls}${info.lsDatumText ? ' vom ' + info.lsDatumText : ''}` : '';
     const gemeinsam = { mwst, leistungVon: info.lsDatum || '' };   // Lieferdatum je Position (BG-26)
     const summePreise = Math.round(preise.reduce((s, p) => s + p.gesamt, 0) * 100) / 100;
-    if (!r.lieferscheinnummer && info.ls) r.lieferscheinnummer = info.ls;   // BT-16 und BT-72 aus der ersten Position
+    // BT-16: alle Lieferscheine der Rechnung (je Teil ein eigener, z. B. bei Enercon), BT-72 aus der ersten Position
+    if (info.ls && !lieferscheine.includes(info.ls)) lieferscheine.push(info.ls);
     if (!r.lieferdatum && info.lsDatum) r.lieferdatum = info.lsDatum;
 
     if (!preise.length || (summe != null && Math.abs(summePreise - summe) > 0.011)) {
@@ -1078,6 +1087,7 @@ function extractMeg(fullText) {
   const nettoM = fullText.match(/^(?:Rechnungsbetrag|invoice\s+amount)\s+_*\s*(-?[\d.]+,\d{2})\s*EUR/im)
     || (!mwstM && fullText.match(/^(?:Gesamtbetrag|total\s+price)\s+_*\s*(-?[\d.]+,\d{2})\s*EUR/im));
   r.positionen = _validateAndFallback(r.positionen, nettoM ? _parseDE(nettoM[1]) : null, mwst);
+  if (lieferscheine.length) r.lieferscheinnummer = lieferscheine.join(', ');
 
   Object.assign(r, _extractShipTo(fullText));
   return r;

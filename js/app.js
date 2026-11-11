@@ -223,6 +223,7 @@ async function autoFillFromPDF() {
 
     const count = fillFormFromExtracted(data);
     if (!data.gesellschaft) _stammdatenEinsetzen(v('gesellschaft'));
+    await _kontaktNachschlagen(data);
     await _kundenMailVorschlagen(data);
     showLoading(false);
     if (!data.gesellschaft && v('gesellschaft')) {
@@ -254,6 +255,43 @@ async function autoFillFromPDF() {
     console.error('Parser error:', err);
     showToast('Automatische Erkennung fehlgeschlagen: ' + err.message, 'error');
   }
+}
+
+/**
+ * Ansprechpartner zum Zeichen auf dem Beleg (MEG „Unsere Zeichen“): Name und Mail aus dem
+ * Firmenverzeichnis, gesucht unter der Maildomäne des Werks (js/kontakt.js). Ohne eindeutigen
+ * Treffer bleiben Zeichen und Zentrale stehen, ein Hinweis bittet ums Prüfen.
+ */
+async function _kontaktNachschlagen(data) {
+  const zeichen = data && data.kontaktZeichen;
+  const reg = zeichen && data.gesellschaft && typeof _COMPANY_REGISTRY !== 'undefined' ? _COMPANY_REGISTRY[data.gesellschaft] : null;
+  const domain = reg ? String(reg.verkaeuferemail || '').split('@')[1] || '' : '';
+  const feldName = document.getElementById('verkaeufer-kontakt');
+  const feldMail = document.getElementById('verkaeufer-email');
+  if (!domain || !feldName || !feldMail || typeof kontaktAusVerzeichnis !== 'function') return;
+  const beleg = _extractedSnapshot;
+  const vorher = [feldName.value, feldMail.value];
+  let k;
+  try {
+    k = await kontaktAusVerzeichnis(zeichen, domain);
+  } catch (e) {
+    console.warn('Ansprechpartner nicht nachgeschlagen:', e);
+    showToast(`Ansprechpartner „${zeichen}“ ließ sich nicht im Verzeichnis nachschlagen (${e.message}). Name und E-Mail bitte prüfen.`, 'info');
+    return;
+  }
+  // Inzwischen anderer Beleg geladen oder von Hand geändert: nichts überschreiben
+  if (beleg !== _extractedSnapshot || feldName.value !== vorher[0] || feldMail.value !== vorher[1]) return;
+  if (!k.name) {
+    showToast(k.treffer
+      ? `Zu „${zeichen}“ gibt es ${k.treffer} Konten im Verzeichnis. Ansprechpartner und E-Mail bitte selbst eintragen.`
+      : `„${zeichen}“ ist im Verzeichnis nicht zu finden. Ansprechpartner und E-Mail bitte prüfen.`, 'info');
+    return;
+  }
+  for (const [el, wert] of [[feldName, k.name], [feldMail, k.mail]]) {
+    el.value = wert;
+    el.classList.add('autofilled');
+  }
+  if (beleg) { beleg.verkaeufkontakt = k.name; beleg.verkaeuferemail = k.mail; }
 }
 
 function fillFormFromExtracted(data) {

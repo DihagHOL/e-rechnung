@@ -73,7 +73,8 @@ const de = [
 gleich(ctx.ist(de), true, 'MEG erkannt an der eigenen USt-IdNr. im Kopf');
 let r = ctx.meg(de);
 gleich([r.rechnungsnummer, r.rechnungsdatum, r.kundennummer, r.bestellnummer, r.lieferantennummer, r.kaeufervat, r.verkaeufkontakt],
-  ['202609901', '2026-10-22', '200001/60000001', '4500012345', '7000001', 'DE123456789', 'Herr Beispiel'], 'Kopf und Tabellen');
+  ['202609901', '2026-10-22', '200001/60000001', '4500012345', '7000001', 'DE123456789', 'Abc-Def'], 'Kopf und Tabellen');
+gleich(r.kontaktZeichen, 'Abc-Def', 'Ansprechpartner ist „Unsere Zeichen“, nicht der Bearbeiter');
 gleich([r.kaeufer, r.kaeuferzusatz, r.kaeuferstrasse, r.kaeuferplz, r.kaeuferstadt, r.kaeuferland],
   ['Muster Werkzeug Maschinen GmbH', 'c/o Muster Services GmbH', 'Musterstraße 21', '12345', 'Musterstadt', 'DE'], 'Anschrift');
 gleich([r.lieferName, r.lieferStrasse, r.lieferPlz, r.lieferStadt], ['Muster Montage GmbH', 'Werkweg 5', '54321', 'Werkstadt'], 'Lieferadresse');
@@ -124,7 +125,7 @@ const en = [
 gleich(ctx.ist(en), true, 'englisch erkannt');
 r = ctx.meg(en);
 gleich([r.rechnungsnummer, r.rechnungsdatum, r.kundennummer, r.bestellnummer, r.kaeufervat, r.verkaeufkontakt, r.lieferantennummer],
-  ['202609902', '2026-09-30', '300001/61000001', '2600001', 'ATU12345678', 'Herr Beispiel', '100001'], 'Kopf englisch');
+  ['202609902', '2026-09-30', '300001/61000001', '2600001', 'ATU12345678', 'Abc-Def', '100001'], 'Kopf englisch');
 gleich([r.kaeufer, r.kaeuferzusatz, r.kaeuferstrasse, r.kaeuferland, r.lieferLand], ['Muster Motoren GmbH & Co. OG', 'ABT 6200', 'Musterstr. 1-3', 'AT', 'AT'], 'Anschrift Österreich');
 gleich(r.positionen.map(p => [p.beschreibung, p.menge, r2(p.einzelpreis), p.mwst]), [['Konsole', 5, 100, 0], ['Materialteuerungszuschlag', 1, 38.23, 0]], 'Positionen steuerfrei');
 gleich(summe(r.positionen), 538.23, 'Summe = total price');
@@ -164,7 +165,46 @@ gleich([r.befreiungsgrund, r.vorrechnungsnummer, r.vorrechnungsdatum], ['Steuerb
 gleich(r.positionen.map(p => [p.beschreibung, p.menge, p.einzelpreis, p.mwst]), [['Kurbelgehäuse, 50% Rest', 1, 1000, 0]], 'Rest als Hauptposition');
 gleich(r.notiz.split(NL).slice(0, 3), ['Zahlungsbedingung: Vorkasse nach Vereinbarung', 'Schlussrechnung', 'Steuerbefreite innergemeinschaftliche Lieferung'], 'Hinweise');
 
-// 4) Stammdaten
+// 4) Mehrere Lieferscheine (je Teil einer, die Rechnung über mehrere Teile): alle in BT-16
+const zwei = [
+  'Rechnung',
+  'Muster Anlagen GmbH Rechnungs-Nr. 202609904',
+  'Datum 10.11.2026',
+  'UST-ID.Nr. DE150528912',
+  'Musterweg 1',
+  '12345 Musterstadt',
+  'Ihre Kunden-Nr. Ihre Zeichen Ihre Bestell-Nr. Ihre Bestellung vom',
+  '200002/60000002 4500000002 31.08.2026',
+  'Unsere Auftrags-Nr. Unsere Zeichen Ihren Auftrag bearbeitet Ihre U-ID Nummer',
+  '357002 Muster-Kontakt DE 123 456 789',
+  'Pos. B e s c h r e i b u n g Preise',
+  '0001 Grundpreis 1, ST 1.000,00 EUR/ST 1.000,00 EUR',
+  'Bezeichnung: Halter A',
+  'Lieferschein: L-100003.01für Lieferung vom 09.11.2026',
+  'Positionssumme 1.000,00 EUR',
+  '0002 Grundpreis 1, ST 2.000,00 EUR/ST 2.000,00 EUR',
+  'Bezeichnung: Halter B',
+  'Lieferschein: L-100004.01für Lieferung vom 10.11.2026',
+  'Positionssumme 2.000,00 EUR',
+  '0003 Grundpreis 1, ST 500,00 EUR/ST 500,00 EUR',
+  'Bezeichnung: Halter C',
+  'Lieferschein: L-100003.01für Lieferung vom 09.11.2026',
+  'Positionssumme 500,00 EUR',
+  'Rechnungsbetrag 3.500,00 EUR',
+  'MWSt 19 % 665,00 EUR',
+  'Gesamtbetrag 4.165,00 EUR',
+].join(NL);
+r = ctx.meg(zwei);
+gleich([r.lieferscheinnummer, r.lieferdatum], ['L-100003.01, L-100004.01', '2026-11-09'], 'alle Lieferscheine, jeder einmal, Lieferdatum der ersten Position');
+gleich(r.positionen.map(p => [p.beschreibung, p.positionsnotiz, p.leistungVon]), [
+  ['Halter A', 'Lieferschein L-100003.01 vom 09.11.2026', '2026-11-09'],
+  ['Halter B', 'Lieferschein L-100004.01 vom 10.11.2026', '2026-11-10'],
+  ['Halter C', 'Lieferschein L-100003.01 vom 09.11.2026', '2026-11-09']], 'Lieferschein und Datum je Position');
+gleich([r.verkaeufkontakt, r.kontaktZeichen], ['Muster-Kontakt', 'Muster-Kontakt'], 'Zeichen ohne Bearbeiter');
+r = ctx.meg(zwei.replace('357002 Muster-Kontakt', '357002 Herr Beispiel'));
+gleich([r.verkaeufkontakt, r.kontaktZeichen], ['Herr Beispiel', null], 'ohne Zeichen gilt der Bearbeiter');
+
+// 5) Stammdaten
 const reg = ctx.registry.MEG;
 gleich([reg.verkaeufer, reg.verkaeufervat, reg.iban, reg.registernr, reg._aktiv], ['Meuselwitz Guss Eisengießerei GmbH', 'DE150528912', 'DE11860700000208986000', 'HRB 203104', true], 'Registry MEG');
 gleich(reg._detect.test('UST-ID.Nr. DE150528912'), true, 'Erkennung über die eigene USt-IdNr.');
