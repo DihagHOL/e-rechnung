@@ -264,6 +264,13 @@ Prüfung → `ERAR_<Werk>`) steht in
 und zugleich der Dateiname — als Datei im `ERAR_<Werk>` wird „Datei existiert schon" zur
 echten Dublettenprüfung. Verschiedene Lieferanten mit gleicher Nummer kollidieren nicht.
 
+## S/MIME-signierte Mails auspacken (`/api/smime`)
+
+`POST /api/smime` mit `{ anhaenge: [{ name, contentType, contentBytes }] }` (die Anhänge aus dem
+Outlook-Auslöser) ersetzt jeden `smime.p7m` durch die PDFs und XMLs darin, andere Anhänge bleiben
+unverändert. Antwort `{ anhaenge, ausgepackt }`, verschlüsselte Mails 422. Siehe
+[`../docs/Eingangsrechnungen-Flow.md`](../docs/Eingangsrechnungen-Flow.md).
+
 ## Rechnungspostfach über Graph (`/api/postfach`)
 
 Für Postfächer in einem anderen Tenant: `GET /api/postfach?werk=<Kuerzel>` listet Mails mit

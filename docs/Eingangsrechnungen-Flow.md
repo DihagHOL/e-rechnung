@@ -181,6 +181,27 @@ aus der Empfänger-Adresse ableitet. Ablauf:
 
 ---
 
+## S/MIME-signierte Mails (seit 11.11.2026)
+
+Bei einer S/MIME-signierten Mail liefert der Outlook-Auslöser nur einen Anhang `smime.p7m`. Die
+PDFs und XMLs stecken darin. Bis zum 11.11.2026 fand die Anhangschleife deshalb nichts und legte
+nichts ab, ohne Fehler. Allein von September bis Anfang November waren das rund 90 Mails in sechs
+Postfächern. Nachgeholt wurden sie nicht, die Mails liegen weiter in den Postfächern.
+
+Seitdem steht vor der Anhangschleife jedes Eingangs-Flows:
+
+1. `SMIME_Anhaenge`: Variable `Anhaenge` mit den Anhängen aus dem Auslöser.
+2. `SMIME_filtern`: Anhänge mit `.p7m`, `multipart/signed` oder `pkcs7-mime`.
+3. `SMIME_pruefen`: Gibt es welche, schickt `SMIME_auspacken` die Anhänge an `/api/smime`, und
+   `SMIME_uebernehmen` ersetzt `Anhaenge` durch das Ergebnis.
+4. Die Anhangschleife läuft über `variables('Anhaenge')`.
+
+`/api/smime` (`api/src/smime.js`) packt beide Formen aus: `multipart/signed` (Signatur getrennt,
+der Normalfall) und `application/pkcs7-mime` mit signed-data (Signatur umschließt den Inhalt). Die
+Signatur prüft es nicht. Eine verschlüsselte Mail lässt sich ohne Schlüssel nicht öffnen: Der
+Aufruf antwortet mit 422, und der Lauf endet sichtbar als Fehler. Bei DSO packt `/api/postfach`
+die Mail schon beim Abholen aus.
+
 ## Behandlung der drei Fälle
 
 | Eingang | XML | Lesbares PDF | KoSIT | veraPDF | Klassifizierung |

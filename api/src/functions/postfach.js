@@ -49,7 +49,7 @@ app.http('postfach', {
       return { status: 200, jsonBody: { werk: z.werk, postfach: z.adresse, ordner: ordner || z.ordner, seit, anzahl: mails.length, mails } };
     } catch (e) {
       context.warn('Postfach', z.werk, e.message);
-      return { status: [400, 404, 409].includes(e.status) ? e.status : 502, jsonBody: { error: e.message } };
+      return { status: [400, 404, 409, 422].includes(e.status) ? e.status : 502, jsonBody: { error: e.message } };
     }
   },
 });

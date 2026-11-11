@@ -34,6 +34,18 @@ global.fetch = async (url, opt = {}) => {
   if (/\/attachments\/A3$/.test(url)) return ok({ contentBytes: 'WE1M' });
   if (/\/messages\/M%2F1\?/.test(url)) return ok({ id: 'M/1', receivedDateTime: '2026-11-09T07:00:00Z', subject: 'Rechnung 1', from: { emailAddress: { address: 'buha@lieferant.example' } } });
   if (/\/messages\/FEHLT\?/.test(url)) return { ok: false, status: 404, json: async () => ({ error: { code: 'ErrorItemNotFound' } }) };
+  // S/MIME-signierte Mail: Graph zeigt nur smime.p7m
+  if (/\/messages\/S1\/attachments\?/.test(url)) {
+    return ok({ value: [{ '@odata.type': '#microsoft.graph.fileAttachment', id: 'P7', name: 'smime.p7m', contentType: 'multipart/signed', size: 300, isInline: false }] });
+  }
+  if (/\/attachments\/P7$/.test(url)) {
+    const mime = ['Content-Type: multipart/signed; protocol="application/pkcs7-signature"; boundary="S"', '', '--S',
+      'Content-Type: multipart/mixed; boundary="M"', '', '--M', 'Content-Type: text/plain', '', 'Hallo', '--M',
+      'Content-Type: application/octet-stream; name="RE 9.pdf"', 'Content-Transfer-Encoding: base64', '', Buffer.from('%PDF-9').toString('base64'),
+      '--M--', '--S', 'Content-Type: application/pkcs7-signature; name="smime.p7s"', '', 'xx', '--S--', ''].join(String.fromCharCode(13, 10));
+    return ok({ contentBytes: Buffer.from(mime).toString('base64') });
+  }
+  if (/\/messages\/S1\?/.test(url)) return ok({ id: 'S1', receivedDateTime: '2026-11-11T07:00:00Z', subject: 'Signiert', from: { emailAddress: { address: 'buha@lieferant.example' } } });
   throw new Error('unerwartet: ' + url);
 };
 
@@ -63,6 +75,8 @@ global.fetch = async (url, opt = {}) => {
   const m = await P.mailMitAnhaengen(z, 'M/1');
   gleich(m.anhaenge.map(a => [a.name, a.contentBytes]), [['Rechnung.pdf', 'UERG'], ['xrechnung.xml', 'WE1M']], 'Logo und angehängte Mail fallen weg, Endung ergänzt');
   gleich([m.id, m.von], ['M/1', 'buha@lieferant.example'], 'Kopf der Mail');
+  const sm = await P.mailMitAnhaengen(z, 'S1');
+  gleich(sm.anhaenge.map(a => [a.name, a.contentType, Buffer.from(a.contentBytes, 'base64').toString()]), [['RE 9.pdf', 'application/pdf', '%PDF-9']], 'S/MIME-Mail ausgepackt');
 
   // Fehler ohne Zugangsdaten im Text
   await assert.rejects(P.mailMitAnhaengen(z, 'FEHLT'), e => e.status === 404 && /ErrorItemNotFound/.test(e.message) && !/geheim/.test(e.message));

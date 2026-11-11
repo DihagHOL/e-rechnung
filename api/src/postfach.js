@@ -15,6 +15,7 @@
  * Ordner gibt der Flow mit Namen an („IRIS“ oder „Posteingang/IRIS“), die Function sucht die ID.
  */
 const { ewsMailsSeit, ewsMailMitAnhaengen } = require('./ews');
+const { smimeAnhaenge, _istSmime } = require('./smime');
 
 const GRAPH = 'https://graph.microsoft.com/v1.0';
 const ZEIT_MS = 30000;
@@ -195,8 +196,15 @@ async function mailMitAnhaengen(z, id) {
   const m = await _graph(z, `${basis}?$select=id,receivedDateTime,subject,from,replyTo`);
   const liste = await _graph(z, `${basis}/attachments?$select=id,name,contentType,size,isInline`);
   const anhaenge = [];
-  for (const a of (liste.value || []).filter(istRechnungsanhang)) {
+  // S/MIME-signierte Mail: Graph zeigt nur „smime.p7m“, die Rechnungen stecken darin (src/smime.js)
+  const smime = a => a['@odata.type'] === '#microsoft.graph.fileAttachment' && _istSmime(a.name, a.contentType);
+  for (const a of (liste.value || []).filter(a => istRechnungsanhang(a) || smime(a))) {
     const voll = await _graph(z, `${basis}/attachments/${encodeURIComponent(a.id)}`);
+    if (smime(a) && !istRechnungsanhang(a)) {
+      anhaenge.push(...smimeAnhaenge([{ name: a.name, contentType: a.contentType, contentBytes: voll.contentBytes || '' }]).anhaenge
+        .map(({ name, contentType, size, contentBytes }) => ({ name, contentType, size, contentBytes })));
+      continue;
+    }
     anhaenge.push({ name: _dateiname(a), contentType: a.contentType || '', size: a.size || 0, contentBytes: voll.contentBytes || '' });
   }
   return Object.assign(_kopf(m), { anhaenge });
