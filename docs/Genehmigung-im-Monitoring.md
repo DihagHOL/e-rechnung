@@ -42,6 +42,8 @@ Flow „Genehmigung WGC (Monitoring)“  (Trigger: Datei in ERAR_WGC geändert, 
   Haken zurücksetzen → Genehmigung mit PDF an den Genehmiger → warten
   Ja:   Genehmigt = Ja, Genehmigt von/am, Kommentar; bei „Info abas an“ Mail mit PDF dorthin
   Nein: Genehmigt = Abgelehnt, Genehmigt von/am, Kommentar; Mail an den, der angefordert hat
+  Abgebrochen (in Teams zurückgezogen): keine Ablehnung, keine Mail; ohne neue Anforderung
+        wird „Genehmigung an“ geleert
 ```
 
 Das macht dasselbe wie der bisherige Flow „Genehmigung WGC“. Neu ist, dass die Adresse für
@@ -153,7 +155,10 @@ https://make.powerautomate.com, „Erstellen“, **„Automatisierter Cloud-Flow
         - Anlagen: Name = **Dateiname mit Erweiterung**, Inhalt = **Dateiinhalt** (aus `PDF`)
       - darunter „Dateieigenschaften aktualisieren“: „Info abas gesendet (WL)“ = **Ja**
 
-7. Zweig **„Falsch“** (abgelehnt):
+7. Zweig **„Falsch“**: noch eine **Bedingung** `Ablehnung_oder_Abbruch`, links
+   `outputs('Genehmigung')?['body/outcome']`, „ist gleich“, rechts `Reject`. Ein abgebrochener
+   Antrag kommt ohne Ergebnis zurück und ist keine Ablehnung (seit 12.11.2026, vorher kam dann die
+   Ablehnungsmail ohne Namen). Im Zweig „Wahr“ (abgelehnt):
    1. „Dateieigenschaften aktualisieren“, umbenennen in `Abgelehnt`: Genehmigt = **Abgelehnt**,
       Genehmigt von, Genehmigt am und Genehmigungskommentar wie in 6.1.
    2. **Bedingung**: `empty(triggerOutputs()?['body/AngefordertVon'])` ist gleich `false`. Im
@@ -161,7 +166,17 @@ https://make.powerautomate.com, „Erstellen“, **„Automatisierter Cloud-Flow
       `Eingangsrechnung ` + **Rechnungsnummer** + ` abgelehnt`, im Text wer abgelehnt hat, der
       Kommentar und der Link.
 
-8. Speichern.
+   Im Zweig „Falsch“ (abgebrochen): „Dateieigenschaften abrufen“ (`Aktueller_Stand`), dann eine
+   Bedingung `Nicht_neu_angefordert`: `string(outputs('Aktueller_Stand')?['body/AngefordertAm'])`
+   ist gleich `string(outputs('Anforderung_quittieren')?['body/AngefordertAm'])`. Nur dann
+   „Dateieigenschaften aktualisieren“ (`Abbruch_vermerken`) mit „Genehmigung an“ = `null`. Wurde
+   die Rechnung inzwischen neu angefordert, bleibt alles stehen.
+
+8. Bei leerem Titel (Rechnungsnummer) steht im Titel der Genehmigung und in den Betreffs der
+   Dateiname ohne Endung, zum Beispiel
+   `if(empty(outputs('Genehmigt')?['body/Title']), outputs('Genehmigt')?['body/{Name}'], outputs('Genehmigt')?['body/Title'])`.
+
+9. Speichern.
 
 Für ein weiteres Werk den Flow kopieren („Speichern unter“) und im Trigger die Bibliothek
 ändern, zum Beispiel `ERAR_ZAI`.
