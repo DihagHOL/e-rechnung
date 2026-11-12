@@ -48,7 +48,7 @@
  *     daten:           { nummer, datum, steller, empfaenger, netto, steuerkategorie, ... } | null,
  *     datenQuelle:     'pdf-text' | 'ocr', nur bei PDF ohne E-Rechnung: daten sind gelesen, nicht bestätigt,
  *     xml:             <extrahierte/empfangene E-Rechnungs-XML> | null,
- *     lesbarPdfBase64: <XML -> gerendertes PDF/A, base64> | null,
+ *     lesbarPdfBase64: <XML -> gerendertes PDF/A, base64> | null (reine XML, Formatmangel, ZUGFeRD gelb),
  *   }
  *
  * authLevel "function" (per ?code=<KEY>, ohne M365) — wie /api/validate, /api/convert.
@@ -367,11 +367,16 @@ app.http('intake', {
     //    - ZUGFeRD mit PDF/A-3-Mangel: Ersatz-PDF aus der XML erzeugen. Das Original
     //      bleibt ZUSAETZLICH erhalten (der Flow ersetzt es NICHT); das Ersatz-PDF
     //      wird als "technisch konvertiert" gekennzeichnet (GoBD Rz. 135).
-    if (res.klassifizierung === 'xrechnung-xml' || res.formatMangel) {
+    //    - ZUGFeRD mit Warnungen (gelb, unter Vorbehalt): Ansicht der bindenden XML fuer
+    //      die Pruefung. Das Original ist in Ordnung, das PDF ersetzt es nicht und ist
+    //      deshalb nicht "technisch konvertiert" (seit 12.11.2026).
+    const ersatzPdf = res.klassifizierung === 'xrechnung-xml' || res.formatMangel;
+    const ansichtPdf = res.klassifizierung === 'zugferd' && res.konform === 'gelb';
+    if (ersatzPdf || ansichtPdf) {
       try {
         const { pdf } = await convertXmlToPdf(xml);
         res.lesbarPdfBase64 = Buffer.from(pdf).toString('base64');
-        res.konvertiertesPdf = true;
+        res.konvertiertesPdf = ersatzPdf;
       } catch (e) {
         res.renderFehler = msg(e);
       }

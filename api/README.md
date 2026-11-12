@@ -250,7 +250,7 @@ POST /api/intake?werk=<Kuerzel>  -> Body = PDF|XML, Antwort = {
        buchung, kreditorAktion,    // kreditorAktion.mail: Mail bei Zurückweisung/gelb mit Prüfbericht als Anhang (src/kreditormail.js),
                                    // mail.an = Mailadresse aus der E-Rechnung (BT-43, sonst BT-34) oder null
        xml,                        // extrahierte/empfangene E-Rechnungs-XML
-       lesbarPdfBase64 }           // nur bei reiner XML: gerendertes PDF/A
+       lesbarPdfBase64 }           // reine XML, Formatmangel, ZUGFeRD gelb: gerendertes PDF/A
 ```
 
 Bei Eingang ist das Werk meist schon durch das **Postfach** bekannt → als

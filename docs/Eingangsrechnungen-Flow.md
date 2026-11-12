@@ -75,7 +75,7 @@ fehlt es, wird das Werk aus dem Empfänger abgeleitet). Antwort = JSON:
 | `daten` | `nummer, datum, faelligkeit, steller, stellerVat, empfaenger, netto, mwst, brutto, waehrung, leitwegid, bestellnummer, lieferscheinnummer, …` |
 | `dateibasis` | **dublettensicherer Dateiname‑Baustein** `<Nummer>_<StellerVat>` (bereinigt). Als Dateiname verwenden → gleiche Nummer verschiedener Lieferanten kollidiert nicht; existiert die Datei schon = echte Dublette. |
 | `xml` | extrahierte (ZUGFeRD) bzw. empfangene E-Rechnungs-XML; `null` bei `pdf-ohne-xml` |
-| `lesbarPdfBase64` | **nur bei `xrechnung-xml`**: das aus der XML gerenderte, lesbare PDF/A (base64). Bei ZUGFeRD ist das Original-PDF bereits lesbar. |
+| `lesbarPdfBase64` | das aus der XML gerenderte, lesbare PDF/A (base64). Immer bei `xrechnung-xml`. Bei ZUGFeRD mit Formatmangel als Ersatz-PDF (`konvertiertesPdf: true`), bei ZUGFeRD mit Warnungen (gelb) als Ansicht der bindenden XML für die Prüfung unter Vorbehalt (`konvertiertesPdf: false`). Sonst `null`, das Original-PDF ist dann die lesbare Fassung. |
 
 > **Factur-X/ZUGFeRD-Profil-Fallback:** BASIC (`#compliant#`) und EXTENDED
 > (`#conformant#`) sind keine XRechnung – die KoSIT-XRechnung-Konfig kennt dafür kein
@@ -206,7 +206,7 @@ die Mail schon beim Abholen aus.
 
 | Eingang | XML | Lesbares PDF | KoSIT | veraPDF | Klassifizierung |
 |--------|-----|--------------|-------|---------|-----------------|
-| **ZUGFeRD-PDF** | aus PDF extrahiert (Sidecar) | Original-PDF ist bereits lesbar | ja (+ Bericht) | ja (PDF/A-3b) | ZUGFeRD (PDF+XML) |
+| **ZUGFeRD-PDF** | aus PDF extrahiert (Sidecar) | Original-PDF, zusätzlich aus der XML gerendert bei Formatmangel oder gelb | ja (+ Bericht) | ja (PDF/A-3b) | ZUGFeRD (PDF+XML) |
 | **XRechnung-XML** | die empfangene XML | gerendert aus XML (`lesbarPdfBase64`) | ja (+ Bericht) | – | XRechnung (XML) |
 | **Normales PDF** | – | Original-PDF | – (`Ungeprueft`) | ja (nur PDF/A-Info) | PDF ohne E-Rechnung |
 
