@@ -79,6 +79,22 @@ recs[0].nummer = 'A-2';
 M._monMarkDupes(recs);
 gleich(recs.map(r => r.dublette), [false, false, false], 'neu gekennzeichnet nach Korrektur');
 
+// 5a) Nummer aus dem Anhangnamen: Datum, „v.“, „Kopie“ und das Wort Rechnung zählen nicht
+const dn = M._monDublettenNummer;
+gleich(dn('Proformarechnung 9900012345 v. 11.11.2026'), dn('Proformarechnung 9900012345'), 'Datum im Anhangnamen');
+gleich(dn('Rechnung 4711 Kopie'), dn('4711'), 'Kopie und Rechnung');
+gleich(dn('Invoice No. 4711 dated 2026-10-01'), '4711', 'englisch mit ISO-Datum');
+gleich(dn('RE 0092658542'), dn('92658542'), 'führende Nullen');
+gleich(dn('Proformarechnung 4711') === dn('Rechnung 4711'), false, 'Proforma bleibt eine eigene Art');
+gleich(dn('Stornorechnung 4711') === dn('Rechnung 4711'), false, 'Storno bleibt');
+gleich(dn('Rechnung_Oktober_2026') === dn('Rechnung_November_2026'), false, 'Monat unterscheidet');
+gleich(dn('10.11.12.13'), '10 11 12 13', 'kein Datum mitten in einer Nummer');
+gleich(dn('Rechnung'), 'rechnung', 'ohne Ziffern der ganze Text');
+recs = [z('Proformarechnung 9900012345 v. 11.11.2026', { ustid: 'DE111111111', steller: 'Muster GmbH', ext: 'pdf', format: 'PDF' }),
+  z('Proformarechnung 9900012345', { ustid: 'DE111111111', steller: 'Muster GmbH', ext: 'pdf', format: 'PDF' })];
+M._monMarkDupes(recs);
+gleich(recs.map(r => r.dublette), [true, true], 'weitergeleitete Kopie mit kürzerem Anhangnamen');
+
 // 6) Lieferant aus dem Register: an der Rechnung bestätigt geht vor der XML
 ug._ug.daten = { version: 1, lieferanten: { 'muster gmbh': { name: 'Muster GmbH', vat: 'DE111111111' } },
   rechnungen: { 'e|scan_1': { lieferant: 'muster gmbh' } } };

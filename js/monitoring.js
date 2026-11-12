@@ -759,19 +759,47 @@ function _monGleicherLieferant(a, b) {
   return !!(a.reg && a.reg === b.reg) || !!(a.name && a.name === b.name);
 }
 
+// Wörter, die im Namen eines Anhangs nichts über die Rechnung sagen
+const MON_DUBLETTE_FUELLWORT = new Set(['v', 'vom', 'from', 'dated', 'date', 'datum', 'nr', 'no', 'nummer', 'number',
+  're', 'rg', 'kopie', 'copy', 'duplikat', 'duplicate']);
+
+/**
+ * Rechnungsnummer für den Dublettenvergleich. Ohne Title ist die Nummer oft der Name des
+ * Anhangs: „Proformarechnung 9900012345 v. 11.11.2026“ und „Proformarechnung 9900012345“
+ * sind dieselbe Rechnung. Datum, „v.“, „Kopie“ und das Wort Rechnung fallen weg, Vorsilben
+ * wie Proforma, Storno oder Abschlags bleiben. Führende Nullen zählen nicht. Bleibt keine
+ * Ziffer übrig, gilt der ganze Text wie bisher.
+ */
+function _monDublettenNummer(nummer) {
+  const ganz = String(nummer || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const tag = '(?:0?[1-9]|[12][0-9]|3[01])', monat = '(?:0?[1-9]|1[0-2])';
+  // Datum nur als eigenständiger Teil, nicht mitten in „10.11.12.13“
+  const vor = '(?<![0-9]|[0-9][./-])', nach = '(?![0-9]|[./-][0-9])';
+  const rest = ganz
+    .replace(new RegExp(`${vor}${tag}([./-])${monat}\\1(?:[0-9]{4}|[0-9]{2})${nach}`, 'g'), ' ')
+    .replace(new RegExp(`${vor}[0-9]{4}-${monat}-${tag}${nach}`, 'g'), ' ')
+    .replace(/pro[ _-]?forma/g, 'proforma')
+    .replace(/rechnung(?:en|s)?|invoice/g, ' ')
+    .split(/[^a-z0-9äöüß]+/)
+    .filter(w => w && !MON_DUBLETTE_FUELLWORT.has(w))
+    .map(w => (/^[0-9]+$/.test(w) ? w.replace(/^0+(?=.)/, '') : w))
+    .join(' ');
+  return /[0-9]/.test(rest) ? rest : ganz;
+}
+
 // Dubletten kennzeichnen: dieselbe Rechnungsnummer beim SELBEN Lieferanten im selben
 // Werk und in derselben Richtung, verteilt auf mehrere Einträge. Gleiche Nummer bei
 // VERSCHIEDENEN Lieferanten ist keine Dublette. Nichts wird gelöscht oder überschrieben.
+// Die Nummer vergleicht _monDublettenNummer (ohne Datum, „Kopie“ und Co. im Anhangnamen).
 // Den Inhalt vergleicht die Prüfsumme der Originaldateien (_monDublettenInhalt): gleich =
 // dieselbe Datei ist mehrfach eingegangen, verschieden = bitte prüfen.
 // Setzt r.dublette, r.dubletteArt ('gleich' | 'anders' | '') und r.dubletteInfo.
 function _monMarkDupes(records) {
-  const norm = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
   const groups = new Map();
   for (const r of records) {
     r.dublette = false; r.dubletteArt = ''; r.dubletteInfo = '';
     if (r.mahnung) continue;   // Mahnung trägt meist die Nummer der Rechnung, ist aber keine zweite
-    const nr = norm(r.nummer);
+    const nr = _monDublettenNummer(r.nummer);
     if (!nr) continue;
     const kennung = _monLieferantKennung(r);
     if (!kennung.vat && !kennung.reg && !kennung.name) continue;   // ohne Lieferant nicht bewertbar
@@ -2353,7 +2381,7 @@ function _esc(s) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { _monRechnungsart, _monFetchLib, _monVorMonaten, _monWeiter, _monHinweis, _monFormatmangel, _monGeprueftMoeglich, _monSichtbareSpalten, _monFilter, _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
+  module.exports = { _monRechnungsart, _monFetchLib, _monVorMonaten, _monWeiter, _monHinweis, _monFormatmangel, _monGeprueftMoeglich, _monSichtbareSpalten, _monFilter, _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monDublettenNummer, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
     _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMatchFlag, _monMitNeuenSpalten, _monLibErlaubt, _monIstMahnung,
     _monLibsZumAktualisieren, _monDateienTauschen };
 }

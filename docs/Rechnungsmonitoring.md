@@ -322,6 +322,12 @@ Im Monitoring aus den geladenen Datensätzen (`_monMarkDupes`), ohne Extra-Spalt
   Werk und in derselben Richtung, verteilt auf mehrere Einträge. Jede betroffene Zeile
   bekommt das Abzeichen **⚠ Dublette**, dazu die KPI-Kachel **Dubletten**. Gelöscht oder
   überschrieben wird nichts, die Buchhaltung entscheidet.
+- **Gleiche Nummer** (`_monDublettenNummer`): Bei normalen PDFs ohne Title ist die Nummer
+  der Name des Anhangs. Datum („v. 11.11.2026“, „2026-11-11“), „v.“, „vom“, „Nr.“,
+  „Kopie“ und das Wort Rechnung zählen deshalb nicht mit, führende Nullen auch nicht.
+  „Proformarechnung 9900012345 v. 11.11.2026“ und die weitergeleitete
+  „Proformarechnung 9900012345“ sind dieselbe Nummer. Vorsilben wie Proforma, Storno oder
+  Abschlags bleiben, ebenso Monatsnamen. Bleibt keine Ziffer übrig, zählt der ganze Text.
 - **Derselbe Lieferant** heißt: gleiche USt-IdNr., sonst derselbe Eintrag im
   Lieferantenregister oder derselbe Name. Zwei verschiedene USt-IdNr. sind immer
   verschiedene Lieferanten.
