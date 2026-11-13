@@ -2090,8 +2090,8 @@ function _extractNetTotalZai(fullText) {
 /**
  * Summen einer ZAI-Rechnung unter „Nettobetrag MwSt. MwSt.-Betrag Rechnungsbetrag“.
  * pdf.js liefert die vier Werte in einer Zeile („982,63 19,00 % 186,69 1.169,32“) oder,
- * wenn sie nicht genau auf einer Höhe stehen, auf zwei Zeilen („19,00 % 1.805,00“ und
- * „9.500,00 11.305,00“). Die MwSt steht immer direkt hinter dem Satz. Eine Summe zählt nur,
+ * wenn sie nicht genau auf einer Höhe stehen, auf zwei Zeilen („19,00 % 190,00“ und
+ * „1.000,00 1.190,00“). Die MwSt steht immer direkt hinter dem Satz. Eine Summe zählt nur,
  * wenn Netto + MwSt = Brutto. Die leere Zwischensumme am Seitenende („19,00 % 0,00“) hat
  * nur einen Betrag und zählt nicht. Eine einzelne Zeile mit allen vier Werten zählt auch
  * ohne Kopf darüber.
