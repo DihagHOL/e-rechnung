@@ -74,6 +74,33 @@ gleich(Math.round(p[1].menge * p[1].einzelpreis * 100) / 100, 482.63, 'Gesamtpre
 gleich(p[0].einzelpreis, 50, 'gedruckter Preis, wenn er aufgeht');
 gleich(p[1].einzelpreis, 160.877, 'sonst so wenige Stellen wie nötig');
 
+// 1b) Summe auf zwei Zeilen: pdf.js liest „19,00 % 190,00“ und darunter „1.000,00 1.190,00“,
+//     wenn die Werte nicht genau auf einer Höhe stehen. Vorher: 0 % und Brutto = Netto.
+const geteilt = [
+  ...kopf(1),
+  'Pos. Bezeichnung Menge Einheit Einzelpreis EUR Gesamtpreis EUR',
+  'Bestellung vom 08.07.2026', 'Best.Nr. 4500012345 Pos. 10',
+  'Nettobetrag MwSt. MwSt. -Betrag Rechnungsbetrag', '19,00 % 0,00',
+  ...kopf(2),
+  'Pos. Bezeichnung Menge Einheit Einzelpreis EUR Gesamtpreis EUR',
+  '1 Gehäuse GH 100 1 Stück 1.000,00 1.000,00',
+  'Zeichnung 4711-01', 'Lieferschein-Nr.: 2026.008001', 'Lieferdatum: 21.10.2026',
+  'Nettobetrag MwSt. MwSt. -Betrag Rechnungsbetrag', '19,00 % 190,00', '1.000,00 1.190,00',
+  ...fuss.slice(2),
+].join(NL);
+const g = ctx.meta(geteilt);
+gleich([g.steuerbetrag, g.gesamtbetrag, g.summeNichtGelesen], [190, 1190, undefined], 'geteilte Summe: MwSt und Rechnungsbetrag');
+const gp = ctx.pos(geteilt);
+gleich(JSON.stringify(gp.map(q => [q.menge, q.einzelpreis, q.mwst])), '[[1,1000,19]]', 'geteilte Summe: 19 % an der Position');
+gleich(/1\.190,00|190,00/.test(gp[0].details), false, 'Summenzeile nicht in der Positionsbeschreibung');
+// Netto + MwSt muss Brutto ergeben, sonst zählt die Summe nicht
+const unstimmig = geteilt.replace('1.000,00 1.190,00', '1.000,00 1.200,00');
+gleich([ctx.meta(unstimmig).steuerbetrag, ctx.meta(unstimmig).summeNichtGelesen], [undefined, true], 'unstimmige Summe zählt nicht, App warnt');
+// Original mit 0 %: Summe trotzdem gelesen
+const null0 = geteilt.replace('19,00 % 190,00', '0,00 % 0,00').replace('1.000,00 1.190,00', '1.000,00 1.000,00');
+gleich([ctx.meta(null0).steuerbetrag, ctx.meta(null0).gesamtbetrag, ctx.pos(null0)[0].mwst], [0, 1000, 0], '0 % laut Original');
+gleich(ctx.meta(text).summeNichtGelesen, undefined, 'Summe in einer Zeile: keine Warnung');
+
 // 2) Storno mit Bezug auf die ursprüngliche Rechnung
 const storno = [...kopf(1).map(z => z === 'Rechnung' ? 'Storno-Rechnung' : z), 'zu Belegnr. 2026.008888',
   'Pos. Bezeichnung Menge Einheit Einzelpreis EUR Gesamtpreis EUR',

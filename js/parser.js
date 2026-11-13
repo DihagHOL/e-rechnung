@@ -1144,15 +1144,16 @@ function extractMetadataZai(fullText) {
   const bestM = fullText.match(/Best\.?\s*-?\s*Nr\.?\s*:?\s*([A-Z0-9][A-Z0-9\-\/.]*)/i);
   if (bestM) r.bestellnummer = bestM[1].replace(/[.\/]+$/, '');
 
-  // Summenzeile des Originals: "982,62  19,00 %  186,69  1.169,31". Die MwSt übernimmt die
-  // E-Rechnung von hier, statt sie neu zu rechnen: Das ERP rundet anders (186,69 statt
-  // 186,70). EN 16931 (BR-CO-17) lässt diese Abweichung zu. Die letzte Summenzeile zählt,
-  // Zwischensummen auf Folgeseiten haben nur zwei Werte.
-  const summen = [...fullText.matchAll(/(-?[\d.]+,\d{2})\s+(\d{1,2}(?:,\d+)?)\s*%\s+(-?[\d.]+,\d{2})\s+(-?[\d.]+,\d{2})/g)];
-  if (summen.length) {
-    const z = summen[summen.length - 1];
-    r.steuerbetrag = _parseDE(z[3]);
-    r.gesamtbetrag = _parseDE(z[4]);
+  // Summe des Originals (_zaiSummen). Die MwSt übernimmt die E-Rechnung von hier, statt sie
+  // neu zu rechnen: Das ERP rundet anders (186,69 statt 186,70). EN 16931 (BR-CO-17) lässt
+  // diese Abweichung zu. Die letzte Summe zählt. Fehlt sie, warnt die App vor dem Export,
+  // denn ohne Summe stünde die Rechnung mit 0 % MwSt da.
+  const summe = _zaiSummen(fullText).pop();
+  if (summe) {
+    r.steuerbetrag = summe.mwst;
+    r.gesamtbetrag = summe.brutto;
+  } else {
+    r.summeNichtGelesen = true;
   }
 
   // Hinweise (BT-22): Zahlungsbedingung und die Fußtexte bis zur Bankverbindung
@@ -1214,11 +1215,11 @@ function extractLineItemsZai(fullText) {
   const bestellZeile = /^(?:Bestellung\s+vom|Best\.?\s*-?\s*Nr|Komm\.|Kommission\s*:|Auftrags?\/?\s*Pos)/i;
   const lsZeile = /^(?:Lieferschein-?\s*Nr|Lieferdatum)\b/i;
   const summenKopf = /^Nettobetrag\s+MwSt/i;
-  const summen4 = /^-?[\d.]+,\d{2}\s+\d{1,2}(?:,\d+)?\s*%\s+-?[\d.]+,\d{2}\s+-?[\d.]+,\d{2}$/;
 
-  // Dokument-MwSt aus der (letzten) Summenzeile
-  const summen = [...fullText.matchAll(/[\d.]+,\d{2}\s+(\d{1,2}(?:,\d+)?)\s*%\s+[\d.]+,\d{2}\s+[\d.]+,\d{2}/g)];
-  const mwstDoc = summen.length ? _parseDE(summen[summen.length - 1][1]) : 0;
+  // Dokument-MwSt aus der (letzten) Summe
+  const summen = _zaiSummen(fullText);
+  const mwstDoc = summen.length ? summen[summen.length - 1].satz : 0;
+  const summenZeilen = new Set(summen.flatMap(s => Array.from({ length: s.bis - s.von + 1 }, (_, k) => s.von + k)));
 
   // Nur den Positionsbereich nehmen, Seitenköpfe und Zwischensummen überspringen
   const roh = fullText.split('\n').map(z => z.trim());
@@ -1232,10 +1233,11 @@ function extractLineItemsZai(fullText) {
     if (/^Seite\s*:?\s*\d/i.test(z)) { imKopf = true; continue; }
     if (imKopf) continue;
     if (summenKopf.test(z)) {
-      const naechste = roh.slice(i + 1).find(x => x);
-      if (naechste && summen4.test(naechste)) break;      // echte Endsumme: Positionsbereich zu Ende
-      continue;                                          // Zwischensumme auf einer Folgeseite
+      // Echte Endsumme direkt darunter: Positionsbereich zu Ende. Sonst Zwischensumme.
+      if (summen.some(s => s.nachKopf === i && (s.netto || s.brutto))) break;
+      continue;
     }
+    if (summenZeilen.has(i)) continue;
     if (/^\d{1,2}(?:,\d+)?\s*%\s+-?[\d.]+,\d{2}$/.test(z)) continue;   // "19,00 % 0,00"
     if (/^Zahlungsbedingung\b/i.test(z)) break;
     zeilen.push(z);
@@ -2079,10 +2081,52 @@ function _eisAdresse(zeilen) {
   return r;
 }
 
-/** Netto-Erwartungswert: erster Betrag der (letzten) ZAI-Summenzeile (= Nettobetrag). */
+/** Netto-Erwartungswert: Nettobetrag der (letzten) ZAI-Summe. */
 function _extractNetTotalZai(fullText) {
-  const alle = [...fullText.matchAll(/(-?[\d.]+,\d{2})\s+\d{1,2}(?:,\d+)?\s*%\s+-?[\d.]+,\d{2}\s+-?[\d.]+,\d{2}/g)];
-  return alle.length ? _parseDE(alle[alle.length - 1][1]) : null;
+  const s = _zaiSummen(fullText).pop();
+  return s ? s.netto : null;
+}
+
+/**
+ * Summen einer ZAI-Rechnung unter „Nettobetrag MwSt. MwSt.-Betrag Rechnungsbetrag“.
+ * pdf.js liefert die vier Werte in einer Zeile („982,63 19,00 % 186,69 1.169,32“) oder,
+ * wenn sie nicht genau auf einer Höhe stehen, auf zwei Zeilen („19,00 % 1.805,00“ und
+ * „9.500,00 11.305,00“). Die MwSt steht immer direkt hinter dem Satz. Eine Summe zählt nur,
+ * wenn Netto + MwSt = Brutto. Die leere Zwischensumme am Seitenende („19,00 % 0,00“) hat
+ * nur einen Betrag und zählt nicht. Eine einzelne Zeile mit allen vier Werten zählt auch
+ * ohne Kopf darüber.
+ * Rückgabe: [{ netto, satz, mwst, brutto, von, bis, nachKopf }], von/bis = Zeilen im
+ * fullText, nachKopf = Zeile des Kopfs darüber oder -1.
+ */
+function _zaiSummen(fullText) {
+  const zeilen = String(fullText || '').split('\n').map(z => z.trim());
+  const WERT = /\d{1,2}(?:,\d+)?\s*%|-?[\d.]+,\d{2}(?!\d)/g;   // Satz zuerst, sonst wäre „19,00“ ein Betrag
+  const nurWerte = z => !!z && z.replace(WERT, '').trim() === '';
+  const vier = /^-?[\d.]+,\d{2}\s+\d{1,2}(?:,\d+)?\s*%\s+-?[\d.]+,\d{2}\s+-?[\d.]+,\d{2}$/;
+  const out = [];
+  for (let i = 0; i < zeilen.length; i++) {
+    if (!nurWerte(zeilen[i])) continue;
+    let k = i - 1;
+    while (k >= 0 && !zeilen[k]) k--;
+    const kopf = k >= 0 && /^Nettobetrag\s+MwSt/i.test(zeilen[k]) ? k : -1;
+    if (kopf < 0 && !vier.test(zeilen[i])) continue;
+    // Wertezeilen direkt darunter gehören dazu (höchstens drei)
+    let bis = i;
+    while (kopf >= 0 && bis + 1 < zeilen.length && bis - i < 2 && nurWerte(zeilen[bis + 1])) bis++;
+    const teile = zeilen.slice(i, bis + 1).join(' ').match(WERT) || [];
+    const p = teile.findIndex(t => /%$/.test(t));
+    const betraege = teile.filter(t => !/%$/.test(t)).map(_parseDE);
+    if (p < 0 || p + 1 >= teile.length || /%$/.test(teile[p + 1]) || betraege.length !== 3) { i = bis; continue; }
+    const mwst = _parseDE(teile[p + 1]);
+    const [a, b] = betraege.filter((_, j) => j !== teile.slice(0, p + 1).filter(t => !/%$/.test(t)).length);
+    const passt = (n, br) => Math.abs(n + mwst - br) < 0.005;
+    const netto = passt(a, b) ? a : passt(b, a) ? b : null;
+    if (netto != null) {
+      out.push({ netto, satz: _parseDE(teile[p].replace(/\s*%$/, '')), mwst, brutto: netto === a ? b : a, von: i, bis, nachKopf: kopf });
+    }
+    i = bis;
+  }
+  return out;
 }
 
 /* ══════════════════════════════════════════════════════

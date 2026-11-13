@@ -233,6 +233,10 @@ async function autoFillFromPDF() {
       showToast('Proformarechnung: Das ist keine Rechnung im Sinne von § 14 UStG, dafür gibt es keine E-Rechnungspflicht. '
         + 'Sie geht wie bisher als PDF.', 'info');
     }
+    if (data.summeNichtGelesen) {
+      showToast('Die Endsumme der Rechnung (Nettobetrag, MwSt., Rechnungsbetrag) war nicht lesbar. '
+        + 'Bitte MwSt-Satz und Gesamtbetrag mit dem Original vergleichen.', 'error');
+    }
     const umfang = _umfang(data.gesellschaft, data.kaeuferland);
     if (umfang === 'ausland') {
       showToast(`Kunde im Ausland (${data.kaeuferland}): Für ${data.gesellschaft} gibt es dafür keine E-Rechnungspflicht, `
@@ -1507,6 +1511,10 @@ function _preflightChecks(data, totals) {
   }
 
   const soft = [];
+  // Ohne Endsumme des Originals fehlt auch der MwSt-Satz, die Positionen stünden auf 0 %
+  if (_extractedSnapshot && _extractedSnapshot.summeNichtGelesen) {
+    soft.push('Endsumme des Originals nicht gelesen: MwSt-Satz und Gesamtbetrag bitte mit dem PDF vergleichen');
+  }
   if (typeof vatIdLooksValid === 'function') {
     if (data.verkaeufervat && !vatIdLooksValid(data.verkaeufervat))
       soft.push('USt-IdNr. Rechnungssteller: Format ungewöhnlich (' + data.verkaeufervat + ')');
