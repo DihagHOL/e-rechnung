@@ -20,6 +20,21 @@ ob der Schlüssel aktiv ist. Rechnungsdaten gibt `GET` nicht zurück.
 Ohne `DIENST_KEY` im Container verhalten sich die neuen Images wie die alten. Die Umstellung
 geht deshalb ohne Unterbrechung, wenn die Reihenfolge stimmt.
 
+## Stand
+
+Umgestellt am 16.11.2026. Der Schlüssel liegt nur in Azure: als App-Einstellung `DIENST_KEY`
+der Function-App und als Secret `dienst-key` in den drei Containern. Die Container laufen mit
+den Images `v20261116`, `latest` zeigt auf dieselben. Der Stand davor liegt je Image unter dem
+Tag `vor-schluessel`.
+
+Geprüft nach der Umstellung: Ohne oder mit falschem Schlüssel antworten alle drei Container mit
+401. Über den Prüfdienst liefern `/api/validate` (XRechnung über KoSIT, ZUGFeRD über Mustang und
+veraPDF) und `/api/intake` dieselben Ergebnisse wie vorher, auch die Ablehnung einer fehlerhaften
+XML (BR-CL-01).
+
+Schlüssel wechseln: neuen Wert zuerst in den drei Containern setzen, direkt danach in der
+Function-App. Dazwischen scheitern Prüfungen mit 401, deshalb beides zügig hintereinander.
+
 ## Umstellung
 
 Den Schlüssel selbst erzeugen (lang und zufällig, zum Beispiel 40 Zeichen aus einem
@@ -71,6 +86,7 @@ Passwortmanager) und nirgends im Repo ablegen. In den Befehlen steht dafür `<sc
    im Monitoring ansehen.
 
 Zurück geht es je Container mit `az containerapp update ... --remove-env-vars DIENST_KEY`.
+Ganz auf den alten Stand: zusätzlich `--image dihagerechnungacr.azurecr.io/<app>:vor-schluessel`.
 
 ## Tests
 
