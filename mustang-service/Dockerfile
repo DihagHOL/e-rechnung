@@ -13,13 +13,17 @@
 FROM eclipse-temurin:17-jre
 
 ARG MUSTANG_VER=2.16.0
+# SHA-256 der Mustang-CLI. Weicht die Datei ab, bricht der Build ab. Bei einer neuen Version
+# die Summe mit erneuern (docs/Dienst-Schluessel.md, Abschnitt Prüfsummen).
+ARG MUSTANG_SHA256=9527d9af7f9e6065a12c84a253f3cccecd45b781d68ca18b3d1a6e8f76936f04
 WORKDIR /opt/mustang
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates python3 \
  && rm -rf /var/lib/apt/lists/* \
- && curl -sSL -o Mustang-CLI.jar \
-      "https://github.com/ZUGFeRD/mustangproject/releases/download/core-${MUSTANG_VER}/Mustang-CLI-${MUSTANG_VER}.jar"
+ && curl -fsSL -o Mustang-CLI.jar \
+      "https://github.com/ZUGFeRD/mustangproject/releases/download/core-${MUSTANG_VER}/Mustang-CLI-${MUSTANG_VER}.jar" \
+ && echo "${MUSTANG_SHA256}  Mustang-CLI.jar" | sha256sum -c -
 
 COPY server.py /opt/mustang/server.py
 

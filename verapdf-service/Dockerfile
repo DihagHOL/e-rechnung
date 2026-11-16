@@ -9,6 +9,9 @@ FROM eclipse-temurin:17-jre
 
 ARG VERAPDF_VER=1.26.2
 ARG VERAPDF_REL=1.26
+# SHA-256 des Installers. Weicht die Datei ab, bricht der Build ab. Bei einer neuen Version
+# die Summe mit erneuern (docs/Dienst-Schluessel.md, Abschnitt Prüfsummen).
+ARG VERAPDF_SHA256=b6c50ab65d574bff0cbc0449ffacf587e325a3a53f8a6ecc0d578966abc800ec
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl unzip nodejs \
@@ -21,6 +24,7 @@ COPY auto-install.xml /opt/auto-install.xml
 
 # veraPDF Greenfield headless installieren.
 RUN curl -fsSL -o verapdf.zip "https://software.verapdf.org/rel/${VERAPDF_REL}/verapdf-greenfield-${VERAPDF_VER}-installer.zip" \
+ && echo "${VERAPDF_SHA256}  verapdf.zip" | sha256sum -c - \
  && unzip -q verapdf.zip -d verapdf-inst \
  && INSTALLER="$(find verapdf-inst -name 'verapdf-*installer*.jar' | head -1)" \
  && java -jar "$INSTALLER" /opt/auto-install.xml \

@@ -88,6 +88,37 @@ Passwortmanager) und nirgends im Repo ablegen. In den Befehlen steht dafür `<sc
 Zurück geht es je Container mit `az containerapp update ... --remove-env-vars DIENST_KEY`.
 Ganz auf den alten Stand: zusätzlich `--image dihagerechnungacr.azurecr.io/<app>:vor-schluessel`.
 
+## Prüfsummen der Downloads
+
+Die Dockerfiles laden den KoSIT-Validator, die XRechnung-Konfiguration, den veraPDF-Installer
+und die Mustang-CLI beim Bauen aus dem Netz. Seit 16.11.2026 prüft jeder Build die SHA-256
+der geladenen Datei (`ARG ..._SHA256` im jeweiligen Dockerfile). Weicht sie ab, bricht der
+Build ab, statt eine veränderte Datei ins Image zu nehmen.
+
+Die Summen stammen vom 16.11.2026. Abgeglichen: Mustang-CLI und beide KoSIT-JARs sind
+bitgleich mit den Dateien in den Images, die seit September laufen, und die Dateigrößen
+stimmen mit den GitHub-Releases überein. Für den veraPDF-Installer gibt es nur den Wert von
+diesem Tag.
+
+Neue Version eines Werkzeugs: Versionsnummer und Summe im Dockerfile zusammen ändern. Die
+Summe der neuen Datei liefert zum Beispiel:
+
+```bash
+curl -fsSL <url-der-neuen-datei> | sha256sum
+```
+
+Nicht abgedeckt: Die Pakete aus `apt-get` und die Basis-Images (`eclipse-temurin`) kommen bei
+jedem Build in der aktuellen Fassung, ebenso lädt der CI-Lauf (`.github/workflows/validate.yml`)
+die Werkzeuge ohne Prüfsumme.
+
+## Dependabot
+
+Für das Repository sind seit 16.11.2026 die Dependabot-Warnungen und die automatischen
+Sicherheits-Updates eingeschaltet. GitHub meldet damit bekannte Lücken in den Paketen des
+Prüfdienstes (`api/package-lock.json`) und schlägt die Korrektur als Pull Request vor. Nach dem
+Übernehmen muss der Prüfdienst neu veröffentlicht werden. Die mitgelieferten Bibliotheken unter
+`js/vendor` (pdf.js, Tesseract) sieht Dependabot nicht, sie werden von Hand aktualisiert.
+
 ## Tests
 
 - `node tests/api-haertung.test.js`: Schlüssel und Zeitlimit im Prüfdienst

@@ -10,6 +10,10 @@ FROM eclipse-temurin:8-jre
 
 ARG KOSIT_VER=1.5.0
 ARG CONFIG_URL=https://github.com/itplr-kosit/validator-configuration-xrechnung/releases/download/release-2024-06-20/validator-configuration-xrechnung_3.0.2_2024-06-20.zip
+# SHA-256 der beiden Downloads. Weicht eine Datei ab, bricht der Build ab. Bei einer neuen
+# Version die Summe mit erneuern (docs/Dienst-Schluessel.md, Abschnitt Prüfsummen).
+ARG KOSIT_SHA256=ac78fb3e89d6daa81770049b004bd1408cad81100b885dd1d8da2cd169bd679f
+ARG CONFIG_SHA256=128e59bd2a6ccd0d8796313cfd794480035da6f87998dcb157b8e6af5a1e4069
 
 WORKDIR /opt/kosit
 
@@ -17,8 +21,10 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends curl unzip ca-certificates python3 \
  && rm -rf /var/lib/apt/lists/* \
  && curl -fsSL -o validator.zip "https://github.com/itplr-kosit/validator/releases/download/v${KOSIT_VER}/validator-${KOSIT_VER}-distribution.zip" \
+ && echo "${KOSIT_SHA256}  validator.zip" | sha256sum -c - \
  && mkdir validator && unzip -q validator.zip -d validator && rm validator.zip \
  && curl -fsSL -o config.zip "${CONFIG_URL}" \
+ && echo "${CONFIG_SHA256}  config.zip" | sha256sum -c - \
  && mkdir config && unzip -q config.zip -d config && rm config.zip
 
 COPY entrypoint.sh /opt/kosit/entrypoint.sh
