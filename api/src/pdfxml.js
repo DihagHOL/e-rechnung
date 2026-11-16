@@ -10,6 +10,11 @@
 const { PDFDocument, PDFName, PDFDict, PDFArray } = require('pdf-lib');
 const zlib = require('zlib');
 
+// Eine Rechnungs-XML hat selten mehr als ein paar MB. Ohne Grenze bläht ein präpariertes PDF
+// den Speicher auf (wenige KB gepackt, Gigabyte entpackt) und reißt den Prüfdienst mit.
+const MAX_XML_BYTES = 32 * 1024 * 1024;
+const MAX_ANHAENGE = 50;
+
 async function extractInvoiceXml(pdfBytes) {
   const doc = await PDFDocument.load(pdfBytes, {
     throwOnInvalidObject: false,
@@ -38,6 +43,7 @@ async function extractInvoiceXml(pdfBytes) {
   let fallback = null;
   for (const s of ordered) {
     if (seen.has(s.stream)) continue;
+    if (seen.size >= MAX_ANHAENGE) break;   // nicht beliebig viele Anhänge entpacken
     seen.add(s.stream);
     const text = _streamText(s.stream);
     if (!text || !text.trimStart().startsWith('<')) continue;
@@ -125,11 +131,23 @@ function _decodeStream(stream) {
   const filter = stream.dict ? stream.dict.get(PDFName.of('Filter')) : null;
   const isFlate = filter ? /FlateDecode/.test(filter.toString()) : false;
   if (!isFlate) return raw;
-  try { return zlib.inflateSync(raw); }
+  const grenze = { maxOutputLength: MAX_XML_BYTES };
+  try { return zlib.inflateSync(raw, grenze); }
   catch (e) {
-    try { return zlib.inflateRawSync(raw); }
-    catch (e2) { return raw; }
+    if (_zuGross(e)) throw _fehlerZuGross();
+    try { return zlib.inflateRawSync(raw, grenze); }
+    catch (e2) {
+      if (_zuGross(e2)) throw _fehlerZuGross();
+      return raw;
+    }
   }
 }
 
-module.exports = { extractInvoiceXml, detectEInvoiceSyntax };
+const _zuGross = e => !!e && (e.code === 'ERR_BUFFER_TOO_LARGE' || /larger than|too large/i.test(e.message || ''));
+function _fehlerZuGross() {
+  const err = new Error(`Eingebettete Datei ist entpackt größer als ${MAX_XML_BYTES / 1024 / 1024} MB.`);
+  err.code = 'EMBEDDED_TOO_LARGE';
+  return err;
+}
+
+module.exports = { extractInvoiceXml, detectEInvoiceSyntax, MAX_XML_BYTES };

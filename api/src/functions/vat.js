@@ -46,6 +46,7 @@ app.http('vat', {
 
     let p;
     try { p = await request.json(); } catch { return problem(400, 'Request-Body muss JSON sein.'); }
+    if (!p || typeof p !== 'object' || Array.isArray(p)) return problem(400, 'Request-Body muss ein JSON-Objekt sein.');
 
     const vatId    = norm(p.vatId);
     const vatIdOwn = norm(p.vatIdOwn);

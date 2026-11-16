@@ -365,7 +365,7 @@ function _vlWerkeFuellen() {
   const werke = typeof erlaubteWerke === 'function' ? erlaubteWerke(alle) : alle;
   const mitVorlagen = werke.filter(w => vlVorlagenFuer(_vl.daten, w).length);
   const vorher = sel.value;
-  sel.innerHTML = werke.map(w => `<option value="${w}">${w} · ${escHTML(_vlStamm(w).verkaeufer || w)}</option>`).join('');
+  sel.innerHTML = werke.map(w => `<option value="${escHTML(w)}">${escHTML(w)} · ${escHTML(_vlStamm(w).verkaeufer || w)}</option>`).join('');
   sel.value = werke.includes(vorher) ? vorher : (mitVorlagen[0] || werke[0] || '');
 }
 

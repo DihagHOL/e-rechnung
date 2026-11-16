@@ -12,6 +12,7 @@
  *     meldungenText, hinweis, werkzeug, bericht? }
  */
 const { hinweisWarnungen } = require('./hinweis');
+const { dienstFetch } = require('./dienst');
 const MUSTANG_URL = process.env.MUSTANG_URL || 'http://localhost:8090/';
 
 // Standardtext fuer die automatische Zurueckweisung von MINIMUM/BASIC-WL (Punkt 3).
@@ -28,11 +29,7 @@ const TEXT_ZURUECKWEISUNG_MINIMAL =
  *        vollstaendige E-Rechnung; Urteil wird nicht auf "gruen" gelassen.
  */
 async function validateMustang(buf, opts = {}) {
-  const resp = await fetch(MUSTANG_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/octet-stream' },
-    body: buf,
-  });
+  const resp = await dienstFetch('mustang', MUSTANG_URL, { 'Content-Type': 'application/octet-stream' }, buf);
   const report = await resp.text();
   if (resp.status !== 200 && resp.status !== 406) {
     throw new Error(`Mustang-Dienst HTTP ${resp.status}: ${report.slice(0, 200)}`);

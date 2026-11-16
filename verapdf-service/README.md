@@ -71,3 +71,9 @@ angelegt — Skript einmal erneut ausführen, damit sie in den Bibliotheken exis
 ## Version
 
 veraPDF **1.26.2** (Greenfield) — identisch zur CI (`.github/workflows/validate.yml`).
+
+## Schlüssel (DIENST_KEY)
+
+Der Container ist aus dem Internet erreichbar. Ist `DIENST_KEY` gesetzt, muss der Aufrufer den Wert im Kopf
+`X-Dienst-Schluessel` mitschicken, sonst antwortet der Dienst mit 401. Der Prüfdienst schickt ihn aus seiner
+App-Einstellung `DIENST_KEY` mit. Einrichtung und Reihenfolge: [docs/Dienst-Schluessel.md](../docs/Dienst-Schluessel.md).

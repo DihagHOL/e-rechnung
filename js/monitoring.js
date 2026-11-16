@@ -763,6 +763,22 @@ function _monGleicherLieferant(a, b) {
 const MON_DUBLETTE_FUELLWORT = new Set(['v', 'vom', 'from', 'dated', 'date', 'datum', 'nr', 'no', 'nummer', 'number',
   're', 'rg', 'kopie', 'copy', 'duplikat', 'duplicate']);
 
+// Datumsmuster für _monDublettenNummer: TT.MM.JJJJ (auch mit / oder -, Jahr zwei- oder
+// vierstellig) und JJJJ-MM-TT. Nur als eigenständiger Teil, nicht mitten in „10.11.12.13“.
+// Einmal gebaut, die Dublettenprüfung läuft nach jeder geladenen Seite über alle Zeilen.
+let _monDatumRe = null;
+function _monDatumMuster() {
+  if (!_monDatumRe) {
+    const tag = '(?:0?[1-9]|[12][0-9]|3[01])', monat = '(?:0?[1-9]|1[0-2])';
+    const vor = '(?<![0-9]|[0-9][./-])', nach = '(?![0-9]|[./-][0-9])';
+    _monDatumRe = [
+      new RegExp(`${vor}${tag}([./-])${monat}\\1(?:[0-9]{4}|[0-9]{2})${nach}`, 'g'),
+      new RegExp(`${vor}[0-9]{4}-${monat}-${tag}${nach}`, 'g'),
+    ];
+  }
+  return _monDatumRe;
+}
+
 /**
  * Rechnungsnummer für den Dublettenvergleich. Ohne Title ist die Nummer oft der Name des
  * Anhangs: „Proformarechnung 9900012345 v. 11.11.2026“ und „Proformarechnung 9900012345“
@@ -772,12 +788,10 @@ const MON_DUBLETTE_FUELLWORT = new Set(['v', 'vom', 'from', 'dated', 'date', 'da
  */
 function _monDublettenNummer(nummer) {
   const ganz = String(nummer || '').trim().toLowerCase().replace(/\s+/g, ' ');
-  const tag = '(?:0?[1-9]|[12][0-9]|3[01])', monat = '(?:0?[1-9]|1[0-2])';
-  // Datum nur als eigenständiger Teil, nicht mitten in „10.11.12.13“
-  const vor = '(?<![0-9]|[0-9][./-])', nach = '(?![0-9]|[./-][0-9])';
+  const [datum, iso] = _monDatumMuster();
   const rest = ganz
-    .replace(new RegExp(`${vor}${tag}([./-])${monat}\\1(?:[0-9]{4}|[0-9]{2})${nach}`, 'g'), ' ')
-    .replace(new RegExp(`${vor}[0-9]{4}-${monat}-${tag}${nach}`, 'g'), ' ')
+    .replace(datum, ' ')
+    .replace(iso, ' ')
     .replace(/pro[ _-]?forma/g, 'proforma')
     .replace(/rechnung(?:en|s)?|invoice/g, ' ')
     .split(/[^a-z0-9äöüß]+/)

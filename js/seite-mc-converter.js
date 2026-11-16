@@ -171,7 +171,7 @@ function render(r) {
     const dec = (String(s || '').split('.')[1] || '').length;
     return Number(s || 0).toLocaleString('de-DE', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + ' ' + (ccy === 'EUR' || !ccy ? '€' : ccy);
   };
-  const sumTxt = azv ? Object.entries(r.stats.sums).map(([c, v]) => money(v, c)).join(' · ') : eur(r.stats.ctrlSum);
+  const sumTxt = azv ? Object.entries(r.stats.sums).map(([c, v]) => esc(money(v, c))).join(' · ') : eur(r.stats.ctrlSum);
   const ibanCalc = azv && r.accounts.some(a => !a.ibanOverridden) ? ' <span class="mc-sub">(aus BLZ und Konto berechnet)</span>' : '';
 
   const rows = [
@@ -181,8 +181,8 @@ function render(r) {
     ['Nachrichten-ID',  esc(r.stats.msgId) || '–'],
     ['Auftraggeber',    esc(r.stats.debtor || r.stats.initgParty) || '–'],
     ['Konto (IBAN)',    (esc(r.stats.debtorIban) || '–') + ibanCalc],
-    ['Ausführung am',   dt(r.stats.execDate)],
-    ['Anzahl Zahlungen', `<strong>${r.stats.nbOfTxs}</strong>`],
+    ['Ausführung am',   esc(dt(r.stats.execDate))],
+    ['Anzahl Zahlungen', `<strong>${esc(r.stats.nbOfTxs)}</strong>`],
     [azv ? 'Summe' : 'Kontrollsumme', `<strong>${sumTxt}</strong>`],
   ];
   document.getElementById('mc-summary').innerHTML =
@@ -224,14 +224,14 @@ function render(r) {
     document.getElementById('mc-txn-body').innerHTML = r.txns.map(t => {
       const place = [t.pstCd, t.town].filter(Boolean).join(' ');
       const adr = t.townMissing
-        ? `<input class="mc-town${t.town ? ' filled' : ''}" data-idx="${t.idx}" value="${esc(t.town)}" placeholder="Ort fehlt (Pflicht)" title="Ort des Empfängers, Pflicht für AXZ">
+        ? `<input class="mc-town${t.town ? ' filled' : ''}" data-idx="${esc(t.idx)}" value="${esc(t.town)}" placeholder="Ort fehlt (Pflicht)" title="Ort des Empfängers, Pflicht für AXZ">
            <div class="mc-sub">Land ${esc(t.ctry || '–')}${t.town ? '' : ' · Ort bitte eintragen'}</div>`
         : `<div class="mc-sub">${esc(place)} · ${esc(t.ctry)}</div>`;
       return `
       <tr>
         <td>${esc(t.cdtrNm)}${adr}</td>
         <td class="mono">${esc(t.cdtrIban)}<br>${esc(t.cdtrBic || 'ohne BIC')}</td>
-        <td class="amt">${money(t.amount, t.ccy)}<div class="mc-sub" title="${esc(t.chrgTxt)}">${FEE[t.chrgBr] || t.chrgBr}${t.svcLvl === 'URGP' ? ' · Eilzahlung' : ''}</div></td>
+        <td class="amt">${esc(money(t.amount, t.ccy))}<div class="mc-sub" title="${esc(t.chrgTxt)}">${esc(FEE[t.chrgBr] || t.chrgBr)}${t.svcLvl === 'URGP' ? ' · Eilzahlung' : ''}</div></td>
         <td>${esc(t.ustrd)}</td>
       </tr>`;
     }).join('');

@@ -34,6 +34,7 @@ async function pruefeVies(p) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(25000),
   });
   const d = await r.json().catch(() => ({}));
 

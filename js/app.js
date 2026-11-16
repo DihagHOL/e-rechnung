@@ -78,7 +78,7 @@ function setupGesellschaftSelector() {
   sel.disabled = false;
   sel.innerHTML = werke.map(g => {
     const label = (typeof GESELLSCHAFT_LABELS !== 'undefined' && GESELLSCHAFT_LABELS[g.toLowerCase()]) || g;
-    return `<option value="${g}">${label}</option>`;
+    return `<option value="${escHTML(g)}">${escHTML(label)}</option>`;
   }).join('');
   // Anderes Werk: dessen Stammdaten einsetzen (die Felder sind gesperrt)
   if (!sel.dataset.stammdaten) {
@@ -790,7 +790,7 @@ function addPositionRow(data = {}) {
     <td style="width:68px;"><input type="text" class="pos-nr" placeholder="${tbody.querySelectorAll('tr.pos-row').length + 1}" value="${escHTML(data.posnr || '')}" title="Positionsnummer (z. B. 1, 1.1, 1.2.1)"></td>
     <td style="min-width:200px;"><input type="text" class="pos-beschreibung" placeholder="Leistungsbeschreibung" value="${escHTML(data.beschreibung || '')}">
       <button type="button" class="pos-details-toggle" title="Positionsbeschreibung, Hinweis (z. B. Bestellung, Lieferschein) und Bestellposition"></button></td>
-    <td style="width:80px;"><input type="number" class="pos-menge" placeholder="1" min="0" step="0.001" value="${data.menge || 1}"></td>
+    <td style="width:80px;"><input type="number" class="pos-menge" placeholder="1" min="0" step="0.001" value="${escHTML(data.menge || 1)}"></td>
     <td style="width:90px;">
       <select class="pos-einheit">
         ${['Stk','h','Tag','Monat','m','m²','m³','kg','l','km','kWh','MWh','Pausch.'].map(u =>
@@ -798,8 +798,8 @@ function addPositionRow(data = {}) {
         ).join('')}
       </select>
     </td>
-    <td style="width:110px;"><input type="number" class="pos-einzelpreis" placeholder="0,00" min="0" step="any" value="${data.einzelpreis || ''}"></td>
-    <td style="width:80px;"><input type="number" class="pos-rabatt" placeholder="0" step="0.01" value="${data.rabatt || ''}" title="Positiv = Rabatt, negativ = Zuschlag"></td>
+    <td style="width:110px;"><input type="number" class="pos-einzelpreis" placeholder="0,00" min="0" step="any" value="${escHTML(data.einzelpreis || '')}"></td>
+    <td style="width:80px;"><input type="number" class="pos-rabatt" placeholder="0" step="0.01" value="${escHTML(data.rabatt || '')}" title="Positiv = Rabatt, negativ = Zuschlag"></td>
     <td style="width:90px;">
       <select class="pos-mwst">
         <option value="19" ${(data.mwst == 19 || !data.mwst) ? 'selected' : ''}>19 %</option>
@@ -1439,11 +1439,13 @@ function _buildInvoiceEml(data, subject, body, attachments) {
   lines.push('');
   lines.push(wrap(_utf8ToBase64(body.replace(/\n/g, '\r\n'))));
   // Anhänge
+  // Dateiname und Typ stehen in Kopfzeilen: Anführungszeichen und Zeilenumbrüche würden sie aufbrechen
+  const kopfWert = s => Array.from(String(s || ''), c => (c === '"' || c.charCodeAt(0) === 92 || c.charCodeAt(0) < 32 ? '_' : c)).join('');
   for (const att of attachments) {
     lines.push(`--${b}`);
-    lines.push(`Content-Type: ${att.mime}; name="${att.filename}"`);
+    lines.push(`Content-Type: ${kopfWert(att.mime)}; name="${kopfWert(att.filename)}"`);
     lines.push('Content-Transfer-Encoding: base64');
-    lines.push(`Content-Disposition: attachment; filename="${att.filename}"`);
+    lines.push(`Content-Disposition: attachment; filename="${kopfWert(att.filename)}"`);
     lines.push('');
     lines.push(wrap(att.base64));
   }

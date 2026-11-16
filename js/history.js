@@ -118,7 +118,7 @@ function renderVerlaufRow(e) {
   const gross = formatCurrency(e.grossTotal || 0);
   const hasPdf = !!e.zugferdPdf;
   const formatTag = e.formate
-    ? e.formate.map(f => `<span class="format-tag ${f.toLowerCase()}">${f}</span>`).join(' ')
+    ? e.formate.map(f => `<span class="format-tag ${escHTML(String(f).toLowerCase())}">${escHTML(f)}</span>`).join(' ')
     : `<span class="format-tag xrechnung">XRechnung</span>`;
 
   return `
@@ -131,9 +131,9 @@ function renderVerlaufRow(e) {
       <td class="amount-cell">${gross} €</td>
       <td>
         <div class="actions-cell">
-          ${e.xml ? `<button class="btn btn-secondary btn-sm" data-action="download-xml" data-id="${e.id}" title="XRechnung XML herunterladen">📄 XML</button>` : ''}
-          ${hasPdf ? `<button class="btn btn-secondary btn-sm" data-action="download-pdf" data-id="${e.id}" title="ZUGFeRD PDF herunterladen">📎 PDF</button>` : ''}
-          <button class="btn btn-danger btn-sm" data-action="delete" data-id="${e.id}" title="Löschen">🗑</button>
+          ${e.xml ? `<button class="btn btn-secondary btn-sm" data-action="download-xml" data-id="${escHTML(e.id)}" title="XRechnung XML herunterladen">📄 XML</button>` : ''}
+          ${hasPdf ? `<button class="btn btn-secondary btn-sm" data-action="download-pdf" data-id="${escHTML(e.id)}" title="ZUGFeRD PDF herunterladen">📎 PDF</button>` : ''}
+          <button class="btn btn-danger btn-sm" data-action="delete" data-id="${escHTML(e.id)}" title="Löschen">🗑</button>
         </div>
       </td>
     </tr>`;

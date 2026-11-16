@@ -1,5 +1,6 @@
 'use strict';
 const { hinweisWarnungen } = require('./hinweis');
+const { dienstFetch } = require('./dienst');
 /**
  * KoSIT-Validierung (Client zum KoSIT-Validator im Daemon-Modus)
  * ==============================================================
@@ -59,11 +60,7 @@ async function validateXml(xml, opts = {}) {
 
 /** Eine XML an den KoSIT-Daemon senden. 200=accept, 406=reject; sonst Fehler. */
 async function _postKosit(xml) {
-  const resp = await fetch(KOSIT_DAEMON_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/xml' },
-    body: xml,
-  });
+  const resp = await dienstFetch('kosit', KOSIT_DAEMON_URL, { 'Content-Type': 'application/xml' }, xml);
   const reportXml = await resp.text();
   if (resp.status !== 200 && resp.status !== 406) {
     throw new Error(`KoSIT-Daemon HTTP ${resp.status}: ${reportXml.slice(0, 200)}`);

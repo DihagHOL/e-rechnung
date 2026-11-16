@@ -40,6 +40,8 @@ app.http('pdfa', {
         usage: 'POST Body = ZUGFeRD-PDF -> { konform: ok|fehler|ungeprueft, meldungen[] }',
       } };
     }
+    // Größe schon am Kopf prüfen: sonst liest der Dienst erst alles in den Speicher
+    if (Number(request.headers && request.headers.get('content-length')) > MAX_BYTES) return problem(413, 'Das PDF ist größer als 15 MB.');
     const buf = Buffer.from(await request.arrayBuffer());
     if (!buf.length) return problem(400, 'Leerer Request-Body. Bitte das ZUGFeRD-PDF senden.');
     if (buf.length > MAX_BYTES) return problem(413, 'Das PDF ist größer als 15 MB.');

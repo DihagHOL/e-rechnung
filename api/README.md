@@ -205,6 +205,8 @@ Der eigentliche Validator läuft als eigener Container (Java 8) im **Daemon-Modu
 diese Function ist nur der JSON-Wrapper. Aufbau, Deployment und der passende
 Power-Automate-Flow stehen in [`../kosit-service/README.md`](../kosit-service/README.md).
 Voraussetzung: App-Einstellung `KOSIT_DAEMON_URL` zeigt auf den Container.
+Mit der App-Einstellung `DIENST_KEY` schickt der Prüfdienst den Schlüssel der Container mit
+(KoSIT, veraPDF, Mustang), siehe [`../docs/Dienst-Schluessel.md`](../docs/Dienst-Schluessel.md).
 
 **ZUGFeRD-PDF** wird ebenfalls akzeptiert (die eingebettete XML wird extrahiert und
 geprüft; zusätzlich läuft die PDF/A-Hülle durch veraPDF, sofern `VERAPDF_URL` gesetzt).

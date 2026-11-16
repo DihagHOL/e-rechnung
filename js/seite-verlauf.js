@@ -259,21 +259,23 @@ function spRow(e) {
   const betrag = (e.grossTotal || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const fmt    = e.format || 'XRechnung';
   const fmtCls = fmt.toLowerCase().includes('zugferd') ? 'zugferd' : 'xrechnung';
-  const esc    = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const esc    = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  // Links kommen aus einer SharePoint-Liste: nur https, kein javascript: oder data:
+  const link   = u => /^https:\/\//i.test(String(u || '')) ? String(u) : '';
   const ges    = (e.gesellschaft || '').toUpperCase();
   const gesCls = ges === 'SHB' ? 'shb' : 'wgc';
   const gesBadge = ges ? `<span class="format-tag ${gesCls}">${esc(ges)}</span>` : '–';
 
-  const xmlBtn = e.xmlUrl
-    ? `<a href="${esc(e.xmlUrl)}" target="_blank" class="btn btn-secondary btn-sm" title="XML in SharePoint öffnen">📄 XML</a>`
+  const xmlBtn = link(e.xmlUrl)
+    ? `<a href="${esc(link(e.xmlUrl))}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" title="XML in SharePoint öffnen">📄 XML</a>`
     : '';
-  const pdfBtn = e.pdfUrl
-    ? `<a href="${esc(e.pdfUrl)}" target="_blank" class="btn btn-secondary btn-sm" title="ZUGFeRD PDF in SharePoint öffnen">📎 PDF</a>`
+  const pdfBtn = link(e.pdfUrl)
+    ? `<a href="${esc(link(e.pdfUrl))}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" title="ZUGFeRD PDF in SharePoint öffnen">📎 PDF</a>`
     : '';
 
   return `
     <tr>
-      <td>${date}</td>
+      <td>${esc(date)}</td>
       <td class="invoice-nr">${esc(e.rechnungsnummer)}</td>
       <td>${esc(e.verkaeufer)}</td>
       <td>${esc(e.kaeufer)}</td>
@@ -297,7 +299,7 @@ function showAccessDenied() {
     <div class="access-denied-box">
       <div class="access-denied-icon">🔒</div>
       <h3>Kein Zugriff</h3>
-      <p>Ihr Account <strong>${upn}</strong> ist nicht für den Exportverlauf freigeschaltet.</p>
+      <p>Ihr Account <strong>${String(upn).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</strong> ist nicht für den Exportverlauf freigeschaltet.</p>
       <p>Bitte wenden Sie sich an Ihren Administrator, um Zugriff zu erhalten.</p>
     </div>`;
 }

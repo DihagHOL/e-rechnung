@@ -76,20 +76,20 @@ async function handleFile(file) {
 
 /* ── Zusammenfassung ── */
 function renderSummary(d) {
-  const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   const eur = n => (n || 0).toLocaleString('de-DE', { minimumFractionDigits: 2 }) + ' €';
   const dt  = s => s ? s.split('-').reverse().join('.') : '–';
   const rows = [
     ['Rechnungsnummer', esc(d.rechnungsnummer) || '–'],
-    ['Rechnungsdatum',  dt(d.rechnungsdatum)],
+    ['Rechnungsdatum',  esc(dt(d.rechnungsdatum))],
     ['Aussteller',      esc(d.verkaeufer) || '–'],
     ['Empfänger',       esc(d.kaeufer) || '–'],
     ['Positionen',      d.positionen.length],
     ['Nettobetrag',     eur(d.netTotal)],
     ['MwSt.',           eur(d.vatTotal)],
     ['Gesamtbetrag',    `<strong>${eur(d.grossTotal)}</strong>`],
-    ['Fällig am',       dt(d.faelligkeitsdatum)],
-    ['Syntax',          d.syntax],
+    ['Fällig am',       esc(dt(d.faelligkeitsdatum))],
+    ['Syntax',          esc(d.syntax)],
   ];
   document.getElementById('xml-summary').innerHTML =
     rows.map(([k, v]) => `<tr><td class="xs-label">${k}</td><td class="xs-value">${v}</td></tr>`).join('');

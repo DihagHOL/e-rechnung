@@ -64,3 +64,9 @@ curl -X POST "https://<function-app>.azurewebsites.net/api/validate?code=<KEY>" 
 
 Verifikation gegen die EGH-EXTENDED-Rechnung (47835649): sollte **grün/gelb** liefern
 statt der 7 EN16931-Fehlalarme des KoSIT-Pfads.
+
+## Schlüssel (DIENST_KEY)
+
+Der Container ist aus dem Internet erreichbar. Ist `DIENST_KEY` gesetzt, muss der Aufrufer den Wert im Kopf
+`X-Dienst-Schluessel` mitschicken, sonst antwortet der Dienst mit 401. Der Prüfdienst schickt ihn aus seiner
+App-Einstellung `DIENST_KEY` mit. Einrichtung und Reihenfolge: [docs/Dienst-Schluessel.md](../docs/Dienst-Schluessel.md).

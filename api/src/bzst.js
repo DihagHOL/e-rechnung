@@ -20,6 +20,7 @@
  * wird nur die EINFACHE Bestätigung (Gültigkeit) geliefert.
  */
 const BZST_BASE = process.env.BZST_URL || 'https://api.evatr.vies.bzst.de/app/v1';
+const ZEIT_MS = 25000;   // danach VIES als Ersatz, statt den Aufrufer warten zu lassen
 
 // USt-IdNr, die "gültig" bedeuten (0000 = gültig, 0003 = gültig, aber qual. Felder unvollständig).
 const GUELTIG_STATUS = new Set(['evatr-0000', 'evatr-0003']);
@@ -37,7 +38,7 @@ async function statusText(status) {
   if (!_statusCache) {
     _statusCache = {};
     try {
-      const r = await fetch(`${BZST_BASE}/info/statusmeldungen`, { headers: { Accept: 'application/json' } });
+      const r = await fetch(`${BZST_BASE}/info/statusmeldungen`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(ZEIT_MS) });
       if (r.ok) for (const s of await r.json()) if (s && s.status) _statusCache[s.status] = s.meldung || '';
     } catch { /* Klartext ist optional */ }
   }
@@ -65,6 +66,7 @@ async function pruefeBzst(p) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(ZEIT_MS),
   });
   const data = await r.json().catch(() => ({}));
   const status = data.status || `http-${r.status}`;

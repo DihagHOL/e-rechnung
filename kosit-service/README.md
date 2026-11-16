@@ -132,3 +132,9 @@ Antwort-JSON von `/api/validate`:
 - Versionen: KoSIT-Validator `1.5.0`, XRechnung-Konfiguration `release 2024-06-20`
   (3.0.2) — identisch zur CI (`.github/workflows/validate.yml`). Beim Aktualisieren
   beide Stellen gleich ziehen.
+
+## Schlüssel (DIENST_KEY)
+
+Der Container ist aus dem Internet erreichbar. Ist `DIENST_KEY` gesetzt, muss der Aufrufer den Wert im Kopf
+`X-Dienst-Schluessel` mitschicken, sonst antwortet der Dienst mit 401. Der Prüfdienst schickt ihn aus seiner
+App-Einstellung `DIENST_KEY` mit. Einrichtung und Reihenfolge: [docs/Dienst-Schluessel.md](../docs/Dienst-Schluessel.md).
