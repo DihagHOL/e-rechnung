@@ -1,0 +1,3 @@
+# Dockerfile und Skripte muessen LF behalten, sonst scheitert der Container-Build oder der Start.
+Dockerfile text eol=lf
+*.py       text eol=lf
