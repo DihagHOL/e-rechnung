@@ -1293,6 +1293,10 @@ async function createInvoiceMail() {
   if (!_preflightChecks(data, totals)) return;
   if (typeof vorlagenVorExport === 'function' && !(await vorlagenVorExport(data))) return;
 
+  // Outlook-Tab jetzt öffnen, solange der Klick noch gilt. Nach dem Anlegen des Entwurfs
+  // (mehrere Sekunden später) blockt der Browser das neue Fenster als Popup.
+  const outlook = mailToken ? _outlookTabVorbereiten() : null;
+
   showLoading(true, 'ZUGFeRD wird erstellt …');
 
   try {
@@ -1301,6 +1305,7 @@ async function createInvoiceMail() {
     // #5: Selbstverifikation
     const rt = _verifyEmbeddedXml(xml, data, totals);
     if (rt.length) {
+      _outlookTabSchliessen(outlook);
       showLoading(false);
       showToast('Selbstprüfung fehlgeschlagen — XML weicht von den angezeigten Werten ab: ' + rt.join(', '), 'error');
       return;
@@ -1325,18 +1330,18 @@ async function createInvoiceMail() {
       try {
         const draft = await _createOutlookDraft(mailToken, data, subject, body, attachments);
         showLoading(false);
-        if (draft.webLink) window.open(draft.webLink, '_blank', 'noopener');
-        showToast(
-          `E-Mail-Entwurf in Outlook erstellt (Ordner „Entwürfe").` +
-          (data.kaeufermail ? '' : ' Bitte Empfänger ergänzen.'),
-          'success'
-        );
+        const offen = draft.webLink ? _outlookTabZeigen(outlook, draft.webLink) : (_outlookTabSchliessen(outlook), false);
+        const text = `E-Mail-Entwurf in Outlook erstellt (Ordner „Entwürfe").` + (data.kaeufermail ? '' : ' Bitte Empfänger ergänzen.');
+        if (offen || !draft.webLink) showToast(text, 'success');
+        else showToast(text + ' Der Browser hat das Outlook-Fenster blockiert.', 'success',
+          { text: 'In Outlook öffnen', klick: () => window.open(draft.webLink, '_blank', 'noopener') });
         return;
       } catch (gErr) {
         console.warn('Outlook-Direktanlage fehlgeschlagen — .eml-Fallback:', gErr);
         // weiter zum .eml-Fallback
       }
     }
+    _outlookTabSchliessen(outlook);
 
     // 2) Fallback: .eml-Datei (öffnet sich per Doppelklick in Outlook)
     const eml = _buildInvoiceEml(data, subject, body, attachments);
@@ -1349,10 +1354,43 @@ async function createInvoiceMail() {
       'info'
     );
   } catch (err) {
+    _outlookTabSchliessen(outlook);
     showLoading(false);
     console.error(err);
     showToast('Fehler beim Erstellen der Mail: ' + err.message, 'error');
   }
+}
+
+/**
+ * Leeren Tab für Outlook öffnen, solange der Klick noch als Nutzeraktion gilt. Der Tab
+ * zeigt „wird erstellt“ und bekommt später die Adresse des Entwurfs. null, wenn der
+ * Browser ihn blockt. Ohne Rückgriff auf diese Seite (opener), weil dort Outlook lädt.
+ */
+function _outlookTabVorbereiten() {
+  try {
+    const tab = window.open('', '_blank');
+    if (!tab) return null;
+    tab.opener = null;
+    tab.document.title = 'Outlook-Entwurf wird erstellt …';
+    tab.document.body.style.font = '15px Segoe UI, sans-serif';
+    tab.document.body.style.margin = '40px';
+    tab.document.body.textContent = 'Der Rechnungsentwurf wird erstellt. Outlook öffnet sich hier gleich.';
+    return tab;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** Den vorbereiteten Tab auf den Entwurf lenken, sonst einen neuen öffnen. true = Outlook ist offen. */
+function _outlookTabZeigen(tab, link) {
+  if (tab && !tab.closed) {
+    try { tab.location.replace(link); return true; } catch (e) { /* weiter mit neuem Fenster */ }
+  }
+  return !!window.open(link, '_blank', 'noopener');
+}
+
+function _outlookTabSchliessen(tab) {
+  try { if (tab && !tab.closed) tab.close(); } catch (e) { /* bereits zu */ }
 }
 
 /** Empfänger der Rechnungsmail: alle Adressen aus dem Feld (in der E-Rechnung steht nur die erste). */
@@ -1714,7 +1752,8 @@ function showLoading(visible, msg = 'Verarbeitung...') {
   overlay.style.display = visible ? 'flex' : 'none';
 }
 
-function showToast(message, type = 'info') {
+/** Meldung unten rechts. aktion = { text, klick } fügt einen Knopf an, die Meldung bleibt dann länger stehen. */
+function showToast(message, type = 'info', aktion) {
   const container = document.getElementById('toast-container');
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
@@ -1723,11 +1762,19 @@ function showToast(message, type = 'info') {
   const icon = document.createElement('span'); icon.className = 'toast-icon'; icon.textContent = icons[type] || 'ℹ️';
   const text = document.createElement('span'); text.textContent = message;
   toast.append(icon, text);
+  if (aktion && aktion.text && typeof aktion.klick === 'function') {
+    const knopf = document.createElement('button');
+    knopf.type = 'button';
+    knopf.className = 'btn btn-secondary btn-sm toast-aktion';
+    knopf.textContent = aktion.text;
+    knopf.addEventListener('click', () => { aktion.klick(); toast.remove(); });
+    toast.append(knopf);
+  }
   container.appendChild(toast);
   setTimeout(() => {
     toast.classList.add('fade-out');
     toast.addEventListener('animationend', () => toast.remove());
-  }, 4000);
+  }, aktion ? 15000 : 4000);
 }
 
 function formatDE(n) {

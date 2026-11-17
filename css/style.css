@@ -955,6 +955,7 @@ body {
 .toast.info { background: #1e3a5f; border-left: 4px solid var(--primary); }
 
 .toast-icon { font-size: 18px; flex-shrink: 0; }
+.toast-aktion { flex-shrink: 0; white-space: nowrap; }
 
 @keyframes slideIn {
   from { opacity: 0; transform: translateX(20px); }

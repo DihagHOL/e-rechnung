@@ -344,9 +344,9 @@ app.http('intake', {
     }
 
     // Punkt 4: PDF↔XML-Abgleich (nur ZUGFeRD). Die XML ist umsatzsteuerlich bindend
-    // (UStAE 14.4 Abs. 3) -> NICHT abwerten, immer aus der XML buchen. Nur bei
-    // MATERIELLER Abweichung (Steuerbetrag/Belegidentitaet, rundungstolerant)
-    // automatische Rueckfrage an den Lieferanten anstossen.
+    // (UStAE 14.4 Abs. 3) -> NICHT abwerten, immer aus der XML buchen. Bei echter
+    // Abweichung (Nummer, Steuer, Brutto, Empfaenger, Datum, IBAN; siehe pdfabgleich.js)
+    // Rueckfrage setzen.
     if (res.klassifizierung === 'zugferd') {
       try {
         const ab = await pdfXmlAbgleich(buf, res.daten || {});
@@ -419,6 +419,7 @@ function mapDaten(d) {
     bestellnummer:      d.bestellnummer     || '',
     lieferscheinnummer: d.lieferscheinnummer|| '',
     zahlungsreferenz:   d.zahlungsreferenz  || '',
+    iban:               String(d.iban || '').replace(/\s+/g, '').toUpperCase(),   // BT-84, für den Abgleich mit dem Sichtbild
     netto:              Number(d.netTotal   || 0),
     mwst:               Number(d.vatTotal   || 0),
     brutto:             Number(d.grossTotal || 0),

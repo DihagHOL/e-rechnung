@@ -45,5 +45,38 @@ async function pdf(seiten) {
   a = await pdfXmlAbgleich(await pdf([['Rechnung 4711082', 'MwSt. 2,84 EUR', 'Summe 17,79 EUR']]), daten);
   gleich([a.status, /Rechnungsnummer/.test(a.hinweis)], ['abweichung', true], 'andere Nummer');
 
+  // Seit 17.11.2026: Empfänger, Ort, Datum, IBAN (erfundene Firmen, Beispiel-IBANs mit gültiger Prüfziffer)
+  const voll = { nummer: '4711081', mwst: 2.84, brutto: 17.79, empfaenger: 'Muster Gießerei GmbH & Co. KG', empfaengerOrt: 'Beispielstadt',
+    datum: '2026-11-04', iban: 'DE89370400440532013000' };
+  const kopf = ['MUSTER GIESSEREI GMBH', 'Am Werk 1', '12345 Beispielstadt', 'Rechnung 4711081 vom 04.11.2026'];
+  const fuss = ['Mehrwertsteuer 19 % 2,84 EUR', 'Gesamtbetrag 17,79 EUR'];
+  const bank = 'Bank: Beispielbank, IBAN DE89 3704 0044 0532 0130 00, BIC BEISDEXX';
+  a = await pdfXmlAbgleich(await pdf([[...kopf, ...fuss, bank]]), voll);
+  gleich(a.status, 'ok', 'Empfänger in anderer Schreibweise, Datum, IBAN in Gruppen');
+
+  a = await pdfXmlAbgleich(await pdf([[...kopf, ...fuss, bank]]), Object.assign({}, voll, { empfaenger: 'Andere Hütte AG' }));
+  gleich([a.status, a.materiell, /Empfänger „Andere Hütte AG“/.test(a.hinweis)], ['abweichung', true, true], 'anderer Empfänger');
+  a = await pdfXmlAbgleich(await pdf([[...kopf, ...fuss, bank]]), Object.assign({}, voll, { empfaengerOrt: 'Musterhausen' }));
+  gleich([a.status, /Ort des Empfängers/.test(a.hinweis)], ['abweichung', true], 'anderer Ort');
+
+  a = await pdfXmlAbgleich(await pdf([[...kopf, ...fuss, bank]]), Object.assign({}, voll, { datum: '2026-11-03' }));
+  gleich(a.status, 'ok', 'Datum einen Tag versetzt (Zeitzone)');
+  a = await pdfXmlAbgleich(await pdf([[...kopf, ...fuss, bank]]), Object.assign({}, voll, { datum: '2026-10-28' }));
+  gleich([a.status, /Rechnungsdatum 28\.10\.2026/.test(a.hinweis)], ['abweichung', true], 'anderes Datum');
+  a = await pdfXmlAbgleich(await pdf([['MUSTER GIESSEREI GMBH', '12345 Beispielstadt', 'Rechnung 4711081', 'Invoice date: 4 November 2026', ...fuss, bank]]), voll);
+  gleich(a.status, 'ok', 'Datum ausgeschrieben');
+
+  a = await pdfXmlAbgleich(await pdf([[...kopf, ...fuss, 'IBAN DE02 1203 0000 0000 2020 51, BIC BEISDEXX']]), voll);
+  gleich([a.status, /IBAN DE89 3704 0044 0532 0130 00 aus der XML steht nicht im Sichtbild, dort steht DE02 1203/.test(a.hinweis)], ['abweichung', true],
+    'anderes Konto im Bild');
+  a = await pdfXmlAbgleich(await pdf([[...kopf, ...fuss, 'Bitte überweisen Sie den Betrag ohne Abzug.']]), voll);
+  gleich(a.status, 'ok', 'keine IBAN im Bild: keine Aussage');
+  a = await pdfXmlAbgleich(await pdf([[...kopf, ...fuss, 'Bank: Beispielbank IBAN: DE89 3704', '0044 0532 0130 00 / BIC BEISDEXX', 'Zweitkonto IBAN DE02 1203 0000 0000 2020 51']]), voll);
+  gleich(a.status, 'ok', 'IBAN umbrochen, zweites Konto daneben');
+  a = await pdfXmlAbgleich(await pdf([[...kopf, ...fuss, 'COBA DE FF 683 DE89 3704 0044 0532 0130 00']]), voll);
+  gleich(a.status, 'ok', 'BIC-Rest direkt vor der IBAN');
+  a = await pdfXmlAbgleich(await pdf([[...kopf, ...fuss, 'IBAN DE02 1203 0000 0000 2020 52']]), voll);
+  gleich(a.status, 'ok', 'IBAN im Bild mit falscher Prüfziffer zählt nicht');
+
   console.log(`pdfabgleich: ${n} Prüfungen grün`);
 })().catch(e => { console.error(e); process.exit(1); });
