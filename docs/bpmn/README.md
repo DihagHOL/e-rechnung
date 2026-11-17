@@ -75,9 +75,9 @@ beim Speichern im Editor in die Dokumentation der Kollaboration, der Import in d
 Prozesses. Beides muss erhalten bleiben (`procXmlDokuNeu` für den Prozess, die
 Kollaborations-Doku unverändert übernehmen).
 
-Stand im Repo 17.11.2026, noch nicht ins RMS übernommen: Rechnungseingang (S/MIME, Archiv-Mail als Regel, Dublette und Mahnung, andere IBAN vor der Zahlung, Vier-Augen mit zwei Personen, Rückfrage und Zurückweisung markieren), Eingangsprüfung (Abgleich mit Empfänger, Ort, Datum, IBAN, Prüfdienst nicht erreichbar, lesbares PDF bei gelb), Nebendateien, Freigabe (offene Punkte vor der Anforderung), Rechnungsausgang (keine Mail ohne Ablage), Prüfen und erzeugen (Reihenfolge und Rückfragen), Zahlungsausgang (Download bei rot nur nach Rückfrage). Vor dem Hochladen die RMS-Fassung lesen und vergleichen (siehe oben).
+Letzte Übernahme: 17.11.2026 abends (RMS seit 11.11. unverändert, RMS-Angaben übernommen): Rechnungseingang v0.14 (S/MIME, Archiv-Mail als Regel, Dublette und Mahnung, andere IBAN vor der Zahlung, Vier-Augen mit zwei Personen, Rückfrage und Zurückweisung markieren), Eingangsprüfung v0.9 (Abgleich mit Empfänger, Ort, Datum, IBAN, Prüfdienst nicht erreichbar, lesbares PDF bei gelb), Nebendateien v0.6, Eingangsrechnung freigeben v0.4 (offene Punkte vor der Anforderung), Rechnungsausgang v0.11 (keine Mail ohne Ablage), Prüfen und erzeugen v0.8 (Reihenfolge und Rückfragen), Zahlungsausgang v0.6 (Download bei rot nur nach Rückfrage).
 
-Letzte Übernahme: 11.11.2026, Rechnungsausgang v0.10, Erkennen und erfassen v0.7, Prüfen und erzeugen v0.7
+Davor: 11.11.2026, Rechnungsausgang v0.10, Erkennen und erfassen v0.7, Prüfen und erzeugen v0.7
 (Stammdaten komplett gesperrt, harte Prüfung gegen das Werk, Notiz zum ZUGFeRD-PDF aus dem eigenen Original).
 
 Davor: 05.11.2026 abends, Rechnungseingang v0.13 (ohne Fehler-Mail) und Eingangsprüfung
