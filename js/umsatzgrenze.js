@@ -31,7 +31,20 @@ const UG = {
   // „Kreditor-Mail senden“ verschickt sie aus dem Postfach des Werks,
   // siehe docs/Kreditor-Mail-Flow.md.
   mailListe: 'KreditorMails',
+  // Ab diesem Tag verschickt das Monitoring Mails an Lieferanten aus dem Werks-Postfach (Denis,
+  // 17.11.2026: erst ab 1.1.). Vorher legt der Dialog keine Mailaufträge an, sonst gingen sie
+  // beim Einschalten des Flows auf einen Schlag raus, mit dem Text von 2026.
+  versandAb: '2027-01-01',
 };
+
+/** Läuft der Versand an Lieferanten schon (UG.versandAb)? heute: JJJJ-MM-TT, sonst das aktuelle Datum. */
+function ugVersandAktiv(heute) {
+  const tag = heute || new Date().toISOString().slice(0, 10);
+  return tag >= UG.versandAb;
+}
+
+/** Status eines Mailauftrags, der nicht beim Lieferanten angekommen ist oder ankommen wird. */
+const UG_MAIL_NICHT = ['Fehler', 'Verworfen'];
 
 /** Art des Mailauftrags je Vorlage (Spalte Art der Liste KreditorMails). */
 const UG_MAIL_ART = {
@@ -351,7 +364,7 @@ function ugFuer(r) {
  * oder E-Rechnung ohne Mail.
  */
 function ugInformiert(r) {
-  const perMail = ugMailsFuer(r).some(m => m.status !== 'Fehler');
+  const perMail = ugMailsFuer(r).some(m => !UG_MAIL_NICHT.includes(m.status));
   if (!ugSonstige(r)) return perMail ? 'Ja' : '';
   if (ugKleinbetrag(r) || ugAusland(r)) return '';
   if (perMail) return 'Ja';
@@ -741,7 +754,7 @@ function ugMailsFuer(r) {
 
 /** Kann der Dialog aus dem Werks-Postfach senden? (Liste vorhanden, echtes Werk) */
 function ugKannSenden(r) {
-  return !!_ug.mailListId && /^[A-Z]{2,4}$/.test(String(r.werk || ''));
+  return ugVersandAktiv() && !!_ug.mailListId && /^[A-Z]{2,4}$/.test(String(r.werk || ''));
 }
 
 /** Mailauftrag anlegen. Der Flow „Kreditor-Mail senden“ verschickt ihn und setzt den Status. */
@@ -784,6 +797,7 @@ function _ugMailStand(m) {
   if (!m) return '';
   if (m.status === 'Gesendet') return `Mail an ${m.an} gesendet${m.gesendetAm ? ' am ' + _monDate(m.gesendetAm) : ''}`;
   if (m.status === 'Fehler') return `Versand an ${m.an} fehlgeschlagen${m.fehler ? ': ' + m.fehler : ''}`;
+  if (m.status === 'Verworfen') return `Mail an ${m.an} verworfen, nicht versendet${m.fehler ? ' (' + m.fehler + ')' : ''}`;
   return `Mail an ${m.an} wartet auf den Versand (beauftragt am ${_monDate(m.am)})`;
 }
 
@@ -825,8 +839,8 @@ function ugZelle(r, idx, nurAnzeige) {
   const phase = ugPhase(r.datum);
   const mail = ugMailsFuer(r)[0];
   const mailBadge = mail
-    ? `<div><span class="ug-badge ug-mail-${mail.status === 'Gesendet' ? 'ok' : mail.status === 'Fehler' ? 'fehler' : 'wartet'}" title="${_esc(_ugMailStand(mail))}">`
-      + `${mail.status === 'Gesendet' ? 'Mail gesendet' : mail.status === 'Fehler' ? 'Mail fehlgeschlagen' : 'Mail wartet'}</span></div>`
+    ? `<div><span class="ug-badge ug-mail-${mail.status === 'Gesendet' ? 'ok' : mail.status === 'Fehler' ? 'fehler' : mail.status === 'Verworfen' ? 'verworfen' : 'wartet'}" title="${_esc(_ugMailStand(mail))}">`
+      + `${mail.status === 'Gesendet' ? 'Mail gesendet' : mail.status === 'Fehler' ? 'Mail fehlgeschlagen' : mail.status === 'Verworfen' ? 'Mail verworfen' : 'Mail wartet'}</span></div>`
     : '';
   const vermutet = ugKleinVermutet(r)
     ? '<div><span class="ug-badge ug-klein" title="Gelesener Betrag bis 250 € brutto, im Dialog bestätigen">bis 250 € gelesen</span></div>' : '';
@@ -975,6 +989,7 @@ function _ugRender() {
         <label class="ug-lbl">Mailtext<textarea id="ug-text" rows="11"></textarea></label>
       </div>
       <p class="ug-hinweis">Kleinbetragsrechnungen bis 250 € brutto und Rechnungen von Kleinunternehmern (§ 19 UStG) sind ausgenommen, dafür ist keine Mail nötig.</p>
+      ${ugVersandAktiv() ? '' : `<p class="ug-hinweis ug-versandstart">Der Versand aus dem Werks-Postfach startet am ${_esc(_monDate(UG.versandAb))}. Bis dahin die Einschätzung speichern oder die Mail selbst in Outlook öffnen.</p>`}
       <p class="ug-meldung" id="ug-meldung" role="status"></p>
       <div class="ug-aktionen">
         <button type="button" class="ug-sek" data-ug-kopie disabled>Text kopieren</button>
@@ -1454,7 +1469,7 @@ async function _ugAbschliessen(modus) {
   const dlg = document.getElementById('ug-dialog');
   if (modus === 'senden') {
     const an = String(a.an || '').trim();
-    const frueher = ugMailsFuer(a.r).find(m => m.status !== 'Fehler');
+    const frueher = ugMailsFuer(a.r).find(m => !UG_MAIL_NICHT.includes(m.status));
     const frage = (frueher ? `Für diese Rechnung gibt es schon eine Mail (${_ugMailStand(frueher)}). ` : '')
       + `Mail an ${an} aus dem Rechnungspostfach des Werks ${a.r.werk} senden?`;
     if (!window.confirm(frage)) return;
@@ -1492,7 +1507,7 @@ async function _ugAbschliessen(modus) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { UG, UG_MAIL_ART, ugKey, ugRechnungKey, ugPhase, ugSonstige, ugKleinbetrag, ugKleinVermutet, ugSummenStimmig, ugOffeneLieferanten,
+  module.exports = { UG, UG_MAIL_ART, ugVersandAktiv, ugKannSenden, _ugMailStand, ugKey, ugRechnungKey, ugPhase, ugSonstige, ugKleinbetrag, ugKleinVermutet, ugSummenStimmig, ugOffeneLieferanten,
     ugSammelSetzen, ugSammelKlein, ugBraucht, ugDialogMoeglich, ugZelle, ugFolge, ugVorlage,
     ugMailOk, ugMailHtml, ugInformiert, ugSpeichern, ugBestaetigen, ugLieferantFuer, ugLieferantMerken, ugLieferantName,
     ugMitXml, ugFuer, ugLaden, ugKleinBestaetigt, ugAusland, ugGeprueft, ugRechnungSetzen, ugAuslandSetzen, ugNummerSpeichern,

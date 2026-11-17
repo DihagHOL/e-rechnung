@@ -96,6 +96,14 @@ for (const art of ['ueber-ruecksendung', 'bis-akzeptanz', 'ueber-ankuendigen', '
   ok(ug.ugInformiert(c) === 'Ja', 'Mail ueber den Flow = Ja');
   ug._ug.mails[ug.ugRechnungKey(c)] = [{ status: 'Fehler' }];
   ok(ug.ugInformiert(c) === '', 'fehlgeschlagene Mail zaehlt nicht');
+  ug._ug.mails[ug.ugRechnungKey(c)] = [{ status: 'Verworfen', an: 'rechnung@lieferant.example', fehler: 'vor dem Versandstart angelegt' }];
+  ok(ug.ugInformiert(c) === '' && /verworfen, nicht versendet \(vor dem Versandstart/.test(ug._ugMailStand(ug._ug.mails[ug.ugRechnungKey(c)][0])),
+    'verworfene Mail zaehlt nicht und heisst so');
+  // Versand an Lieferanten erst ab UG.versandAb (Denis: erst ab 1.1.)
+  ok(ug.UG.versandAb === '2027-01-01' && !ug.ugVersandAktiv('2026-12-31') && ug.ugVersandAktiv('2027-01-01'), 'Versandstart 1.1.2027');
+  ug._ug.mailListId = 'L-Mails';
+  ok(ug.ugKannSenden({ werk: 'DSO' }) === ug.ugVersandAktiv(), 'Dialog bietet Senden erst ab dem Versandstart an');
+  delete ug._ug.mailListId;
   ok(ug.ugInformiert(klein) === '', 'Kleinbetrag braucht keine Info');
   ok(ug.ugInformiert(pdf('RE-5', { formatmangel: false })) === '', 'E-Rechnung braucht keine Info');
   const xml = pdf('RE-6', { formatmangel: false });

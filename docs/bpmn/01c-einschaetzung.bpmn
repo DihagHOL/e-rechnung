@@ -57,7 +57,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:association id="Assoc_EN8_aus" associationDirection="None" sourceRef="E8_aus" targetRef="EN8_aus" />
       <bpmn:textAnnotation id="EN8_vorl"><bpmn:text>Rechnungsjahr 2026: Ankündigung oder Hinweis. 2027: über 800.000 € Variante 1 (Rücksendung), bis 800.000 € Variante 2 (Akzeptanz). Ab 2028 gilt die Pflicht für alle.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_EN8_vorl" associationDirection="None" sourceRef="E8_mail" targetRef="EN8_vorl" />
-      <bpmn:textAnnotation id="EN8_send"><bpmn:text>Flow „Kreditor-Mail senden“. Das Postfach je Werk steht im Flow, nicht in der Liste.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="EN8_send"><bpmn:text>Flow „Kreditor-Mail senden“, erst ab 1.1.2027 an. Bis dahin legt der Dialog keine Aufträge an. Das Postfach je Werk steht im Flow.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_EN8_send" associationDirection="None" sourceRef="E8_send" targetRef="EN8_send" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="Diagram_einschaetzung">

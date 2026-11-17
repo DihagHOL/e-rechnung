@@ -7,6 +7,16 @@ ohne Outlook direkt aus dem Rechnungspostfach des Werks an den Lieferanten.
 
 Klick für Klick, mit dem Ablauf in der Buchhaltung: [Lieferanten-Mails-Anleitung.md](Lieferanten-Mails-Anleitung.md)
 
+> **Versandstart 1.1.2027** (Denis, 17.11.2026): Vorher gehen keine Mails an Lieferanten.
+> Der Flow „Kreditor-Mail senden“ bleibt aus, und der Schalter „Lieferantenmails“ steht in allen
+> Eingangs-Flows auf „aus“. Der 800k-Dialog legt bis dahin keine Mailaufträge an (`UG.versandAb`
+> in js/umsatzgrenze.js) und sagt das im Dialog. Speichern und „In Outlook öffnen“ gehen weiter.
+> Am 17.11.2026 standen drei Aufträge aus dem Dialog auf „Wartet“ (DSO, angelegt 10. und 11.11.).
+> Sie stehen jetzt auf **„Verworfen“** (neuer Wert der Status-Spalte), damit der Auslöser sie beim
+> Einschalten nicht nachholt. Das Monitoring zeigt sie als „Mail verworfen“, sie zählen nicht als
+> „Lieferant informiert“. **Vor dem Einschalten** in KreditorMails prüfen, dass nichts mehr auf
+> „Wartet“ steht.
+
 ## So läuft es
 
 ```

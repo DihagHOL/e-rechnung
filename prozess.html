@@ -353,7 +353,7 @@
             <li><span class="chip a-mensch">Buchhaltung</span>prüft den Lieferanten und bestätigt ihn. Bestätigte Lieferanten tragen in der Tabelle ein grünes ✓. Über „800k je Lieferant“ gilt eine Entscheidung für alle offenen Rechnungen des Lieferanten.</li>
             <li><span class="chip a-mensch">Buchhaltung</span>bestätigt einen Kleinbetrag bis 250 € brutto oder einen Lieferanten im Ausland. Dann braucht es keine E-Rechnung und keine Mail.</li>
             <li><span class="chip a-mensch">Buchhaltung</span>schätzt sonst den Vorjahresumsatz des Lieferanten ein, über oder bis 800.000 €. Das Monitoring schlägt die passende Vorlage vor.</li>
-            <li><span class="chip a-mensch">Buchhaltung</span>prüft die Mail und wählt „Speichern und senden“. Der Auftrag landet in der Liste KreditorMails.</li>
+            <li><span class="chip a-mensch">Buchhaltung</span>prüft die Mail. Ab 1.1.2027 wählt sie „Speichern und senden“, der Auftrag landet in der Liste KreditorMails. Bis dahin speichert sie die Einschätzung oder öffnet die Mail selbst in Outlook.</li>
             <li><span class="chip a-auto">Power Automate</span>schickt die Mail aus dem Postfach des Werks. An der Rechnung steht danach „Lieferant informiert“.</li>
           </ol>
         </div>
@@ -526,8 +526,8 @@
       </div>
       <div class="card-body">
         <ul class="status-list">
-          <li><span class="status-dot dot-live"></span><span><strong>Live:</strong> Rechnungseingang je Werk (WGC, SHB, ZAI, HOL, LEG, EWA) über Power Automate mit Prüfdienst, Regelwerk und Ablage. WGC übergibt über die Eingangsrechnungsliste, die anderen über die Archiv-Mail.</span></li>
-          <li><span class="status-dot dot-live"></span><span><strong>Live:</strong> Monitoring mit Einschätzung sonstiger Rechnungen, Mails an Lieferanten aus dem Werks-Postfach, Freigabe per Genehmigungs-Flow und den Rollen FIBU und Vertrieb.</span></li>
+          <li><span class="status-dot dot-live"></span><span><strong>Live:</strong> Rechnungseingang je Werk über Power Automate mit Prüfdienst, Regelwerk und Ablage. WGC, SHB, DSO und MEG arbeiten nur im Monitoring, ZAI, HOL, LEG und EWA bekommen zusätzlich die Archiv-Mail.</span></li>
+          <li><span class="status-dot dot-live"></span><span><strong>Live:</strong> Monitoring mit Einschätzung sonstiger Rechnungen, Freigabe per Genehmigungs-Flow und den Rollen FIBU und Vertrieb. Mails an Lieferanten aus dem Werks-Postfach sind eingebaut und starten am 1.1.2027.</span></li>
           <li><span class="status-dot dot-live"></span><span><strong>Live:</strong> Konverter für Ausgangsrechnungen (WGC, SHB, ZAI, EIS, EWA, LEG, MEG) und manuelle Rechnungen aus Vorlagen (HOL, EIS), mit Vorab- und Selbstprüfung, Ablage und Mail-Entwurf.</span></li>
           <li><span class="status-dot dot-live"></span><span><strong>Live:</strong> MC-Converter für SEPA und Auslandszahlungen (DTAZV zu AXZ) mit Preflight.</span></li>
           <li><span class="status-dot dot-plan"></span><span><strong>Geplant:</strong> Mails an Lieferanten bei Zurückweisung und Abweichung direkt aus dem Eingangs-Flow (Schalter steht noch auf aus).</span></li>

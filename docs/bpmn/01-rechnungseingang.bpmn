@@ -108,7 +108,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:sequenceFlow id="Flow_D_kred_E_kred" sourceRef="D_kred" targetRef="E_kred" />
       <bpmn:textAnnotation id="N_arch"><bpmn:text>ZAI, HOL, LEG, EWA. Schleifenschutz: Die eigene Archiv-Mail kommt hier wieder an und wird nur einsortiert. In diesem Ordner arbeitet die Buchhaltung.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_arch" associationDirection="None" sourceRef="A_move" targetRef="N_arch" />
-      <bpmn:textAnnotation id="N_lief"><bpmn:text>Bei Zurückweisung oder Abweichung. Empfänger aus der E-Rechnung. Der Schalter „Lieferantenmails“ steht noch auf aus.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="N_lief"><bpmn:text>Bei Zurückweisung oder Abweichung. Empfänger aus der E-Rechnung. Der Schalter „Lieferantenmails“ steht bis zum 1.1.2027 auf aus.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_lief" associationDirection="None" sourceRef="A_liefMail" targetRef="N_lief" />
       <bpmn:textAnnotation id="N_archSend"><bpmn:text>HOL, LEG, EWA: eine Archiv-Mail je E-Rechnung, die übrigen PDFs der Mail kommen mit. ZAI noch je Anhang. Die Originalmail bleibt im Posteingang.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_archSend" associationDirection="None" sourceRef="A_archSend" targetRef="N_archSend" />
