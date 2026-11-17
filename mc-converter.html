@@ -7,6 +7,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MC-Converter (SEPA pain.001 und DTAZV) | E-Rechnung Konverter | DIHAG</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧾</text></svg>">
+  <!-- Vorladen: Die Sicherheitsrichtlinie oben schaltet in Chrome das vorausschauende Laden ab.
+       Ohne diese Hinweise holt der Browser die Skripte am Seitenende einzeln nacheinander.
+       Jede Adresse steht hier aufs Zeichen so wie im Tag weiter unten. -->
+  <link rel="preload" as="style" href="css/style.css?v=82add16281">
+  <link rel="preload" as="script" href="js/vendor/msal-browser.min.js?v=c933092555">
+  <link rel="preload" as="script" href="js/auth.js?v=1bbbff5340">
+  <link rel="preload" as="script" href="js/access.js?v=a2d4117664">
+  <link rel="preload" as="script" href="js/mc-converter.js?v=4fb991d870">
+  <link rel="preload" as="script" href="js/seite-mc-converter.js?v=8f46639d67">
   <link rel="stylesheet" href="css/style.css?v=82add16281">
   <style>
     .mc-options { display:flex; flex-wrap:wrap; gap:18px; margin:16px 0 4px; padding:14px 16px;

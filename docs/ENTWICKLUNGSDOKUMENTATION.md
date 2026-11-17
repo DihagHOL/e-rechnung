@@ -482,7 +482,7 @@ Entwicklung (lokal)
   git push origin master
        │
        ▼
-  GitHub Pages Build (automatisch, ~2 Minuten)
+  GitHub Actions: Prüfung, dann Veröffentlichung (automatisch, ~3 Minuten)
        │
        ▼
   https://e-rechnung.dihag-extern.com/
@@ -494,6 +494,17 @@ Vor jedem Commit mit Änderungen an `js/` oder `css/`: `node scripts/cache-versi
 Einbindung in den HTML-Seiten die Prüfsumme der Datei an (`js/app.js?v=…`). GitHub Pages lässt Dateien bis zu
 10 Minuten im Browser-Cache, mit neuer Adresse holt der Browser eine geänderte Datei sofort. Vergessen fällt auf:
 `node tests/cache-version.test.js` schlägt dann fehl.
+
+Seit dem 16.11.2026 veröffentlicht `.github/workflows/pruefung.yml`: erst alle Tests aus `tests/`, dann lädt der Lauf
+allein die Seiten, `css/`, `js/` und `docs/bpmn` hoch. Ein roter Test hält die Veröffentlichung auf. Die übrige Doku,
+`api/`, die Dienste, `scripts/` und `tests/` stehen nicht mehr unter der Adresse der Seite (im Repository bleiben sie).
+Eine neue Seite oder ein neuer Ordner, den die Seite zur Laufzeit lädt, muss in die Kopierliste des Laufs.
+`node tests/seite.test.mjs` meldet es, wenn etwas fehlt.
+
+Jede Seite trägt im Kopf Vorlade-Hinweise (`<link rel="preload">`) für ihre Skripte und Stylesheets. Die
+Sicherheitsrichtlinie im Seitenkopf schaltet in Chrome das vorausschauende Laden ab, ohne die Hinweise lädt der
+Browser die Skripte am Seitenende einzeln nacheinander. Kommt ein Skript dazu, braucht es auch einen Hinweis mit
+derselben Adresse. `scripts/cache-version.js` pflegt die Version in Tag und Hinweis gemeinsam.
 
 ### 8.2 Rollback-Verfahren
 

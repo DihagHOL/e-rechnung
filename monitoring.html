@@ -7,6 +7,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Monitoring | E-Rechnung Konverter | DIHAG</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧾</text></svg>">
+  <!-- Vorladen: Die Sicherheitsrichtlinie oben schaltet in Chrome das vorausschauende Laden ab.
+       Ohne diese Hinweise holt der Browser die Skripte am Seitenende einzeln nacheinander.
+       Jede Adresse steht hier aufs Zeichen so wie im Tag weiter unten. -->
+  <link rel="preload" as="style" href="css/style.css?v=82add16281">
+  <link rel="preload" as="script" href="js/vendor/msal-browser.min.js?v=c933092555">
+  <link rel="preload" as="script" href="js/auth.js?v=1bbbff5340">
+  <link rel="preload" as="script" href="js/access.js?v=a2d4117664">
+  <link rel="preload" as="script" href="js/sharepoint.js?v=a622b8f687">
+  <link rel="modulepreload" href="js/pdfjs-laden.mjs?v=d5130719d1">
+  <link rel="preload" as="script" href="js/vendor/tesseract/tesseract.min.js?v=000c27d9cd">
+  <link rel="preload" as="script" href="js/ocr.js?v=ca1f1ec809">
+  <link rel="preload" as="script" href="js/lieferant.js?v=e9bdf13c40">
+  <link rel="preload" as="script" href="js/umsatzgrenze.js?v=f5d16fe097">
+  <link rel="preload" as="script" href="js/bearbeitung.js?v=0c4aff4c9f">
+  <link rel="preload" as="script" href="js/monitoring.js?v=16ee9dc658">
+  <link rel="preload" as="script" href="js/seite-monitoring.js?v=5831e85eeb">
   <link rel="stylesheet" href="css/style.css?v=82add16281">
   <style>
     .mon-header { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px; margin-bottom:18px; }

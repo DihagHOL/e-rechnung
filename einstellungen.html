@@ -7,6 +7,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Einstellungen | E-Rechnung Konverter | DIHAG</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧾</text></svg>">
+  <!-- Vorladen: Die Sicherheitsrichtlinie oben schaltet in Chrome das vorausschauende Laden ab.
+       Ohne diese Hinweise holt der Browser die Skripte am Seitenende einzeln nacheinander.
+       Jede Adresse steht hier aufs Zeichen so wie im Tag weiter unten. -->
+  <link rel="preload" as="style" href="css/style.css?v=82add16281">
+  <link rel="preload" as="script" href="js/vendor/msal-browser.min.js?v=c933092555">
+  <link rel="preload" as="script" href="js/auth.js?v=1bbbff5340">
+  <link rel="preload" as="script" href="js/access.js?v=a2d4117664">
+  <link rel="preload" as="script" href="js/sharepoint.js?v=a622b8f687">
+  <link rel="preload" as="script" href="js/kundenmail.js?v=310eebf2d8">
+  <link rel="preload" as="script" href="js/seite-einstellungen.js?v=92f9ee1818">
   <link rel="stylesheet" href="css/style.css?v=82add16281">
   <style>
     .werk-add-row { margin-top:14px; max-width:520px; }

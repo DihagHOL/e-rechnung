@@ -1,0 +1,93 @@
+# Prüfung und Veröffentlichung.
+#
+# Prüfung: alle Tests aus tests/ (Parser, Konverter, API, Monitoring), die Dienste-Tests in
+# Python und die Verdrahtung der Seite (tests/seite.test.mjs). Läuft bei jedem Push und bei
+# Pull Requests. Die Konformitätsprüfung mit KoSIT und veraPDF bleibt in validate.yml.
+#
+# Veröffentlichung: nur für master und nur nach grüner Prüfung. Ein roter Lauf hält sie auf,
+# die Seite bleibt dann auf dem letzten guten Stand. Hochgeladen werden allein die Seiten,
+# css/, js/ und die Prozessmodelle (docs/bpmn). Die übrige Doku, die API, die Dienste, Skripte
+# und Tests bleiben im Repository. Bis zum 16.11.2026 lieferte GitHub Pages das ganze
+# Repository ungeprüft aus. Das Repository ändert der Lauf nicht.
+name: Prüfung
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch: {}   # manueller Lauf über den Actions-Tab, veröffentlicht master neu
+
+# Nur lesen: Der Lauf braucht keine Schreibrechte am Repository.
+permissions:
+  contents: read
+
+jobs:
+  pruefung:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0, auf den Commit festgelegt
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
+        with:
+          node-version: "20"
+
+      # npm ci: Das Lockfile entscheidet, welche Pakete kommen. sync.js legt die Konverter aus js/
+      # nach api/vendor, damit die Tests denselben Code prüfen, den die Function ausführt.
+      - name: Abhängigkeiten der API
+        run: |
+          npm ci --prefix api --no-audit --no-fund
+          node api/scripts/sync.js
+
+      - name: Tests
+        run: |
+          fehler=0
+          for t in tests/*.test.js; do
+            if node "$t" > lauf.log 2>&1; then
+              echo "  ok   $t"
+            else
+              echo "  ROT  $t"; cat lauf.log; fehler=1
+            fi
+          done
+          exit $fehler
+
+      - name: Verdrahtung der Seite (Vorlade-Hinweise, Veröffentlichung)
+        run: node tests/seite.test.mjs
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065   # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Dienste (KoSIT-Wächter, Mustang-Wrapper) mit Attrappen
+        run: python tests/dienste_test.py
+
+  veroeffentlichen:
+    needs: pruefung
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    # Nur dieser Job darf veröffentlichen, und nur das.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    # Zwei Pushes kurz nacheinander: nacheinander veröffentlichen, keinen Lauf abbrechen.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+
+      # Nur was die Seite braucht. Von docs/ nur die Prozessmodelle, die prozess.html lädt.
+      - name: Dateien der Seite zusammenstellen
+        run: |
+          mkdir -p _site/docs
+          cp -r index.html einstellungen.html mc-converter.html monitoring.html prozess.html verlauf.html xml-zu-pdf.html CNAME css js _site/
+          cp -r docs/bpmn _site/docs/
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9   # v5.0.0
+        with:
+          path: _site
+
+      - name: Veröffentlichen
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346   # v5.0.1
