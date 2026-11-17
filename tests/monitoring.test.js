@@ -243,8 +243,36 @@ M._monMarkDupes(paar);
 gleich([paar[0].dublette, paar[1].dublette], [false, false], 'Rechnung und Mahnung mit gleicher Nummer sind keine Dubletten');
 
 // Rückfrage: Der Grund steht auch bei grünem Ergebnis in den Details
-gleich(M._monHinweis({ konform: 'Gelb - Warnungen', meldung: 'Materielle Abweichung Sichtbild ↔ XML: IBAN anders. Gebucht wird aus der XML. | Warnungen: [BR-DE-21] x', rueckfrage: true }),
-  'Materielle Abweichung Sichtbild ↔ XML: IBAN anders. Gebucht wird aus der XML.', 'Rückfrage: Grund aus dem Abgleich vor den Regelcodes');
+gleich(M._monHinweis({ konform: 'Gelb - Warnungen', meldung: 'Materielle Abweichung Sichtbild ↔ XML: Bruttobetrag 119,00 € steht nicht im Sichtbild. Gebucht wird aus der XML. | Warnungen: [BR-DE-21] x', rueckfrage: true }),
+  'Materielle Abweichung Sichtbild ↔ XML: Bruttobetrag 119,00 € steht nicht im Sichtbild. Gebucht wird aus der XML.', 'Rückfrage: Grund aus dem Abgleich vor den Regelcodes');
+
+// Andere IBAN im PDF: vor der Zahlung klären, nie „aus der XML buchen“ (alter und neuer Text)
+const ibanAlt = { konform: 'Gruen - KoSIT ok', rueckfrage: true,
+  meldung: 'Materielle Abweichung Sichtbild ↔ XML: IBAN DE89 3704 0044 0532 0130 00 aus der XML steht nicht im Sichtbild, dort steht DE02 1203 0000 0000 2020 51. Gebucht wird aus der XML.' };
+gleich([M._monBankKlaeren(ibanAlt), /Gebucht wird aus der XML/.test(M._monHinweis(ibanAlt)), /bekannte Telefonnummer/.test(M._monHinweis(ibanAlt))],
+  [true, false, true], 'alter IBAN-Text: vor der Zahlung klären');
+const ibanNeu = { konform: 'Gelb - Warnungen', rueckfrage: true,
+  meldung: 'Bankverbindung vor der Zahlung klären: IBAN in der XML DE89 3704 0044 0532 0130 00, im PDF DE02 1203 0000 0000 2020 51. Beim Lieferanten über eine bekannte Telefonnummer bestätigen. | Warnungen: [BR-DE-21] x' };
+gleich([M._monBankKlaeren(ibanNeu), M._monHinweis(ibanNeu).startsWith('Bankverbindung vor der Zahlung klären')], [true, true], 'neuer IBAN-Text');
+gleich(M._monBankKlaeren({ rueckfrage: true, meldung: 'Materielle Abweichung Sichtbild ↔ XML: Bruttobetrag 1,00 € steht nicht im Sichtbild.' }), false, 'andere Abweichung ist kein IBAN-Fall');
+gleich(M._monBankKlaeren(Object.assign({}, ibanAlt, { rueckfrage: false })), false, 'ohne Rückfrage-Flag kein IBAN-Fall');
+
+// Buchungsweg einheitlich, ältere Hinweistexte in heutiger Fassung
+gleich(['automatik', 'unter_vorbehalt', 'Manuell', 'Zurueckgewiesen', 'zurückgewiesen', '', null].map(M._monBuchungText),
+  ['Automatik', 'Unter Vorbehalt', 'Manuell', 'Zurückgewiesen', 'Zurückgewiesen', '', ''], 'Buchungsweg');
+gleich(M._monAlterText('Keine E-Rechnungs-XML eingebettet. Als sonstige Rechnung unter Vorbehalt gebucht, Berichtigung angefordert (UStAE 14.1 Abs. 2, 15.2a Abs. 1a).'),
+  'Keine E-Rechnungs-XML eingebettet. Buchungsweg unter Vorbehalt, Einschätzung im Monitoring offen (UStAE 14.1 Abs. 2, 15.2a Abs. 1a).', 'sonstige Rechnung: nichts gebucht');
+gleich(M._monAlterText('Reverse-Charge (§13b UStG) — manuelle Pruefung (Vier-Augen) erforderlich.'), 'Reverse-Charge (§13b UStG): Vier-Augen-Prüfung erforderlich.', 'Vier-Augen-Text');
+gleich(M._monAlterText('PDF/A-3 fehlt — als sonstige Rechnung unter Vorbehalt gebucht, Berichtigung angefordert.'),
+  'PDF/A-3 fehlerhaft, zählt als sonstige Rechnung. Buchungsweg unter Vorbehalt, Einschätzung im Monitoring offen.', 'PDF/A-Text');
+
+// Prüfdienst nicht erreichbar: Fehler, unter Vorbehalt, Hinweis
+const offen = datei('R-9_DE123456789.pdf', { Format: 'ZUGFeRD', Konformitaet: 'Ungeprueft', Buchung: 'Automatik', Verarbeitungsstatus: 'Validiert', Title: 'R-9' });
+const [offenZ] = M._monGroup([offen]);
+gleich([M._monPruefungOffen(offenZ), M._monMatchFlag(offenZ, 'fehler'), offenZ.buchung, offenZ.buchungAlt, /^Prüfung nicht gelaufen/.test(M._monHinweis(offenZ))],
+  [true, true, 'Unter Vorbehalt', 'Automatik', true], 'ungeprüfte E-Rechnung');
+gleich(M._monPruefungOffen(datei('scan.pdf', { Format: 'PDF', Konformitaet: 'Ungeprueft' })), false, 'PDF ohne E-Rechnung ist kein Fall');
+gleich(M._monPruefungOffen(datei('R-10.pdf', { Format: 'ZUGFeRD', Konformitaet: 'Ungeprueft', ValidierungsMeldung: 'Prüfung nicht gelaufen (Prüfdienst nicht erreichbar).' })), true, 'neuer Text');
 gleich(M._monHinweis({ konform: 'Gelb - Warnungen', meldung: 'Warnungen: [BR-DE-21] x', rueckfrage: false }), 'Verstoß gegen EN16931-Geschäftsregeln.', 'ohne Rückfrage wie bisher');
 gleich(M._monHinweis({ konform: 'Gruen - KoSIT ok', meldung: 'Materielle Abweichung', rueckfrage: true }), 'Materielle Abweichung', 'Grund der Rückfrage');
 gleich(M._monHinweis({ konform: 'Gruen - KoSIT ok', meldung: 'Sonstiges' }), '', 'grün ohne Rückfrage ohne Hinweis');
@@ -267,6 +295,52 @@ M._monFilter.richtung = 'Ausgang';
 gleich(_hatGeprueft(), false, 'Filter Ausgang: Spalte weg');
 M._monFilter.richtung = '';
 delete global.ugGeprueft;
+
+// Vier-Augen und Erledigt: Warteschlangen zählen nur Offenes (Register als Attrappe)
+const reg = {};
+Object.assign(global, {
+  ugGeprueft: r => (reg[r.nummer] || {}).geprueft || null,
+  ugZweitpruefung: r => (reg[r.nummer] || {}).geprueft2 || null,
+  ugErledigt: (r, art) => (reg[r.nummer] || {})[{ rueckfrage: 'rueckfrageGestellt', zurueckweisung: 'zurueckweisungGesendet' }[art]] || null,
+  ugMailsFuer: r => (reg[r.nummer] || {}).mails || [],
+  ugRechnungSetzen: async () => {},
+  getAuthUser: () => ({ username: 'erste@firma.example', name: 'Erika Erste' }),
+});
+const rc = { nummer: 'RC-1', richtung: 'Eingang', manuellePruefung: true, manuellePruefungGrund: 'Reverse-Charge (§13b UStG)', buchung: 'Manuell' };
+gleich([M._monVierAugen(rc), M._monMatchFlag(rc, 'manuell')], [true, true], 'Reverse-Charge: Vier-Augen offen');
+reg['RC-1'] = { geprueft: { am: '2026-11-17T08:00:00Z', von: 'erste@firma.example', vonName: 'Erika Erste' } };
+gleich([M._monPruefStand(rc).fertig, M._monMatchFlag(rc, 'manuell')], [false, true], 'eine Prüfung reicht nicht');
+let zelle = M._monZelle('geprueft', rc, 0);
+gleich([/1 von 2/.test(zelle), /data-geprueft2="0" disabled/.test(zelle)], [true, true], 'Zweitprüfung nicht durch dieselbe Person');
+reg['RC-1'].geprueft2 = { am: '2026-11-17T09:00:00Z', von: 'zweite@firma.example', vonName: 'Zora Zweite' };
+gleich([M._monPruefStand(rc).fertig, M._monMatchFlag(rc, 'manuell'), /2 von 2/.test(M._monZelle('geprueft', rc, 0))], [true, false, true], 'zwei Personen: erledigt');
+const normal = { nummer: 'N-1', richtung: 'Eingang', buchung: 'Automatik' };
+reg['N-1'] = { geprueft: { am: '2026-11-17T08:00:00Z', von: 'erste@firma.example' } };
+gleich([M._monVierAugen(normal), M._monPruefStand(normal).fertig, /✓ Geprüft</.test(M._monZelle('geprueft', normal, 1))], [false, true, true], 'ohne Vier-Augen eine Prüfung');
+
+const rf = Object.assign({ nummer: 'RF-1', richtung: 'Eingang', buchung: 'Automatik', konform: 'Gruen - KoSIT ok' }, ibanAlt);
+gleich([M._monMatchFlag(rf, 'rueckfrage'), /IBAN bestätigt/.test(M._monErledigtZelle(rf, 2))], [true, true], 'IBAN offen, Knopf „IBAN bestätigt“');
+reg['RF-1'] = { rueckfrageGestellt: { am: '2026-11-17T10:00:00Z', von: 'erste@firma.example', vonName: 'Erika Erste' } };
+gleich([M._monMatchFlag(rf, 'rueckfrage'), /✓ IBAN bestätigt · EE/.test(M._monErledigtZelle(rf, 2))], [false, true], 'IBAN bestätigt: nicht mehr offen');
+
+const zw = { nummer: 'ZW-1', richtung: 'Eingang', buchung: 'Zurueckgewiesen' };
+gleich([M._monMatchFlag(zw, 'zurueck'), /Zurückweisung gesendet/.test(M._monErledigtZelle(zw, 3))], [true, true], 'Zurückweisung offen');
+reg['ZW-1'] = { mails: [{ art: 'Zurueckweisung', status: 'Gesendet', gesendetAm: '2026-11-17T11:00:00Z' }] };
+gleich([M._monMatchFlag(zw, 'zurueck'), !!M._monErledigt(zw, 'zurueckweisung').perMail, /data-erledigt/.test(M._monErledigtZelle(zw, 3))],
+  [false, true, false], 'vom Flow gesendet zählt, ohne Knopf');
+gleich(M._monErledigtZelle({ nummer: 'A', richtung: 'Ausgang', rueckfrage: true }, 4), '', 'Ausgang ohne Knöpfe');
+// Bearbeiten-Dialog: offene Punkte vor Genehmigung und Buchung (js/bearbeitung.js)
+const monFn = ['_monPruefungOffen', '_monErledigt', '_monBankKlaeren', '_monHinweis', '_monGeprueftMoeglich', '_monPruefStand', '_monVierAugen'];
+for (const k of monFn) global[k] = M[k];
+gleich(B.bhWarnungen(Object.assign({}, rc)), [], 'Vier-Augen fertig: nichts offen');
+delete reg['RC-1'].geprueft2;
+gleich(B.bhWarnungen(rc), ['Vier-Augen-Prüfung (Reverse-Charge (§13b UStG)) nicht abgeschlossen, 1 von 2 Prüfungen.'], 'Vier-Augen halb');
+const allesOffen = Object.assign({ nummer: 'X-1', richtung: 'Eingang', buchung: 'Automatik', dublette: true, dubletteInfo: 'gleiche Nummer wie X-1 vom 03.11.2026' }, ibanAlt);
+const w = B.bhWarnungen(allesOffen);
+gleich([w.length, /^Dublette: gleiche Nummer/.test(w[0]), /^Bankverbindung vor der Zahlung klären/.test(w[1]), w[2]], [3, true, true, 'Noch nicht als geprüft markiert.'], 'Dublette, IBAN, nicht geprüft');
+gleich(B.bhWarnungen({ nummer: 'A-1', richtung: 'Ausgang', dublette: true }), [], 'Ausgang: keine Warnungen');
+for (const k of monFn) delete global[k];
+for (const k of ['ugGeprueft', 'ugZweitpruefung', 'ugErledigt', 'ugMailsFuer', 'ugRechnungSetzen', 'getAuthUser']) delete global[k];
 
 // Fehlermeldung nur mit Zeilenumbruch (WGC-Flow) ist keine Meldung, zählt nicht unter „Fehler / rot“
 gleich(datei('x.pdf', { Fehlermeldung: '\n', Konformitaet: 'Gruen' }).fehler, '', 'Zeilenumbruch als Fehlermeldung');

@@ -202,10 +202,10 @@ async function autoFillFromPDF() {
       if (typeof ocrCollectItems !== 'function') {
         _stammdatenEinsetzen(v('gesellschaft'));
         showLoading(false);
-        showToast('Gescanntes PDF erkannt — Texterkennung nicht verfügbar. Bitte Felder manuell ausfüllen.', 'info');
+        showToast('Gescanntes PDF erkannt, die Texterkennung ist nicht verfügbar. Bitte die Felder von Hand ausfüllen.', 'info');
         return;
       }
-      showLoading(true, 'Gescanntes PDF — Texterkennung (OCR) läuft…');
+      showLoading(true, 'Gescanntes PDF, Texterkennung (OCR) läuft…');
       items = await ocrCollectItems(pdfDocument, prog => {
         const pct = prog.status === 'recognizing' ? ` ${Math.round(prog.progress * 100)} %` : '';
         showLoading(true, `Texterkennung (OCR) – Seite ${prog.page}/${prog.total}${pct}`);
@@ -252,7 +252,7 @@ async function autoFillFromPDF() {
         'success'
       );
     } else {
-      showToast('Keine Daten automatisch erkannt — bitte manuell ausfüllen.', 'info');
+      showToast('Keine Daten automatisch erkannt, bitte von Hand ausfüllen.', 'info');
     }
   } catch (err) {
     showLoading(false);
@@ -1090,18 +1090,27 @@ async function exportInvoice(format) {
     return;
   }
 
-  if (!_ausgangRueckfragen(data)) return;
-  // Manuelle Rechnung: Rechnungsnummer schon im Monitoring vergeben? (js/vorlagen.js)
-  if (typeof vorlagenVorExport === 'function' && !(await vorlagenVorExport(data))) return;
-
-  // (Punkt 7 der UStAE/GoBD-Einordnung: Auslandskreditor ohne Leitweg als XRechnung
-  //  ist zulässig — konkludente Zustimmung, keine Rückfrage nötig. Daher KEIN
-  //  Sonder-Check hier.)
-
-  // #2/#3/#4: Plausibilitäts- und PDF↔XML-Prüfung vor dem Erstellen
-  const totals = calcTotals(data.positionen, data.steuerbetrag);
-  if (!_preflightChecks(data, totals)) return;
+  // Reihenfolge wie im Prozess (BPMN „Prüfen und erzeugen“): harte Fehler, dann Warnungen,
+  // dann die Rückfragen, zuletzt der Nummernkreis. Export und Mail prüfen gleich (_vorDemErstellen).
+  // (Punkt 7 der UStAE/GoBD-Einordnung: Auslandskreditor ohne Leitweg als XRechnung ist
+  //  zulässig, konkludente Zustimmung, keine Rückfrage nötig. Daher kein Sonder-Check hier.)
+  const totals = await _vorDemErstellen(data);
+  if (!totals) return;
   return _exportErstellen(data, format, totals);
+}
+
+/**
+ * Prüfungen vor Export und Mail, für beide Wege gleich: #2/#3/#4 Plausibilität und Abgleich mit
+ * dem Original (harte Fehler, dann Warnungen), danach Ausland, Adressen und Nummernkreis.
+ * Gibt die Summen zurück oder null (abgebrochen).
+ */
+async function _vorDemErstellen(data) {
+  const totals = calcTotals(data.positionen, data.steuerbetrag);
+  if (!_preflightChecks(data, totals)) return null;
+  if (!_ausgangRueckfragen(data)) return null;
+  // Manuelle Rechnung: Rechnungsnummer schon im Monitoring vergeben? (js/vorlagen.js)
+  if (typeof vorlagenVorExport === 'function' && !(await vorlagenVorExport(data))) return null;
+  return totals;
 }
 
 /** Ohne zugewiesenes Werk kein Export und keine Mail (sonst landete alles in AR_WGC). */
@@ -1166,7 +1175,7 @@ async function _exportErstellen(data, format, totals) {
     const rt = _verifyEmbeddedXml(xml, data, totals);
     if (rt.length) {
       showLoading(false);
-      showToast('Selbstprüfung fehlgeschlagen — XML weicht von den angezeigten Werten ab: ' + rt.join(', '), 'error');
+      showToast('Selbstprüfung fehlgeschlagen, die XML weicht von den angezeigten Werten ab: ' + rt.join(', '), 'error');
       return;
     }
 
@@ -1186,7 +1195,14 @@ async function _exportErstellen(data, format, totals) {
       downloadText(xml, `${safeNr}_xrechnung.xml`);
     }
 
-    await _imMonitoringAblegen(data, totals, xml, pdfBytes, format, ust);
+    const fehler = await _imMonitoringAblegen(data, totals, xml, pdfBytes, format, ust);
+    if (fehler) {
+      // Die Datei ist schon heruntergeladen. Ohne Ablage fehlt aber das Archiv (GoBD), deshalb
+      // bleibt die Meldung stehen und bietet das Speichern noch einmal an.
+      showToast(`Erstellt, aber nicht im Monitoring gespeichert (${fehler.message}). Bitte erst versenden, `
+        + 'wenn die Rechnung abgelegt ist.', 'error',
+        { text: 'Erneut ablegen', klick: () => _erneutAblegen(data, totals, xml, pdfBytes, format, ust) });
+    }
   } catch (err) {
     showLoading(false);
     console.error(err);
@@ -1194,18 +1210,30 @@ async function _exportErstellen(data, format, totals) {
   }
 }
 
-// Zuletzt abgelegte Rechnung: Mail nach Export legt dieselbe Fassung nicht noch einmal ab
-let _zuletztAbgelegt = '';
+/** Ablage nach einem Fehler wiederholen (Knopf in der Meldung). */
+async function _erneutAblegen(data, totals, xml, pdfBytes, format, ust) {
+  const fehler = await _imMonitoringAblegen(data, totals, xml, pdfBytes, format, ust);
+  if (fehler) {
+    showToast(`Wieder nicht im Monitoring gespeichert (${fehler.message}).`, 'error',
+      { text: 'Erneut ablegen', klick: () => _erneutAblegen(data, totals, xml, pdfBytes, format, ust) });
+  }
+}
+
+// Zuletzt abgelegte Rechnung: Mail nach Export legt dieselbe Fassung nicht noch einmal ab und
+// verschickt genau die abgelegte Datei (sonst bekäme der Kunde eine andere Datei als das Archiv).
+let _zuletztAbgelegt = { fassung: '', pdfBytes: null };
 
 /**
  * Rechnung im Monitoring ablegen (AR_<Werk>), dazu lesbares PDF, Prüfpfad, lokaler
  * Verlauf und gemerkte Rechnungsadresse. Läuft nach Export und nach „Mail erstellen“.
+ * @returns {Promise<Error|null>} null = abgelegt (oder schon abgelegt), sonst der Fehler.
+ *          Die Meldung dazu macht der Aufrufer, weil Export und Mail verschieden weitergehen.
  */
 async function _imMonitoringAblegen(data, totals, xml, pdfBytes, format, ust) {
   const { netTotal, vatTotal, grossTotal } = totals;
   const safeNr = sanitizeFilename(data.rechnungsnummer);
   const fassung = format + '|' + xml;
-  if (fassung === _zuletztAbgelegt) return true;
+  if (fassung === _zuletztAbgelegt.fassung) return null;
   // Manuelle Rechnung: Nummernkreis fortschreiben (js/vorlagen.js), Fehler nur melden
   if (typeof vorlagenNummerVerbraucht === 'function') {
     vorlagenNummerVerbraucht(data).catch(e => console.warn('Nummernkreis nicht gespeichert:', e));
@@ -1247,22 +1275,18 @@ async function _imMonitoringAblegen(data, totals, xml, pdfBytes, format, ust) {
     });
     showLoading(false);
     _kundenMailMerken(data);
-    _zuletztAbgelegt = fassung;
+    _zuletztAbgelegt = { fassung, pdfBytes };
     showToast(
       format === 'zugferd'
         ? `ZUGFeRD PDF erstellt und im Monitoring gespeichert. (${safeNr})`
         : `XRechnung XML erstellt und im Monitoring gespeichert. (${safeNr})`,
       'success'
     );
-    return true;
+    return null;
   } catch (spErr) {
     showLoading(false);
     console.warn('Monitoring save failed:', spErr);
-    showToast(
-      `Erstellt, aber nicht im Monitoring gespeichert: ${spErr.message}`,
-      'info'
-    );
-    return false;
+    return spErr instanceof Error ? spErr : new Error(String(spErr));
   }
 }
 
@@ -1277,7 +1301,6 @@ async function createInvoiceMail() {
     highlightErrors(data);
     return;
   }
-  if (!_ausgangRueckfragen(data)) return;
 
   // Mail-Token möglichst früh holen (frische Nutzer-Geste fürs Consent-Popup).
   // Schlägt fehl, wenn Mail.ReadWrite nicht freigegeben → später .eml-Fallback.
@@ -1288,10 +1311,9 @@ async function createInvoiceMail() {
     console.warn('Mail.ReadWrite nicht verfügbar — .eml-Fallback:', e);
   }
 
-  // #2/#3/#4: gleiche Prüfungen wie beim Export
-  const totals = calcTotals(data.positionen, data.steuerbetrag);
-  if (!_preflightChecks(data, totals)) return;
-  if (typeof vorlagenVorExport === 'function' && !(await vorlagenVorExport(data))) return;
+  // Gleiche Prüfungen in gleicher Reihenfolge wie beim Export
+  const totals = await _vorDemErstellen(data);
+  if (!totals) return;
 
   // Outlook-Tab jetzt öffnen, solange der Klick noch gilt. Nach dem Anlegen des Entwurfs
   // (mehrere Sekunden später) blockt der Browser das neue Fenster als Popup.
@@ -1307,19 +1329,28 @@ async function createInvoiceMail() {
     if (rt.length) {
       _outlookTabSchliessen(outlook);
       showLoading(false);
-      showToast('Selbstprüfung fehlgeschlagen — XML weicht von den angezeigten Werten ab: ' + rt.join(', '), 'error');
+      showToast('Selbstprüfung fehlgeschlagen, die XML weicht von den angezeigten Werten ab: ' + rt.join(', '), 'error');
       return;
     }
 
     const { grossTotal } = totals;
     const safeNr = sanitizeFilename(data.rechnungsnummer);
 
-    const pdfBytes = await _buildZugferdPdf(data, totals, xml);   // #6
+    // USt-IdNr.-Bestätigung wie beim Export ins PDF. Liegt genau diese Fassung schon im Monitoring
+    // (Export vorher), geht genau die abgelegte Datei an den Kunden.
+    const ust = (typeof window.matchingVatCheck === 'function') ? window.matchingVatCheck(data.kaeufervat) : null;
+    const schonAbgelegt = _zuletztAbgelegt.fassung === 'zugferd|' + xml && _zuletztAbgelegt.pdfBytes;
+    const pdfBytes = schonAbgelegt ? _zuletztAbgelegt.pdfBytes : await _buildZugferdPdf(data, totals, xml, ust);   // #6
     const attachments = [{ filename: `${safeNr}_zugferd.pdf`, mime: 'application/pdf', base64: bytesToBase64(pdfBytes) }];
 
-    // Wie beim Export im Monitoring ablegen (GoBD), es sei denn, genau diese Fassung liegt schon dort
-    const ust = (typeof window.matchingVatCheck === 'function') ? window.matchingVatCheck(data.kaeufervat) : null;
-    await _imMonitoringAblegen(data, totals, xml, pdfBytes, 'zugferd', ust);
+    // Erst ablegen (GoBD), dann die Mail (BPMN „Rechnungsausgang“). Scheitert die Ablage, keine Mail.
+    const fehler = await _imMonitoringAblegen(data, totals, xml, pdfBytes, 'zugferd', ust);
+    if (fehler) {
+      _outlookTabSchliessen(outlook);
+      showToast(`Nicht im Monitoring gespeichert (${fehler.message}). Die Mail entsteht erst, wenn die Rechnung `
+        + 'abgelegt ist.', 'error', { text: 'Erneut versuchen', klick: () => createInvoiceMail() });
+      return;
+    }
     showLoading(true, 'Mail wird erstellt …');
 
     const { subject, body } = _mailSubjectBody(data, grossTotal, true);
@@ -1333,7 +1364,7 @@ async function createInvoiceMail() {
         const offen = draft.webLink ? _outlookTabZeigen(outlook, draft.webLink) : (_outlookTabSchliessen(outlook), false);
         const text = `E-Mail-Entwurf in Outlook erstellt (Ordner „Entwürfe").` + (data.kaeufermail ? '' : ' Bitte Empfänger ergänzen.');
         if (offen || !draft.webLink) showToast(text, 'success');
-        else showToast(text + ' Der Browser hat das Outlook-Fenster blockiert.', 'success',
+        else showToast(text + ' Der Browser hat das Outlook-Fenster blockiert.', 'warn',
           { text: 'In Outlook öffnen', klick: () => window.open(draft.webLink, '_blank', 'noopener') });
         return;
       } catch (gErr) {
@@ -1349,8 +1380,8 @@ async function createInvoiceMail() {
     showLoading(false);
     showToast(
       mailToken
-        ? 'Outlook-Direktanlage nicht möglich — .eml-Datei erstellt (per Doppelklick in Outlook öffnen).'
-        : 'E-Mail-Vorlage als .eml erstellt — per Doppelklick in Outlook öffnen (Anhang inklusive).',
+        ? 'Der Entwurf ließ sich nicht direkt in Outlook anlegen. Stattdessen ist eine .eml-Datei entstanden, per Doppelklick öffnet sie sich in Outlook.'
+        : 'E-Mail-Vorlage als .eml erstellt (mit Anhang). Per Doppelklick öffnet sie sich in Outlook.',
       'info'
     );
   } catch (err) {
@@ -1645,7 +1676,7 @@ async function _buildZugferdPdf(data, totals, xml, ust) {
       : p.konform === 'umwandlung'
         ? `Das Original-PDF ließ sich nicht umwandeln (${p.grund})`
         : 'Die PDF/A-Prüfung war nicht erreichbar' + (p.grund ? ` (${p.grund})` : '');
-    showToast(grund + '. Die E-Rechnung wurde deshalb aus den Rechnungsdaten erzeugt, im Standardlayout.', 'info');
+    showToast(grund + '. Die E-Rechnung wurde deshalb aus den Rechnungsdaten erzeugt, im Standardlayout.', 'warn');
   }
   return notfall;
 }
@@ -1753,11 +1784,16 @@ function showLoading(visible, msg = 'Verarbeitung...') {
 }
 
 /** Meldung unten rechts. aktion = { text, klick } fügt einen Knopf an, die Meldung bleibt dann länger stehen. */
+/**
+ * Meldung unten rechts. type: success, info, warn oder error. Fehler bleiben stehen, bis man sie
+ * wegklickt. Die anderen bleiben je nach Länge stehen (toastDauer), mit Knopf mindestens 15 s.
+ */
 function showToast(message, type = 'info', aktion) {
   const container = document.getElementById('toast-container');
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  if (type === 'error' || type === 'warn') toast.setAttribute('role', 'alert');
+  const icons = { success: '✅', error: '❌', info: 'ℹ️', warn: '⚠️' };
   // Meldungen enthalten oft Fehlertexte von außen: nur als Text einsetzen
   const icon = document.createElement('span'); icon.className = 'toast-icon'; icon.textContent = icons[type] || 'ℹ️';
   const text = document.createElement('span'); text.textContent = message;
@@ -1770,11 +1806,27 @@ function showToast(message, type = 'info', aktion) {
     knopf.addEventListener('click', () => { aktion.klick(); toast.remove(); });
     toast.append(knopf);
   }
+  const zu = document.createElement('button');
+  zu.type = 'button';
+  zu.className = 'toast-zu';
+  zu.setAttribute('aria-label', 'Meldung schließen');
+  zu.textContent = '✕';
+  zu.addEventListener('click', () => toast.remove());
+  toast.append(zu);
   container.appendChild(toast);
+  const dauer = toastDauer(message, type, !!aktion);
+  if (!dauer) return;
   setTimeout(() => {
     toast.classList.add('fade-out');
     toast.addEventListener('animationend', () => toast.remove());
-  }, aktion ? 15000 : 4000);
+  }, dauer);
+}
+
+/** Anzeigedauer in ms: 0 = bleibt (Fehler). Sonst 4 s plus 1 s je angefangene 60 Zeichen. */
+function toastDauer(message, type, mitKnopf) {
+  if (type === 'error') return 0;
+  const nachLaenge = 4000 + Math.ceil(String(message || '').length / 60) * 1000;
+  return Math.max(nachLaenge, mitKnopf ? 15000 : 4000);
 }
 
 function formatDE(n) {

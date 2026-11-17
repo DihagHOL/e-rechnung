@@ -4,7 +4,7 @@
     <bpmn:participant id="P_Frei" name="Eingangsrechnung freigeben (Monitoring und Genehmigungs-Flow je Werk)" processRef="Process_ERechnung_Freigabe" />
   </bpmn:collaboration>
   <bpmn:process id="Process_ERechnung_Freigabe" name="E-Rechnung Eingangsrechnung freigeben" isExecutable="false">
-    <bpmn:documentation>Die Kreditorenbuchhaltung trägt im Monitoring Varialnummer, Kontierung und Bestellnummer ein und fordert die Genehmigung an. Ein Flow je Werk schickt die Rechnung mit PDF an den Genehmiger und schreibt die Antwort an die Rechnung. Bei Genehmigung geht auf Wunsch eine Info an den Einkauf, bei Ablehnung eine Mail an den, der angefordert hat. Das ersetzt die Eingangsrechnungslisten auf gruppe_wgc und gruppe_shb. Gilt für WGC und SHB. ZAI, HOL, LEG, EWA, EIS und DSO genehmigen im SAP.
+    <bpmn:documentation>Die Kreditorenbuchhaltung trägt im Monitoring Varialnummer, Kontierung und Bestellnummer ein und fordert die Genehmigung an. Ein Flow je Werk schickt die Rechnung mit PDF an den Genehmiger und schreibt die Antwort an die Rechnung. Bei Genehmigung geht auf Wunsch eine Info an den Einkauf, bei Ablehnung eine Mail an den, der angefordert hat. Das ersetzt die Eingangsrechnungslisten auf gruppe_wgc und gruppe_shb. Gilt für die Werke, die laut Einstellungen im Monitoring genehmigen (WGC, SHB). ZAI, HOL, LEG, EWA, EIS und DSO genehmigen im SAP. Offene Punkte (Dublette, Rückfrage, Prüfung) zeigt der Dialog vor der Anforderung.
 Eingebunden in: E-Rechnung Rechnungseingang.
 Anwender-Ansicht: https://e-rechnung.dihag-extern.com/prozess.html#eingang
 Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflichten
@@ -17,7 +17,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
     </bpmn:laneSet>
       <bpmn:startEvent id="G_start" name="Rechnung zum Buchen bereit"><bpmn:outgoing>Flow_G_start_G_edit</bpmn:outgoing></bpmn:startEvent>
       <bpmn:userTask id="G_edit" name="Varialnummer, Kontierung und Bestellnummer eintragen"><bpmn:incoming>Flow_G_start_G_edit</bpmn:incoming><bpmn:outgoing>Flow_G_edit_G_anf</bpmn:outgoing></bpmn:userTask>
-      <bpmn:userTask id="G_anf" name="Genehmiger wählen und Genehmigung anfordern"><bpmn:incoming>Flow_G_edit_G_anf</bpmn:incoming><bpmn:outgoing>Flow_G_anf_G_set</bpmn:outgoing></bpmn:userTask>
+      <bpmn:userTask id="G_anf" name="Offene Punkte ansehen, Genehmiger wählen und Genehmigung anfordern"><bpmn:incoming>Flow_G_edit_G_anf</bpmn:incoming><bpmn:outgoing>Flow_G_anf_G_set</bpmn:outgoing></bpmn:userTask>
       <bpmn:serviceTask id="G_set" name="Anforderung an der Rechnung speichern (Status „In Genehmigung“)"><bpmn:incoming>Flow_G_anf_G_set</bpmn:incoming><bpmn:outgoing>Flow_G_set_G_quit</bpmn:outgoing></bpmn:serviceTask>
       <bpmn:serviceTask id="G_quit" name="Anforderung quittieren"><bpmn:incoming>Flow_G_set_G_quit</bpmn:incoming><bpmn:outgoing>Flow_G_quit_G_send</bpmn:outgoing></bpmn:serviceTask>
       <bpmn:serviceTask id="G_send" name="Genehmigung mit PDF an den Genehmiger senden"><bpmn:incoming>Flow_G_quit_G_send</bpmn:incoming><bpmn:outgoing>Flow_G_send_G_pruef</bpmn:outgoing></bpmn:serviceTask>
@@ -47,9 +47,9 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:sequenceFlow id="Flow_G_vermerk_G_endJa" sourceRef="G_vermerk" targetRef="G_endJa" />
       <bpmn:sequenceFlow id="Flow_G_nein_G_neinMail" sourceRef="G_nein" targetRef="G_neinMail" />
       <bpmn:sequenceFlow id="Flow_G_neinMail_G_endNein" sourceRef="G_neinMail" targetRef="G_endNein" />
-      <bpmn:textAnnotation id="GN_start"><bpmn:text>Nur WGC und SHB. ZAI, HOL, LEG, EWA, EIS und DSO genehmigen im SAP.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="GN_start"><bpmn:text>Werke mit Genehmigung im Monitoring (Einstellungen), z. B. WGC und SHB.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_GN_start" associationDirection="None" sourceRef="G_start" targetRef="GN_start" />
-      <bpmn:textAnnotation id="GN_anf"><bpmn:text>Mehrere Genehmiger mit „;“, dann gilt die erste Antwort. Die abas-Adresse ist je Werk vorbelegt.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="GN_anf"><bpmn:text>Dublette, offene Rückfrage, andere IBAN oder fehlende Prüfung stehen oben im Dialog und brauchen vor dem Anfordern eine Bestätigung. Mehrere Genehmiger mit „;“, dann gilt die erste Antwort.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_GN_anf" associationDirection="None" sourceRef="G_anf" targetRef="GN_anf" />
       <bpmn:textAnnotation id="GN_send"><bpmn:text>Ein Flow je Werk, zum Beispiel „Genehmigung WGC (Monitoring)“. Er startet nur, wenn „Genehmigung anfordern“ gesetzt ist. Eine Genehmigung wartet höchstens 30 Tage.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_GN_send" associationDirection="None" sourceRef="G_send" targetRef="GN_send" />
@@ -95,8 +95,8 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNEdge id="Flow_G_neinMail_G_endNein_di" bpmnElement="Flow_G_neinMail_G_endNein"><di:waypoint x="2031" y="770" /><di:waypoint x="2117" y="770" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="GN_start_di" bpmnElement="GN_start" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="360" y="208" width="150" height="84" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_GN_start_di" bpmnElement="Assoc_GN_start"><di:waypoint x="435" y="148" /><di:waypoint x="435" y="208" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNShape id="GN_anf_di" bpmnElement="GN_anf" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="530" y="208" width="220" height="84" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Assoc_GN_anf_di" bpmnElement="Assoc_GN_anf"><di:waypoint x="775" y="172" /><di:waypoint x="738" y="208" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="GN_anf_di" bpmnElement="GN_anf" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="530" y="202" width="300" height="96" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_GN_anf_di" bpmnElement="Assoc_GN_anf"><di:waypoint x="775" y="172" /><di:waypoint x="775" y="202" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="GN_send_di" bpmnElement="GN_send" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="1040" y="608" width="300" height="84" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_GN_send_di" bpmnElement="Assoc_GN_send"><di:waypoint x="1285" y="572" /><di:waypoint x="1285" y="608" /></bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>

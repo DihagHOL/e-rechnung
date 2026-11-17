@@ -953,9 +953,17 @@ body {
 .toast.success { background: #065f46; border-left: 4px solid var(--secondary); }
 .toast.error { background: #7f1d1d; border-left: 4px solid var(--danger); }
 .toast.info { background: #1e3a5f; border-left: 4px solid var(--primary); }
+.toast.warn { background: #6b4204; border-left: 4px solid var(--warning); }
 
 .toast-icon { font-size: 18px; flex-shrink: 0; }
 .toast-aktion { flex-shrink: 0; white-space: nowrap; }
+/* Schließen: Fehler bleiben stehen, bis man sie wegklickt */
+.toast-zu {
+  flex-shrink: 0; margin-left: auto; align-self: flex-start;
+  background: transparent; border: 0; color: inherit; opacity: .75;
+  font-size: 14px; line-height: 1; padding: 2px 4px; cursor: pointer;
+}
+.toast-zu:hover, .toast-zu:focus-visible { opacity: 1; }
 
 @keyframes slideIn {
   from { opacity: 0; transform: translateX(20px); }

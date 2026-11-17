@@ -41,6 +41,8 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:sequenceFlow id="Flow_T_up_T_end" sourceRef="T_up" targetRef="T_end" />
       <bpmn:textAnnotation id="N_local"><bpmn:text>Läuft komplett im Browser. Die Zahldatei verlässt den Rechner nicht.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_local" associationDirection="None" sourceRef="M_load" targetRef="N_local" />
+      <bpmn:textAnnotation id="N_rot"><bpmn:text>Bei rot gibt es den Download nur nach Rückfrage, der Dateiname bekommt „_NICHT_BANKFERTIG“.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:association id="Assoc_N_rot" associationDirection="None" sourceRef="M_gw" targetRef="N_rot" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="Diagram_zahlung">
     <bpmndi:BPMNPlane id="Plane_zahlung" bpmnElement="Collab_zahlung">
@@ -73,6 +75,8 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNEdge id="Flow_T_up_T_end_di" bpmnElement="Flow_T_up_T_end"><di:waypoint x="1691" y="530" /><di:waypoint x="1777" y="530" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_local_di" bpmnElement="N_local" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="700" y="362" width="280" height="56" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_N_local_di" bpmnElement="Assoc_N_local"><di:waypoint x="775" y="312" /><di:waypoint x="775" y="362" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="N_rot_di" bpmnElement="N_rot" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="1040" y="348" width="240" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_N_rot_di" bpmnElement="Assoc_N_rot"><di:waypoint x="1285" y="295" /><di:waypoint x="1268" y="348" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Msg_T_up_P_Bank_di" bpmnElement="Msg_T_up_P_Bank"><di:waypoint x="1625" y="572" /><di:waypoint x="1625" y="670" /><bpmndi:BPMNLabel><dc:Bounds x="1633" y="621" width="170" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>

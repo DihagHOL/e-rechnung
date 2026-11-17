@@ -123,14 +123,14 @@
     if (!root || root.localName !== 'Document') throw new Error('Kein pain.001-Dokument (Wurzelelement <Document> fehlt).');
 
     const srcNs = root.namespaceURI || '';
-    if (/pain\.008/i.test(srcNs)) throw new Error('Das ist eine SEPA-Lastschrift (pain.008), keine Ueberweisung (pain.001). Der MC-Converter wandelt nur Ueberweisungen.');
+    if (/pain\.008/i.test(srcNs)) throw new Error('Das ist eine SEPA-Lastschrift (pain.008), keine Überweisung (pain.001). Der MC-Converter wandelt nur Überweisungen.');
     const srcVerMatch = srcNs.match(/pain\.001\.\d{3}\.\d{2}/i);
     const srcVersion = srcVerMatch ? srcVerMatch[0] : (srcNs || 'unbekannt');
-    if (/pain\.001\.001\.09/i.test(srcNs)) warnings.push('Die Datei ist bereits pain.001.001.09 — es wird nur neu formatiert und geprueft.');
-    else if (!srcVerMatch) warnings.push('Namespace nicht als pain.001 erkannt (' + srcVersion + ') — es wird trotzdem versucht, die Ueberweisung zu uebernehmen.');
+    if (/pain\.001\.001\.09/i.test(srcNs)) warnings.push('Die Datei ist bereits pain.001.001.09. Sie wird nur neu formatiert und geprüft.');
+    else if (!srcVerMatch) warnings.push('Namespace nicht als pain.001 erkannt (' + srcVersion + '). Der MC-Converter versucht trotzdem, die Überweisungen zu übernehmen.');
 
     const cti = _child(root, 'CstmrCdtTrfInitn');
-    if (!cti) throw new Error('Kein <CstmrCdtTrfInitn> gefunden — ist das eine SEPA-Ueberweisungsdatei (pain.001)?');
+    if (!cti) throw new Error('Kein <CstmrCdtTrfInitn> gefunden. Ist das eine SEPA-Überweisungsdatei (pain.001)?');
 
     const grpHdr = _child(cti, 'GrpHdr');
     const msgId    = _txt(grpHdr, 'MsgId');
@@ -158,7 +158,7 @@
       const hadBatch = _txt(pmt, 'BtchBookg');
 
       if (!debtorFirst) { debtorFirst = dbtrNm; debtorIbanFirst = dbtrIban; execFirst = execDate; }
-      if (!dbtrBic) warnings.push(`Auftraggeber "${dbtrNm || pmtInfId}" ohne BIC — im Ziel als NOTPROVIDED gesetzt (IBAN-only, bei SEPA zulaessig).`);
+      if (!dbtrBic) warnings.push(`Auftraggeber "${dbtrNm || pmtInfId}" ohne BIC, im Ziel als NOTPROVIDED gesetzt (nur IBAN, bei SEPA zulässig).`);
 
       const txInfs = _children(pmt, 'CdtTrfTxInf');
       let pmtNb = 0, pmtSum = 0;
@@ -175,10 +175,10 @@
         const cdtrBic  = _deepTxt(_child(tx, 'CdtrAgt'), ['FinInstnId', 'BIC']) || _deepTxt(_child(tx, 'CdtrAgt'), ['FinInstnId', 'BICFI']);
         let   ustrd    = _txt(_child(tx, 'RmtInf'), 'Ustrd');
 
-        if (!cdtrBic) warnings.push(`Empfaenger "${cdtrNm}" ohne BIC — im Ziel als NOTPROVIDED gesetzt (IBAN-only).`);
+        if (!cdtrBic) warnings.push(`Empfänger "${cdtrNm}" ohne BIC, im Ziel als NOTPROVIDED gesetzt (nur IBAN).`);
 
         ustrd = clean(ustrd);
-        if (ustrd.length > 140) { warnings.push(`Verwendungszweck bei "${cdtrNm}" war ${ustrd.length} Zeichen — auf 140 gekuerzt.`); ustrd = ustrd.slice(0, 140); }
+        if (ustrd.length > 140) { warnings.push(`Verwendungszweck bei "${cdtrNm}" hatte ${ustrd.length} Zeichen, auf 140 gekürzt.`); ustrd = ustrd.slice(0, 140); }
 
         const cents = _cents(amtTxt);
         pmtNb++; pmtSum += cents;
@@ -215,8 +215,8 @@
       // Kopf-Summen des Zahlungssammlers gegen die Ist-Werte pruefen
       const hdrNb  = _txt(pmt, 'NbOfTxs');
       const hdrSum = _txt(pmt, 'CtrlSum');
-      if (hdrNb && parseInt(hdrNb, 10) !== pmtNb) warnings.push(`PmtInf "${pmtInfId}": NbOfTxs im Kopf (${hdrNb}) != tatsaechliche Posten (${pmtNb}) — es wird ${pmtNb} verwendet.`);
-      if (hdrSum && _cents(hdrSum) !== pmtSum) warnings.push(`PmtInf "${pmtInfId}": CtrlSum im Kopf (${hdrSum}) != Summe der Posten (${_euro(pmtSum)}) — es wird ${_euro(pmtSum)} verwendet.`);
+      if (hdrNb && parseInt(hdrNb, 10) !== pmtNb) warnings.push(`PmtInf "${pmtInfId}": NbOfTxs im Kopf (${hdrNb}) != tatsächliche Posten (${pmtNb}). Verwendet wird ${pmtNb}.`);
+      if (hdrSum && _cents(hdrSum) !== pmtSum) warnings.push(`PmtInf "${pmtInfId}": CtrlSum im Kopf (${hdrSum}) != Summe der Posten (${_euro(pmtSum)}). Verwendet wird ${_euro(pmtSum)}.`);
 
       grpNb += pmtNb; grpSum += pmtSum;
 
@@ -313,12 +313,12 @@
     for (const pmt of _children(cti, 'PmtInf')) {
       const pid = _txt(pmt, 'PmtInfId');
       const exec = _deepTxt(pmt, ['ReqdExctnDt', 'Dt']) || _txt(pmt, 'ReqdExctnDt');
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(exec)) errors.push(`PmtInf ${pid}: ReqdExctnDt/Dt fehlt oder ungueltig.`);
-      else if (new Date(exec + 'T00:00:00') < today) notes.push(`Ausfuehrungsdatum ${exec} liegt in der Vergangenheit — die Bank bucht i. d. R. am naechsten Bankarbeitstag.`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(exec)) errors.push(`PmtInf ${pid}: ReqdExctnDt/Dt fehlt oder ungültig.`);
+      else if (new Date(exec + 'T00:00:00') < today) notes.push(`Ausführungsdatum ${exec} liegt in der Vergangenheit. Die Bank bucht in der Regel am nächsten Bankarbeitstag.`);
       const dIban = _deepTxt(pmt, ['DbtrAcct', 'Id', 'IBAN']);
-      if (!_ibanValid(dIban)) errors.push(`PmtInf ${pid}: Auftraggeber-IBAN ungueltig (${dIban}).`);
+      if (!_ibanValid(dIban)) errors.push(`PmtInf ${pid}: Auftraggeber-IBAN ungültig (${dIban}).`);
       const dBic = _deepTxt(pmt, ['DbtrAgt', 'FinInstnId', 'BICFI']);
-      if (dBic && !_bicOk(dBic)) errors.push(`PmtInf ${pid}: Auftraggeber-BIC ungueltig (${dBic}).`);
+      if (dBic && !_bicOk(dBic)) errors.push(`PmtInf ${pid}: Auftraggeber-BIC ungültig (${dBic}).`);
 
       let pNb = 0, pSum = 0;
       for (const tx of _children(pmt, 'CdtTrfTxInf')) {
@@ -333,12 +333,12 @@
         const ustrd = _txt(_child(tx, 'RmtInf'), 'Ustrd');
         const who = `#${idx} ${nm}`;
 
-        if (!_ibanValid(iban)) errors.push(`${who}: Empfaenger-IBAN Pruefziffer falsch (${iban}).`);
-        if (bic && !_bicOk(bic)) errors.push(`${who}: BIC-Format ungueltig (${bic}).`);
+        if (!_ibanValid(iban)) errors.push(`${who}: Empfänger-IBAN Prüfziffer falsch (${iban}).`);
+        if (bic && !_bicOk(bic)) errors.push(`${who}: BIC-Format ungültig (${bic}).`);
         if (!/^\d+\.\d{2}$/.test(amt)) errors.push(`${who}: Betrag nicht im Format 0.00 (${amt}).`);
         else if (_cents(amt) <= 0) errors.push(`${who}: Betrag <= 0.`);
-        if (ccy.toUpperCase() !== 'EUR') errors.push(`${who}: Waehrung != EUR (${ccy}).`);
-        if (nm.length > 70) errors.push(`${who}: Empfaengername > 70 Zeichen.`);
+        if (ccy.toUpperCase() !== 'EUR') errors.push(`${who}: Währung != EUR (${ccy}).`);
+        if (nm.length > 70) errors.push(`${who}: Empfängername > 70 Zeichen.`);
         if (ustrd.length > 140) errors.push(`${who}: Verwendungszweck > 140 Zeichen.`);
         if (e2e.length > 35) errors.push(`${who}: EndToEndId > 35 Zeichen.`);
         const bc = [..._badSepa(nm), ..._badSepa(ustrd)];
@@ -472,7 +472,7 @@
         throw new Error(`DTAZV: Satz ab Zeichen ${i + 1} nicht lesbar ("${head}").`);
       }
       const len = parseInt(m[1], 10);
-      if (len < 5) throw new Error(`DTAZV: Satzlaenge ${m[1]} ab Zeichen ${i + 1} ungueltig.`);
+      if (len < 5) throw new Error(`DTAZV: Satzlänge ${m[1]} ab Zeichen ${i + 1} ungültig.`);
       recs.push({ type: m[2], rec: s.substr(i, len).padEnd(len, ' ') });
       i += len;
     }
@@ -512,9 +512,9 @@
     const zRec = recs.find(r => r.type === 'Z');
     const tRecs = recs.filter(r => r.type === 'T');
     if (!tRecs.length) throw new Error('DTAZV: keine Zahlung (T-Satz) in der Datei.');
-    if (!zRec) warnings.push('DTAZV-Nachsatz (Z-Satz) fehlt, die Datei ist evtl. unvollstaendig.');
+    if (!zRec) warnings.push('DTAZV-Nachsatz (Z-Satz) fehlt, die Datei ist evtl. unvollständig.');
     const vwCount = recs.filter(r => r.type === 'V' || r.type === 'W').length;
-    if (vwCount) warnings.push(`${vwCount} Meldesatz/-saetze (V/W) nicht uebernommen. AWV-Meldungen gehen direkt ueber das Meldeportal der Bundesbank, nicht ueber die Zahldatei.`);
+    if (vwCount) warnings.push(`${vwCount} Meldesatz/-sätze (V/W) nicht übernommen. AWV-Meldungen gehen direkt über das Meldeportal der Bundesbank, nicht über die Zahldatei.`);
 
     const q = qRec.rec;
     const qAdr = _fx(q, _AZV_Q.adr);
@@ -568,7 +568,7 @@
       let town = clean(tw.town);
       const townFromUser = !town && townOver[idx] ? clean(townOver[idx]) : '';
       if (townFromUser) town = townFromUser;
-      if (town.length > 35) { warnings.push(`${who}: Ort auf 35 Zeichen gekuerzt.`); town = town.slice(0, 35); }
+      if (town.length > 35) { warnings.push(`${who}: Ort auf 35 Zeichen gekürzt.`); town = town.slice(0, 35); }
       const cdtrAdr = { pstCd: clean(tw.pstCd).slice(0, 16), town, ctry: cdtrCtry, lines: cl[2] ? [clean(cl[2]).slice(0, 70)] : [] };
 
       // Empfaengerbank
@@ -584,7 +584,7 @@
       // Konto des Empfaengers: IBAN (mit oder ohne fuehrenden "/") oder Kontonummer
       const acctRaw = _fx(t, _AZV_T.acct).replace(/^\/+/, '').replace(/\s+/g, '').toUpperCase();
       const isIban = _ibanValid(acctRaw);
-      if (!isIban && /^[A-Z]{2}\d{2}/.test(acctRaw)) warnings.push(`${who}: "${acctRaw}" sieht wie eine IBAN aus, die Pruefziffer stimmt aber nicht. Uebernommen als Kontonummer.`);
+      if (!isIban && /^[A-Z]{2}\d{2}/.test(acctRaw)) warnings.push(`${who}: "${acctRaw}" sieht wie eine IBAN aus, die Prüfziffer stimmt aber nicht. Übernommen als Kontonummer.`);
 
       // Betrag
       const ccy = (_fx(t, _AZV_T.amtCcy) || 'EUR').toUpperCase();
@@ -603,19 +603,19 @@
       const kind = _fx(t, _AZV_T.kind) || '00';
       const svcLvl = _AZV_KIND[kind] || 'NURG';
       if (!_AZV_KIND[kind]) convErrors.push(`${who}: Zahlungsart "${kind}" wird nicht umgesetzt (nur Standard 00/13 und Eilzahlung 10). Bitte mit der Bank klaeren.`);
-      if (svcLvl === 'URGP') warnings.push(`${who}: als Eilzahlung (URGP) uebernommen.`);
+      if (svcLvl === 'URGP') warnings.push(`${who}: als Eilzahlung (URGP) übernommen.`);
       const wKeys = _fx(t, _AZV_T.w).filter(k => k && k !== '00');
       const wInfo = clean(_fx(t, _AZV_T.wInfo));
       const instrDbtr = wKeys.length ? clean(`DTAZV-Weisung ${wKeys.join(' ')} ${wInfo}`).slice(0, 140) : '';
-      if (instrDbtr) warnings.push(`${who}: Weisungsschluessel ${wKeys.join(', ')} als Hinweis an die eigene Bank uebernommen (InstrForDbtrAgt). Bitte mit der Bank abstimmen.`);
+      if (instrDbtr) warnings.push(`${who}: Weisungsschlüssel ${wKeys.join(', ')} als Hinweis an die eigene Bank übernommen (InstrForDbtrAgt). Bitte mit der Bank abstimmen.`);
       const order = clean(_fx(t, _AZV_T.order).join(' ')).slice(0, 140);
-      if (order) warnings.push(`${who}: Ordervermerk "${order}" als Hinweis an die Empfaengerbank uebernommen.`);
+      if (order) warnings.push(`${who}: Ordervermerk "${order}" als Hinweis an die Empfängerbank übernommen.`);
 
       // Referenzen: EndToEndId nach SWIFT-Regel (kein "/" am Rand, kein "//")
       let e2e = clean(_fx(t, _AZV_T.ref)).replace(/\/{2,}/g, '/').replace(/^\/+|\/+$/g, '').replace(/\s+/g, '').slice(0, 35);
       if (!e2e) e2e = 'NOTPROVIDED';
       let ustrd = clean(_fx(t, _AZV_T.vz).join(' '));
-      if (ustrd.length > 140) { warnings.push(`${who}: Verwendungszweck auf 140 Zeichen gekuerzt.`); ustrd = ustrd.slice(0, 140); }
+      if (ustrd.length > 140) { warnings.push(`${who}: Verwendungszweck auf 140 Zeichen gekürzt.`); ustrd = ustrd.slice(0, 140); }
 
       const gKey = `${accKey}|${exec}|${fee ? fee.iban : ''}`;
       if (!groups.has(gKey)) groups.set(gKey, { acc, exec, fee, tx: [] });
@@ -799,7 +799,7 @@
     const cti = _child(root, 'CstmrCdtTrfInitn');
     const grp = _child(cti, 'GrpHdr');
     const msgId = _txt(grp, 'MsgId');
-    if (!msgId || msgId.length > 35) errors.push('GrpHdr/MsgId fehlt oder ist laenger als 35 Zeichen.');
+    if (!msgId || msgId.length > 35) errors.push('GrpHdr/MsgId fehlt oder ist länger als 35 Zeichen.');
     if (!_txt(grp, 'CreDtTm')) errors.push('GrpHdr/CreDtTm fehlt.');
     const grpNb = parseInt(_txt(grp, 'NbOfTxs'), 10);
     const grpSum = _milli(_txt(grp, 'CtrlSum'));
@@ -807,17 +807,17 @@
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const chk = (who, label, s) => {
       const bad = _badSepa(s);
-      if (bad.length) errors.push(`${who}: ${label} enthaelt Zeichen ausserhalb des SWIFT-Zeichensatzes: ${bad.join(' ')}`);
+      if (bad.length) errors.push(`${who}: ${label} enthält Zeichen außerhalb des SWIFT-Zeichensatzes: ${bad.join(' ')}`);
     };
     const chkAdr = (who, label, adr, required) => {
-      if (!adr) { if (required) errors.push(`${who}: ${label} fehlt. Fuer AXZ sind mindestens Ort (TwnNm) und Land (Ctry) Pflicht.`); return; }
+      if (!adr) { if (required) errors.push(`${who}: ${label} fehlt. Für AXZ sind mindestens Ort (TwnNm) und Land (Ctry) Pflicht.`); return; }
       const town = _txt(adr, 'TwnNm'), ctry = _txt(adr, 'Ctry');
       if (!town) errors.push(`${who}: Ort (TwnNm) fehlt in ${label}. Ohne Ort lehnt die Bank die AXZ-Datei ab.`);
-      else if (town.length > 35) errors.push(`${who}: Ort in ${label} laenger als 35 Zeichen.`);
-      if (!/^[A-Z]{2}$/.test(ctry)) errors.push(`${who}: Land (Ctry) fehlt oder ungueltig in ${label}.`);
+      else if (town.length > 35) errors.push(`${who}: Ort in ${label} länger als 35 Zeichen.`);
+      if (!/^[A-Z]{2}$/.test(ctry)) errors.push(`${who}: Land (Ctry) fehlt oder ungültig in ${label}.`);
       const lines = _children(adr, 'AdrLine');
-      if (lines.length > 2) errors.push(`${who}: mehr als 2 Adresszeilen in ${label} (AXZ erlaubt hoechstens 2).`);
-      lines.forEach(l => { if (l.textContent.trim().length > 70) errors.push(`${who}: Adresszeile in ${label} laenger als 70 Zeichen.`); chk(who, label, l.textContent); });
+      if (lines.length > 2) errors.push(`${who}: mehr als 2 Adresszeilen in ${label} (AXZ erlaubt höchstens 2).`);
+      lines.forEach(l => { if (l.textContent.trim().length > 70) errors.push(`${who}: Adresszeile in ${label} länger als 70 Zeichen.`); chk(who, label, l.textContent); });
       chk(who, label, town);
     };
 
@@ -825,11 +825,11 @@
     for (const pmt of _children(cti, 'PmtInf')) {
       const pid = _txt(pmt, 'PmtInfId');
       if (!/^(TRF|CHK)$/.test(_txt(pmt, 'PmtMtd'))) errors.push(`PmtInf ${pid}: PmtMtd muss TRF oder CHK sein.`);
-      if (_child(pmt, 'PmtTpInf')) errors.push(`PmtInf ${pid}: PmtTpInf gehoert bei AXZ in jede Zahlung, nicht in den PmtInf-Block.`);
-      if (_child(pmt, 'ChrgBr')) errors.push(`PmtInf ${pid}: ChrgBr gehoert bei AXZ in jede Zahlung, nicht in den PmtInf-Block.`);
+      if (_child(pmt, 'PmtTpInf')) errors.push(`PmtInf ${pid}: PmtTpInf gehört bei AXZ in jede Zahlung, nicht in den PmtInf-Block.`);
+      if (_child(pmt, 'ChrgBr')) errors.push(`PmtInf ${pid}: ChrgBr gehört bei AXZ in jede Zahlung, nicht in den PmtInf-Block.`);
       const exec = _deepTxt(pmt, ['ReqdExctnDt', 'Dt']);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(exec)) errors.push(`PmtInf ${pid}: ReqdExctnDt/Dt fehlt oder ungueltig.`);
-      else if (new Date(exec + 'T00:00:00') < today) notes.push(`Ausfuehrungsdatum ${exec.split('-').reverse().join('.')} liegt in der Vergangenheit. Die Bank fuehrt am naechsten Bankarbeitstag aus.`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(exec)) errors.push(`PmtInf ${pid}: ReqdExctnDt/Dt fehlt oder ungültig.`);
+      else if (new Date(exec + 'T00:00:00') < today) notes.push(`Ausführungsdatum ${exec.split('-').reverse().join('.')} liegt in der Vergangenheit. Die Bank führt am nächsten Bankarbeitstag aus.`);
 
       const dbtr = _child(pmt, 'Dbtr');
       const dNm = _txt(dbtr, 'Nm');
@@ -840,10 +840,10 @@
       else if (!/^[A-Z]{2}$/.test(_txt(dbtr, 'CtryOfRes'))) errors.push('Auftraggeber: ohne Adresse ist das Sitzland (CtryOfRes) Pflicht.');
 
       const dIban = _deepTxt(pmt, ['DbtrAcct', 'Id', 'IBAN']);
-      if (!_ibanValid(dIban)) errors.push(`PmtInf ${pid}: Auftraggeber-IBAN ungueltig (${dIban || 'leer'}).`);
-      if (!/^[A-Z]{3}$/.test(_txt(_child(pmt, 'DbtrAcct'), 'Ccy'))) errors.push(`PmtInf ${pid}: Kontowaehrung (DbtrAcct/Ccy) fehlt, bei AXZ Pflicht.`);
+      if (!_ibanValid(dIban)) errors.push(`PmtInf ${pid}: Auftraggeber-IBAN ungültig (${dIban || 'leer'}).`);
+      if (!/^[A-Z]{3}$/.test(_txt(_child(pmt, 'DbtrAcct'), 'Ccy'))) errors.push(`PmtInf ${pid}: Kontowährung (DbtrAcct/Ccy) fehlt, bei AXZ Pflicht.`);
       const dBic = _deepTxt(pmt, ['DbtrAgt', 'FinInstnId', 'BICFI']);
-      if (dBic && !_bicOk(dBic)) errors.push(`PmtInf ${pid}: Auftraggeber-BIC ungueltig (${dBic}).`);
+      if (dBic && !_bicOk(dBic)) errors.push(`PmtInf ${pid}: Auftraggeber-BIC ungültig (${dBic}).`);
 
       let pNb = 0, pSum = 0;
       for (const tx of _children(pmt, 'CdtTrfTxInf')) {
@@ -852,7 +852,7 @@
         const nm = _txt(cdtr, 'Nm');
         const who = `#${idx} ${nm}`;
         const e2e = _txt(_child(tx, 'PmtId'), 'EndToEndId');
-        if (!e2e || e2e.length > 35) errors.push(`${who}: EndToEndId fehlt oder ist laenger als 35 Zeichen.`);
+        if (!e2e || e2e.length > 35) errors.push(`${who}: EndToEndId fehlt oder ist länger als 35 Zeichen.`);
         else if (/^\/|\/$|\/\//.test(e2e)) errors.push(`${who}: EndToEndId darf nicht mit "/" beginnen oder enden und kein "//" enthalten.`);
         chk(who, 'EndToEndId', e2e);
 
@@ -865,35 +865,35 @@
         const amt = amtEl ? amtEl.textContent.trim() : '';
         const ccy = amtEl ? (amtEl.getAttribute('Ccy') || '').toUpperCase() : '';
         const m = _milli(amt);
-        if (!/^[A-Z]{3}$/.test(ccy)) errors.push(`${who}: Waehrung fehlt oder ungueltig.`);
+        if (!/^[A-Z]{3}$/.test(ccy)) errors.push(`${who}: Währung fehlt oder ungültig.`);
         if (isNaN(m)) errors.push(`${who}: Betrag nicht lesbar (${amt}).`);
         else if (m <= 0) errors.push(`${who}: Betrag <= 0.`);
         else {
           const dec = (amt.split('.')[1] || '').length;
-          if (dec > _ccyDigits(ccy)) errors.push(`${who}: ${ccy} erlaubt hoechstens ${_ccyDigits(ccy)} Nachkommastellen (${amt}).`);
-          if (ccy === 'EUR' && m > 50000000) notes.push(`${who}: ueber 50.000 EUR ins Ausland. AWV-Meldung (Z4) bis zum 7. Geschaeftstag des Folgemonats im Meldeportal der Bundesbank abgeben, die Zahldatei ersetzt sie nicht.`);
+          if (dec > _ccyDigits(ccy)) errors.push(`${who}: ${ccy} erlaubt höchstens ${_ccyDigits(ccy)} Nachkommastellen (${amt}).`);
+          if (ccy === 'EUR' && m > 50000000) notes.push(`${who}: über 50.000 EUR ins Ausland. AWV-Meldung (Z4) bis zum 7. Geschäftstag des Folgemonats im Meldeportal der Bundesbank abgeben, die Zahldatei ersetzt sie nicht.`);
         }
 
         const bic = _deepTxt(tx, ['CdtrAgt', 'FinInstnId', 'BICFI']);
         const bankNm = _deepTxt(tx, ['CdtrAgt', 'FinInstnId', 'Nm']);
         const iban = _deepTxt(tx, ['CdtrAcct', 'Id', 'IBAN']);
         const othr = _deepTxt(tx, ['CdtrAcct', 'Id', 'Othr', 'Id']);
-        if (bic && !_bicOk(bic)) errors.push(`${who}: BIC der Empfaengerbank ungueltig (${bic}).`);
+        if (bic && !_bicOk(bic)) errors.push(`${who}: BIC der Empfängerbank ungültig (${bic}).`);
         if (!bic && !bankNm) {
-          if (iban) notes.push(`${who}: ohne BIC der Empfaengerbank. Die Bank leitet sie aus der IBAN ab, wenn das Land das zulaesst.`);
-          else errors.push(`${who}: Empfaengerbank fehlt (weder BIC noch Name).`);
+          if (iban) notes.push(`${who}: ohne BIC der Empfängerbank. Die Bank leitet sie aus der IBAN ab, wenn das Land das zulässt.`);
+          else errors.push(`${who}: Empfängerbank fehlt (weder BIC noch Name).`);
         }
         if (!bic && bankNm) chkAdr(who, 'Adresse der Empfaengerbank', _child(_deepEl(tx, ['CdtrAgt', 'FinInstnId']), 'PstlAdr'), true);
-        if (iban && !_ibanValid(iban)) errors.push(`${who}: Empfaenger-IBAN Pruefziffer falsch (${iban}).`);
+        if (iban && !_ibanValid(iban)) errors.push(`${who}: Empfänger-IBAN Prüfziffer falsch (${iban}).`);
         if (!iban && !othr) errors.push(`${who}: Konto des Empfaengers fehlt.`);
 
         if (!nm) errors.push(`#${idx}: Name des Empfaengers fehlt.`);
-        else if (nm.length > 140) errors.push(`${who}: Empfaengername laenger als 140 Zeichen.`);
+        else if (nm.length > 140) errors.push(`${who}: Empfängername länger als 140 Zeichen.`);
         chk(who, 'Name', nm);
         chkAdr(who, 'Adresse des Empfaengers', _child(cdtr, 'PstlAdr'), true);
 
         const ustrd = _txt(_child(tx, 'RmtInf'), 'Ustrd');
-        if (ustrd.length > 140) errors.push(`${who}: Verwendungszweck laenger als 140 Zeichen.`);
+        if (ustrd.length > 140) errors.push(`${who}: Verwendungszweck länger als 140 Zeichen.`);
         chk(who, 'Verwendungszweck', ustrd);
 
         pNb++; if (!isNaN(m)) pSum += m;

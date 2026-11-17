@@ -37,6 +37,8 @@
  *     formatMangel:    true, wenn PDF/A-3 fehlt bzw. keine XML (sonstige Rechnung, P1/P2),
  *     manuellePruefung:true + manuellePruefungGrund bei Reverse-Charge/innergem./steuerfrei (P6),
  *     rueckfrageLieferant: true bei materieller PDF↔XML-Abweichung (P4),
+ *     bankverbindungKlaeren: true, wenn das PDF eine andere IBAN zeigt als die XML (vor der Zahlung klären),
+ *     pruefungOffen:   true, wenn der Prüfdienst nicht erreichbar war (Buchung dann unter Vorbehalt),
  *     zurueckweisung:  { grund, text } | null (harter Stopp MINIMUM/BASIC-WL, P3),
  *     kreditorAktion:  { art:'berichtigung'|'zurueckweisung'|'abweichung', grund, text, mail? } | null,
  *                      mail = { art, betreff, html, text, anhang:{name,base64}, an, anQuelle }: Mail an den
@@ -81,6 +83,10 @@ const TEXT_ZURUECKWEISUNG_FEHLER =
   + 'E-Rechnung. Wir können sie nicht verarbeiten und bitten Sie um eine korrigierte '
   + 'E-Rechnung (XRechnung oder ZUGFeRD/Factur-X, Profil EN16931 oder höher).';
 
+// Prüfdienst nicht erreichbar: steht vorn in ValidierungsMeldung, das Monitoring zählt die Rechnung als Fehler.
+const TEXT_PRUEFUNG_OFFEN = 'Prüfung nicht gelaufen (Prüfdienst nicht erreichbar). Buchungsweg unter Vorbehalt. '
+  + 'Die IT muss die Prüfung neu anstoßen.';
+
 // Hinweis bei Warnungen (Prüfergebnis gelb): Rechnung wird gebucht, Lieferant soll es künftig vermeiden.
 const TEXT_HINWEIS_ABWEICHUNG =
   'Ihre E-Rechnung weist geringfügige Abweichungen auf. Wir verarbeiten sie trotzdem und bitten Sie, '
@@ -110,8 +116,8 @@ app.http('intake', {
     // Body robust normalisieren (roh, base64 oder Power-Automate-{$content}-Wrapper).
     const norm = normalizeBody(raw);
     if (!norm) {
-      return problem(400, 'Body ist weder ein PDF (%PDF-) noch XML (<…>) — '
-        + 'auch nicht als base64 oder Power-Automate-Wrapper erkennbar.');
+      return problem(400, 'Body ist weder ein PDF (%PDF-) noch XML (<…>), '
+        + 'auch nicht als base64 oder Power-Automate-Hülle erkennbar.');
     }
     const buf = norm.buf;
     const isPdf = norm.isPdf;
@@ -194,7 +200,9 @@ app.http('intake', {
       };
       // Reihenfolge nach Wichtigkeit: wird der Hinweis auf 255 Zeichen gekürzt
       // (feldGrenzen), fällt der Betrag zuerst weg.
-      const vorbehalt = ' Als sonstige Rechnung unter Vorbehalt gebucht, Berichtigung angefordert'
+      // Nur sagen, was feststeht: Gebucht ist noch nichts, und ob der Lieferant eine E-Rechnung
+      // schicken muss, klaert die Einschaetzung im Monitoring (BPMN „Sonstige Rechnung einschaetzen“).
+      const vorbehalt = ' Buchungsweg unter Vorbehalt, Einschätzung im Monitoring offen'
         + ' (UStAE 14.1 Abs. 2, 15.2a Abs. 1a).';
       res.hinweis = embeddedUnsupported
         ? 'Eingebettete XML ist keine E-Rechnung nach EN 16931 (z. B. openTRANS/BMEcat).'
@@ -271,7 +279,7 @@ app.http('intake', {
         res.kreditorAktion = res.kreditorAktion
           || { art: 'berichtigung', grund: 'kein-pdfa3', text: TEXT_BERICHTIGUNG_FORMAT };
         res.hinweis = [res.hinweis,
-          'PDF/A-3 fehlt — als sonstige Rechnung unter Vorbehalt gebucht, Berichtigung angefordert.']
+          'PDF/A-3 fehlerhaft, zählt als sonstige Rechnung. Buchungsweg unter Vorbehalt, Einschätzung im Monitoring offen.']
           .filter(Boolean).join(' | ');
       }
       // Gelb ohne Formatmangel: gültig und gebucht, der Lieferant bekommt einen Hinweis auf die Abweichungen.
@@ -279,9 +287,14 @@ app.http('intake', {
         res.kreditorAktion = { art: 'abweichung', grund: 'pruefung-gelb', text: TEXT_HINWEIS_ABWEICHUNG };
       }
     } catch (e) {
+      // Pruefdienst nicht erreichbar (Kaltstart, Zeitlimit, Stoerung): nicht auf Automatik lassen.
+      // Ohne Pruefung ist nichts ueber die Rechnung bekannt, also unter Vorbehalt und neu pruefen.
       context.error('Validierung fehlgeschlagen:', e);
       res.konform = 'ungeprueft';
       res.validierungsFehler = msg(e);
+      res.pruefungOffen = true;
+      if (res.buchung === 'automatik') res.buchung = 'unter_vorbehalt';
+      res.hinweis = [TEXT_PRUEFUNG_OFFEN, res.hinweis].filter(Boolean).join(' | ');
     }
 
     // 5) Kopfdaten + Werk-Gegenprobe aus dem Empfaenger.
@@ -303,7 +316,7 @@ app.http('intake', {
       const eigenesWerk = !!res.werkAusVerkaeufer && (!werkHinweis || res.werkAusVerkaeufer === werkHinweis);
       res.richtung = eigenesWerk && istInterneAdresse(absender) ? 'Ausgang' : 'Eingang';
       if (eigenesWerk && res.richtung === 'Eingang') {
-        res.hinweis = [res.hinweis, `Aussteller ist ${res.werkAusVerkaeufer} selbst, die Mail kam aber nicht von einer internen Adresse. Bitte pruefen.`]
+        res.hinweis = [res.hinweis, `Aussteller ist ${res.werkAusVerkaeufer} selbst, die Mail kam aber nicht von einer internen Adresse. Bitte prüfen.`]
           .filter(Boolean).join(' | ');
       }
 
@@ -336,7 +349,7 @@ app.http('intake', {
           E:  'Steuerbefreit (§4 UStG)',
           O:  'Nicht steuerbar',
         }[kat] || 'Steuerbefreiung/Sonderfall';
-        res.hinweis = [res.hinweis, `${res.manuellePruefungGrund} — manuelle Pruefung (Vier-Augen) erforderlich.`]
+        res.hinweis = [res.hinweis, `${res.manuellePruefungGrund}: Vier-Augen-Prüfung erforderlich.`]
           .filter(Boolean).join(' | ');
       }
     } catch (e) {
@@ -353,6 +366,8 @@ app.http('intake', {
         res.pdfXmlAbgleich = ab;
         if (ab.status === 'abweichung' && ab.materiell) {
           res.rueckfrageLieferant = true;
+          // Andere IBAN im Bild: vor der Zahlung beim Lieferanten klaeren (pdfabgleich.js)
+          if (ab.bankverbindung) res.bankverbindungKlaeren = true;
           // Grund der Rueckfrage zuerst: Auf 255 Zeichen gekuerzt (feldGrenzen) fallen sonst
           // genau diese Saetze weg, und im Monitoring steht eine Rueckfrage ohne Grund.
           res.hinweis = [ab.hinweis, res.hinweis].filter(Boolean).join(' | ');

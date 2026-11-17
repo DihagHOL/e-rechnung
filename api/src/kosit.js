@@ -43,8 +43,8 @@ async function validateXml(xml, opts = {}) {
   // und werden absichtlich nicht auf EN16931 umgeschrieben -> sie greifen kein
   // Szenario. Statt des generischen "kein Prüfszenario" einen klaren Hinweis geben.
   if (result.konform !== 'gruen' && _minimalprofil(xml)) {
-    result.hinweis = 'Profil Factur-X/ZUGFeRD MINIMUM bzw. BASIC-WL — keine vollständige '
-      + 'E-Rechnung (nur Buchungshilfe, Positionsdaten fehlen); nach §14 UStG nicht als '
+    result.hinweis = 'Profil Factur-X/ZUGFeRD MINIMUM bzw. BASIC-WL: keine vollständige '
+      + 'E-Rechnung (nur Buchungshilfe, Positionsdaten fehlen), nach § 14 UStG nicht als '
       + 'E-Rechnung anerkannt.';
   }
 
@@ -191,8 +191,8 @@ function parseReport(reportXml, httpRejected) {
 
   let hinweis = _hinweisAusBefunden(konform, meldungenText, rejectMateriell);
   if (!materielle.length && !rejectMateriell && formale.length) {
-    hinweis = [hinweis, 'Nur formale XRechnung-Regeln verletzt (Leitweg/elektronische Adresse) — '
-      + 'umsatzsteuerlich kein Pruefgrund; ggf. separat als B2G (ERechV) pruefen.']
+    hinweis = [hinweis, 'Nur formale XRechnung-Regeln verletzt (Leitweg, elektronische Adresse). '
+      + 'Umsatzsteuerlich kein Prüfgrund, bei öffentlichen Auftraggebern gesondert nach ERechV prüfen.']
       .filter(Boolean).join(' ');
   }
 
@@ -232,13 +232,13 @@ function _hinweisAusBefunden(konform, meldungenText, rejected) {
   const f = fehlerTexte.join(' | ');
   const regeln = [
     [/PEPPOL-EN16931-R008\b/i, 'Die Rechnung enthält leere XML-Elemente (z. B. eine leere Abteilung in der Adresse). Formaler Fehler, den der Rechnungssteller beheben muss.'],
-    [/BR-CL-18\b/i, 'Rechnungspositionen ohne USt-Kategorie-Code (BT-151) — der Rechnungssteller muss je Position eine USt-Kategorie angeben; sonst lässt sich die Steueraufschlüsselung nicht zuordnen.'],
+    [/BR-CL-18\b/i, 'Rechnungspositionen ohne USt-Kategorie-Code (BT-151). Der Rechnungssteller muss je Position eine USt-Kategorie angeben, sonst lässt sich die Steueraufschlüsselung nicht zuordnen.'],
     [/BR-CO-1[0-7]\b/i, 'Rechnerische Summen stimmen nicht zusammen (Netto/USt/Brutto passen nicht).'],
     [/BR-[A-Z]{1,2}-0[6-9]\b/i, 'USt-Aufschlüsselung passt nicht zu den Positionssummen (Steuerbasis oder Steuerbetrag).'],
     [/BR-[A-Z]{1,2}-0[1-5]\b/i, 'USt-Kategorie in der Steueraufschlüsselung unvollständig ausgewiesen.'],
     [/BR-DEC-\d/i, 'Beträge mit falscher Anzahl Nachkommastellen.'],
-    [/BR-CL-\d/i, 'Ungültiger Code — eine Code-Liste (Einheit, Land, USt-Kategorie …) wird nicht eingehalten.'],
-    [/CII-(SR|DT)-/i, 'CII-Syntaxfehler — Struktur oder Datentyp entspricht nicht dem ZUGFeRD/Factur-X-Schema.'],
+    [/BR-CL-\d/i, 'Ungültiger Code: Eine Code-Liste (Einheit, Land, USt-Kategorie …) wird nicht eingehalten.'],
+    [/CII-(SR|DT)-/i, 'CII-Syntaxfehler: Struktur oder Datentyp entspricht nicht dem ZUGFeRD/Factur-X-Schema.'],
   ];
   for (const [re, text] of regeln) if (re.test(f)) return text;
   // Keine bekannte Regel: den ersten Fehler aus dem Bericht nennen.

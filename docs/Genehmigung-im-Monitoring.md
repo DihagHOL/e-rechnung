@@ -249,8 +249,8 @@ Spalte des Prüfdienstes (Validiert, Fehler) heißt jetzt „Verarbeitung“.
 **Mahnungen und Zahlungserinnerungen** (erkannt an Dateiname, Titel oder Name des Anhangs,
 auch „Dunning“ und „Reminder“) tragen in der Spalte „Buchung“ einen gelben Hinweis „Mahnung“. Sie
 sind keine Rechnung: keine 800k-Einschätzung, kein Formatmangel-Hinweis, keine Dublette zur
-Rechnung mit derselben Nummer, und sie zählen nicht unter „Offen“, „Fehler“, „Manuelle Prüfung“
-oder „Zur Rückfrage“. Die Kachel „Mahnungen (keine Rechnung)“ zeigt sie gesammelt.
+Rechnung mit derselben Nummer, und sie zählen nicht unter „Offen“, „Fehler“, „Vier-Augen offen“
+oder „Rückfrage offen“. Die Kachel „Mahnungen (keine Rechnung)“ zeigt sie gesammelt.
 
 Die Rechnungsnummer lässt sich in beiden Reitern korrigieren. Auch die Nummer aus dem Reiter
 „800k-Einschätzung“ (oft aus dem PDF-Text gelesen) kommt beim Speichern an die Rechnung.

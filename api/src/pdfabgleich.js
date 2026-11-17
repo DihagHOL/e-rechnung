@@ -41,6 +41,9 @@ const FUELLWOERTER = new Set(['gmbh', 'mbh', 'co', 'kg', 'ag', 'se', 'ug', 'ohg'
 const IBAN_LAENGE = { DE: 22, AT: 20, CH: 21, LI: 21, NL: 18, BE: 16, LU: 20, FR: 27, MC: 27, IT: 27, SM: 27, ES: 24, PT: 25,
   PL: 28, CZ: 24, SK: 24, HU: 28, SI: 19, HR: 21, DK: 18, SE: 24, FI: 18, NO: 15, GB: 22, IE: 22, GR: 27, RO: 24, BG: 22,
   EE: 20, LV: 21, LT: 20, MT: 31, CY: 28, TR: 26 };
+// Abweichende IBAN: eigener Hinweis mit Handlungsanweisung (Monitoring erkennt ihn am Anfang)
+const HINWEIS_BANK = 'Bankverbindung vor der Zahlung klären: ';
+const HINWEIS_BANK_TUN = 'Beim Lieferanten über eine bekannte Telefonnummer bestätigen.';
 const MONATE = [['januar', 'january', 'jan'], ['februar', 'february', 'feb'], ['maerz', 'march', 'mar'], ['april', 'apr'],
   ['mai', 'may'], ['juni', 'june', 'jun'], ['juli', 'july', 'jul'], ['august', 'aug'], ['september', 'sep'],
   ['oktober', 'october', 'okt', 'oct'], ['november', 'nov'], ['dezember', 'december', 'dez', 'dec']];
@@ -67,8 +70,8 @@ async function pdfXmlAbgleich(pdfBuf, daten) {
   if (alnum < 120) {
     return {
       status: 'nicht-pruefbar', pruefbar: false, materiell: false,
-      hinweis: 'Sichtprüfung PDF↔XML nicht möglich (PDF ohne extrahierbaren Text — evtl. Scan). '
-             + 'Übereinstimmung von Steuerbetrag/Belegnummer bitte manuell prüfen.',
+      hinweis: 'Sichtprüfung PDF↔XML nicht möglich (PDF ohne lesbaren Text, vermutlich ein Scan). '
+             + 'Steuerbetrag und Rechnungsnummer bitte von Hand vergleichen.',
     };
   }
 
@@ -124,20 +127,30 @@ async function pdfXmlAbgleich(pdfBuf, daten) {
     abw.push(`Rechnungsdatum ${_datumDe(daten.datum)} steht nicht im Sichtbild`);
   }
 
-  // Bankverbindung: andere gueltige IBAN im Bild als in der XML
+  // Bankverbindung: andere gueltige IBAN im Bild als in der XML. Eigener Fall, weil hier
+  // ein Betrug stecken kann (umgeleitete Zahlung): Welche IBAN stimmt, klaert ein Anruf beim
+  // Lieferanten, und zwar vor der Zahlung. „Gebucht wird aus der XML“ waere hier gefaehrlich.
   const xmlIban = String(daten.iban || '').replace(/\s+/g, '').toUpperCase();
+  let bank = '';
   if (_ibanGueltig(xmlIban) && !_ibanImText(text, xmlIban)) {
     const bild = _ibansImText(text);
     if (bild.length && !bild.includes(xmlIban)) {
-      abw.push(`IBAN ${_ibanLesbar(xmlIban)} aus der XML steht nicht im Sichtbild, dort steht ${bild.map(_ibanLesbar).join(' bzw. ')}`);
+      bank = `IBAN in der XML ${_ibanLesbar(xmlIban)}, im PDF ${bild.map(_ibanLesbar).join(' bzw. ')}`;
     }
   }
 
+  // Kurz halten: Die Spalte ValidierungsMeldung nimmt 255 Zeichen, /api/intake stellt diesen
+  // Grund bei einer Rueckfrage nach vorn (feldlaenge.js kuerzt hinten).
+  if (bank) {
+    return {
+      status: 'abweichung', pruefbar: true, materiell: true, bankverbindung: true,
+      hinweis: HINWEIS_BANK + bank + '. ' + HINWEIS_BANK_TUN
+        + (abw.length ? ' Außerdem: ' + abw.join('; ') + '.' : ''),
+    };
+  }
   if (abw.length) {
     return {
       status: 'abweichung', pruefbar: true, materiell: true,
-      // Kurz halten: Die Spalte ValidierungsMeldung nimmt 255 Zeichen, /api/intake stellt diesen
-      // Grund bei einer Rueckfrage nach vorn (feldlaenge.js kuerzt hinten).
       hinweis: 'Materielle Abweichung Sichtbild ↔ XML: ' + abw.join('; ') + '. Gebucht wird aus der XML.',
     };
   }
@@ -270,4 +283,4 @@ function _ibanLesbar(iban) {
   return String(iban).replace(/(.{4})(?=.)/g, '$1 ');
 }
 
-module.exports = { pdfXmlAbgleich, _ibanGueltig, _ibansImText, _datumImText, _woerter };
+module.exports = { pdfXmlAbgleich, _ibanGueltig, _ibansImText, _datumImText, _woerter, HINWEIS_BANK };

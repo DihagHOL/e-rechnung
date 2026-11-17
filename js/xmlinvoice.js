@@ -15,7 +15,7 @@
 function parseInvoiceXML(xmlString) {
   const doc = new DOMParser().parseFromString(xmlString.replace(/^﻿/, ''), 'application/xml');
   if (doc.getElementsByTagName('parsererror').length > 0) {
-    throw new Error('Ungültiges XML — Datei konnte nicht gelesen werden.');
+    throw new Error('Ungültiges XML, die Datei konnte nicht gelesen werden.');
   }
   const root = doc.documentElement;
   const rootName = root.localName || root.nodeName.replace(/^.*:/, '');

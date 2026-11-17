@@ -478,7 +478,7 @@ function _monMap(it, f, lib) {
     gobd:     (f.GoBDArchiviert === true || f.GoBDArchiviert === 1
                || String(f.GoBDArchiviert).toLowerCase() === 'true'),
     // Prüfschritt-/Buchungssteuerung (UStAE/GoBD; /api/intake -> Flow -> SharePoint):
-    buchung:               (f.Buchung || '').toString(),
+    buchung:               _monBuchungText(f.Buchung),
     formatmangel:          _monBool(f.Formatmangel),
     manuellePruefung:      _monBool(f.ManuellePruefung),
     manuellePruefungGrund: (f.ManuellePruefungGrund || '').toString(),
@@ -589,7 +589,9 @@ function _monGroup(recs) {
     // heutige Regel des Prüfdienstes: gelb = Unter Vorbehalt, rot = Zurückgewiesen.
     if (/^automatik$/i.test(primary.buchung || '') && (primary.richtung || '') === 'Eingang') {
       if (/^gel/i.test(primary.konform || '')) { primary.buchungAlt = primary.buchung; primary.buchung = 'Unter Vorbehalt'; }
-      else if (/^rot/i.test(primary.konform || '')) { primary.buchungAlt = primary.buchung; primary.buchung = 'Zurueckgewiesen'; }
+      else if (/^rot/i.test(primary.konform || '')) { primary.buchungAlt = primary.buchung; primary.buchung = 'Zurückgewiesen'; }
+      // Prüfdienst war nicht erreichbar: ohne Prüfung nicht auf Automatik (seit 17.11.2026 auch im Prüfdienst)
+      else if (_monPruefungOffen(primary)) { primary.buchungAlt = primary.buchung; primary.buchung = 'Unter Vorbehalt'; }
     }
     // "öffnen" muss immer eine Datei treffen: hat die Primärzeile keine URL,
     // die erste verfügbare Geschwisterdatei nehmen.
@@ -951,12 +953,13 @@ function _monGemeinsam(r) {
 
 function _monMatchFlag(r, flag) {
   switch (flag) {
-    case 'fehler':     return !r.mahnung && (r.status === 'Fehler' || /^rot/i.test(r.konform || '') || !!r.fehler);
+    case 'fehler':     return !r.mahnung && (r.status === 'Fehler' || /^rot/i.test(r.konform || '') || !!r.fehler || _monPruefungOffen(r));
     case 'dublette':   return !!r.dublette;
-    case 'manuell':    return !r.mahnung && (r.manuellePruefung || /manuell/i.test(r.buchung || ''));
-    case 'rueckfrage': return !r.mahnung && !!r.rueckfrage;
+    // Warteschlangen der Buchhaltung (BPMN Rechnungseingang): nur, was noch offen ist
+    case 'manuell':    return _monVierAugen(r) && !_monPruefStand(r).fertig;
+    case 'rueckfrage': return !r.mahnung && !!r.rueckfrage && !_monErledigt(r, 'rueckfrage');
     case 'mahnung':    return !!r.mahnung;
-    case 'zurueck':    return !r.mahnung && /zur(?:ü|ue)ckgew/i.test(r.buchung || '');
+    case 'zurueck':    return !r.mahnung && /zur(?:ü|ue)ckgew/i.test(r.buchung || '') && !_monErledigt(r, 'zurueckweisung');
     case 'umsatz':     return typeof ugBraucht === 'function' && ugBraucht(r) && !ugFuer(r)
                               && ugPhase(r.datum) !== 'pflicht';
     case 'genehmigung': return typeof bhInGenehmigung === 'function' && bhInGenehmigung(r.bh)
@@ -1033,9 +1036,9 @@ function _monRenderKpis(rows) {
     { id: 'r:Ausgang',       label: 'Ausgang',               val: ausgang,    cls: 'out' },
     { id: 'flag:fehler',     label: 'Fehler / rot',          val: fehler,     cls: 'bad' },
     { id: 'flag:dublette',   label: 'Dubletten',             val: dubletten,  cls: dubletten ? 'bad' : '' },
-    { id: 'flag:manuell',    label: 'Manuelle Prüfung',      val: manuell,    cls: manuell ? 'warn' : '' },
-    { id: 'flag:rueckfrage', label: 'Zur Rückfrage',         val: rueckfrage, cls: rueckfrage ? 'bad' : '' },
-    { id: 'flag:zurueck',    label: 'Zurückgewiesen',        val: zurueck,    cls: zurueck ? 'bad' : '' },
+    { id: 'flag:manuell',    label: 'Vier-Augen offen',      val: manuell,    cls: manuell ? 'warn' : '' },
+    { id: 'flag:rueckfrage', label: 'Rückfrage offen',       val: rueckfrage, cls: rueckfrage ? 'bad' : '' },
+    { id: 'flag:zurueck',    label: 'Zurückweisung offen',   val: zurueck,    cls: zurueck ? 'bad' : '' },
     { id: 'flag:umsatz',     label: '800k-Einschätzung offen', val: umsatz,   cls: umsatz ? 'warn' : '' },
     ...(_monRecords.some(r => r.mahnung) ? [{ id: 'flag:mahnung', label: 'Mahnungen (keine Rechnung)', val: mahnungen, cls: '' }] : []),
     ...(_monRecords.some(r => r.bh) ? [{ id: 'flag:genehmigung', label: 'In Genehmigung', val: genehmigung, cls: genehmigung ? 'warn' : '' }] : []),
@@ -1293,17 +1296,135 @@ function _monKuerzel(name) {
   return (teile.length === 1 ? teile[0].slice(0, 2) : teile[0][0] + teile[teile.length - 1][0]).toUpperCase();
 }
 
-/** „Als geprüft markieren“ bzw. zurücknehmen (mit Rückfrage), danach die Tabelle neu zeichnen. */
-async function _monGeprueftUmschalten(r, knopf) {
-  const g = ugGeprueft(r);
-  if (g && !window.confirm(`Markierung „Geprüft“ (${g.vonName || g.von}, ${_monDate(g.am)}) zurücknehmen?`)) return;
+/**
+ * „Als geprüft markieren“ bzw. zurücknehmen (mit Rückfrage), danach die Tabelle neu zeichnen.
+ * zweite: zweite Prüfung im Vier-Augen-Prinzip, nur durch eine andere Person als die erste.
+ */
+async function _monGeprueftUmschalten(r, knopf, zweite) {
+  const erste = ugGeprueft(r);
+  const zweit = typeof ugZweitpruefung === 'function' ? ugZweitpruefung(r) : null;
+  const g = zweite ? zweit : erste;
+  if (g && !window.confirm(`${zweite ? 'Zweite Prüfung' : 'Markierung „Geprüft“'} (${g.vonName || g.von}, ${_monDate(g.am)}) zurücknehmen?`)) return;
+  if (!g && zweite) {
+    if (!erste) return;
+    if (_monGleichePerson(erste)) { window.alert('Die zweite Prüfung muss eine andere Person machen als die erste.'); return; }
+  }
+  if (g && !zweite && zweit) { window.alert('Bitte zuerst die zweite Prüfung zurücknehmen.'); return; }
   knopf.disabled = true;
   try {
-    await ugRechnungSetzen(r, 'geprueft', g ? null : {});
+    await ugRechnungSetzen(r, zweite ? 'geprueft2' : 'geprueft', g ? null : {});
   } catch (e) {
     window.alert(e.message || String(e));
   }
   _monApply();
+}
+
+/** Rückfrage gestellt bzw. Zurückweisung gesendet markieren oder zurücknehmen. */
+async function _monErledigtUmschalten(r, art, knopf) {
+  const e = typeof ugErledigt === 'function' ? ugErledigt(r, art) : null;
+  const text = _monErledigtText(r, art);
+  if (e && !window.confirm(`Markierung „${text}“ (${e.vonName || e.von}, ${_monDate(e.am)}) zurücknehmen?`)) return;
+  if (!e && art === 'rueckfrage' && _monBankKlaeren(r) && !window.confirm('Hat der Lieferant die Bankverbindung über eine bekannte '
+    + 'Telefonnummer bestätigt, nicht über Angaben aus der Rechnung oder der Mail?')) return;
+  knopf.disabled = true;
+  try {
+    await ugRechnungSetzen(r, UG_ERLEDIGT[art], e ? null : {});
+  } catch (err) {
+    window.alert(err.message || String(err));
+  }
+  _monApply();
+}
+
+/* ── Prüfschritte nach dem Prozess „Rechnungseingang“ (BPMN) ───────────── */
+
+/** Buchungsweg einheitlich anzeigen (Flow und ältere Einträge schreiben ihn verschieden). */
+const MON_BUCHUNG = { automatik: 'Automatik', unter_vorbehalt: 'Unter Vorbehalt', 'unter vorbehalt': 'Unter Vorbehalt',
+  manuell: 'Manuell', zurueckgewiesen: 'Zurückgewiesen', 'zurückgewiesen': 'Zurückgewiesen' };
+function _monBuchungText(v) {
+  const s = String(v == null ? '' : v).trim();
+  return MON_BUCHUNG[s.toLowerCase()] || s;
+}
+
+/** Text des Prüfdienstes, wenn er nicht erreichbar war (api/src/functions/intake.js). */
+const MON_PRUEFUNG_OFFEN = 'Prüfung nicht gelaufen (Prüfdienst nicht erreichbar). Buchungsweg unter Vorbehalt. Die IT muss die Prüfung neu anstoßen.';
+
+/** Eingangs-E-Rechnung, deren Prüfung nicht gelaufen ist (Prüfdienst nicht erreichbar)? */
+function _monPruefungOffen(r) {
+  if (!r || r.richtung === 'Ausgang') return false;
+  if (/^Prüfung nicht gelaufen/.test(String(r.meldung || ''))) return true;
+  const k = _monKlass(r);
+  return /^ungepr/i.test(r.konform || '') && (k === 'ZUGFeRD' || k === 'XRechnung');
+}
+
+/** Andere IBAN im PDF als in der XML (neuer und alter Hinweistext des Abgleichs). */
+const MON_BANK = /^Bankverbindung vor der Zahlung klären|^Materielle Abweichung Sichtbild[^|]*\bIBAN\b/;
+function _monBankKlaeren(r) {
+  return !!(r && r.rueckfrage) && String(r.meldung || '').split(' | ').some(t => MON_BANK.test(t.trim()));
+}
+
+/** Vier-Augen-Prüfung nötig (Reverse-Charge, innergemeinschaftlich, steuerfrei)? */
+function _monVierAugen(r) {
+  return !!r && r.richtung !== 'Ausgang' && !r.mahnung && (!!r.manuellePruefung || /manuell/i.test(r.buchung || ''));
+}
+
+/** Stand der Prüfung aus dem Lieferantenregister: { erste, zweite, fertig }. */
+function _monPruefStand(r) {
+  const erste = typeof ugGeprueft === 'function' ? ugGeprueft(r) : null;
+  const zweite = erste && typeof ugZweitpruefung === 'function' ? ugZweitpruefung(r) : null;
+  return { erste, zweite, fertig: !!erste && (!_monVierAugen(r) || !!zweite) };
+}
+
+/** Angemeldete Person (Anmeldename). */
+function _monIch() {
+  return (((typeof getAuthUser === 'function' && getAuthUser()) || {}).username || '').toLowerCase();
+}
+
+/** Hat die angemeldete Person diese Markierung gesetzt? */
+function _monGleichePerson(m) {
+  const ich = _monIch();
+  return !!ich && !!m && String(m.von || '').toLowerCase() === ich;
+}
+
+/**
+ * Rückfrage gestellt bzw. Zurückweisung gesendet? { am, von, vonName } oder null. Eine
+ * Zurückweisung, die der Flow aus dem Werks-Postfach verschickt hat, zählt auch.
+ */
+function _monErledigt(r, art) {
+  const e = typeof ugErledigt === 'function' ? ugErledigt(r, art) : null;
+  if (e) return e;
+  if (art === 'zurueckweisung' && typeof ugMailsFuer === 'function') {
+    const m = ugMailsFuer(r).find(x => x.art === 'Zurueckweisung' && x.status === 'Gesendet');
+    if (m) return { am: m.gesendetAm || m.am, von: '', vonName: 'Mail aus dem Werks-Postfach', perMail: true };
+  }
+  return null;
+}
+
+/** Beschriftung der Erledigt-Markierung. */
+function _monErledigtText(r, art) {
+  if (art === 'zurueckweisung') return 'Zurückweisung gesendet';
+  return _monBankKlaeren(r) ? 'IBAN bestätigt' : 'Rückfrage gestellt';
+}
+
+/** Knöpfe „Rückfrage gestellt“ / „IBAN bestätigt“ / „Zurückweisung gesendet“ in der Spalte Buchung. */
+function _monErledigtZelle(r, idx) {
+  if (!r || r.richtung === 'Ausgang' || r.mahnung || typeof ugRechnungSetzen !== 'function') return '';
+  const arten = [];
+  if (r.rueckfrage) arten.push('rueckfrage');
+  if (/zur(?:ü|ue)ckgew/i.test(r.buchung || '')) arten.push('zurueckweisung');
+  return arten.map(art => {
+    const e = _monErledigt(r, art);
+    const text = _monErledigtText(r, art);
+    if (e && e.perMail) return `<div class="mon-erledigt mon-erledigt-ok" title="${_esc(`Vom Flow gesendet am ${_monDate(e.am)}`)}">✓ ${_esc(text)}</div>`;
+    if (e) {
+      return `<button type="button" class="mon-erledigt mon-erledigt-ok" data-erledigt="${art}" data-idx="${idx}"`
+        + ` title="${_esc(`${text}: ${e.vonName || e.von} am ${_monZeit(e.am)}. Klicken nimmt die Markierung zurück.`)}">`
+        + `✓ ${_esc(text)} · ${_esc(_monKuerzel(e.vonName || e.von))}</button>`;
+    }
+    const tipp = art === 'zurueckweisung' ? 'Markieren, wenn die Zurückweisung an den Lieferanten gegangen ist'
+      : _monBankKlaeren(r) ? 'Erst markieren, wenn der Lieferant die Bankverbindung über eine bekannte Telefonnummer bestätigt hat'
+        : 'Markieren, wenn die Rückfrage an den Lieferanten gestellt ist';
+    return `<button type="button" class="mon-erledigt" data-erledigt="${art}" data-idx="${idx}" title="${_esc(tipp)}">${_esc(text)}</button>`;
+  }).join('');
 }
 
 // Eine Zelle der Tabelle
@@ -1340,13 +1461,30 @@ function _monZelle(id, r, idx) {
         : '<span style="color:#9ca3af;">–</span>'}</td>`;
     }
     case 'geprueft': {
-      // Markierung im Lieferantenregister (js/umsatzgrenze.js): ein Klick setzt sie, ein Klick auf ✓ nimmt sie zurück
+      // Markierung im Lieferantenregister (js/umsatzgrenze.js): ein Klick setzt sie, ein Klick auf ✓ nimmt sie zurück.
+      // Reverse-Charge, innergemeinschaftlich, steuerfrei: zwei Prüfungen von verschiedenen Personen (Vier-Augen).
       if (!_monGeprueftMoeglich(r)) return '<td></td>';
-      const g = ugGeprueft(r);
-      return `<td>${g
-        ? `<button type="button" class="mon-geprueft" data-geprueft="${idx}" title="${_esc(`Geprüft von ${g.vonName || g.von} am ${_monZeit(g.am)}. Klicken nimmt die Markierung zurück.`)}">✓ Geprüft</button>`
-          + `<div class="mon-geprueft-wer">${_esc([_monKuerzel(g.vonName || g.von), _monDate(g.am)].filter(Boolean).join(' · '))}</div>`
-        : `<button type="button" class="ug-btn" data-geprueft="${idx}" title="Rechnung als geprüft markieren, mit Name und Datum">Als geprüft markieren</button>`}</td>`;
+      const { erste: g, zweite: g2 } = _monPruefStand(r);
+      const vier = _monVierAugen(r);
+      const wer = x => _esc([_monKuerzel(x.vonName || x.von), _monDate(x.am)].filter(Boolean).join(' · '));
+      if (!g) {
+        return `<td><button type="button" class="ug-btn" data-geprueft="${idx}" title="${vier
+          ? 'Erste von zwei Prüfungen (Vier-Augen-Prinzip), mit Name und Datum' : 'Rechnung als geprüft markieren, mit Name und Datum'}">Als geprüft markieren</button>`
+          + `${vier ? '<div class="mon-geprueft-wer">Vier-Augen: 0 von 2</div>' : ''}</td>`;
+      }
+      if (!vier) {
+        return `<td><button type="button" class="mon-geprueft" data-geprueft="${idx}" title="${_esc(`Geprüft von ${g.vonName || g.von} am ${_monZeit(g.am)}. Klicken nimmt die Markierung zurück.`)}">✓ Geprüft</button>`
+          + `<div class="mon-geprueft-wer">${wer(g)}</div></td>`;
+      }
+      if (!g2) {
+        const selbst = _monGleichePerson(g);
+        return `<td><button type="button" class="mon-geprueft mon-geprueft-halb" data-geprueft="${idx}" title="${_esc(`Erste Prüfung von ${g.vonName || g.von} am ${_monZeit(g.am)}. Klicken nimmt sie zurück.`)}">✓ 1 von 2</button>`
+          + `<div class="mon-geprueft-wer">${wer(g)}</div>`
+          + `<button type="button" class="ug-btn" data-geprueft2="${idx}"${selbst ? ' disabled' : ''} title="${selbst
+            ? 'Die zweite Prüfung muss eine andere Person machen.' : 'Zweite Prüfung (Vier-Augen-Prinzip), mit Name und Datum'}">Zweitprüfung</button></td>`;
+      }
+      return `<td><button type="button" class="mon-geprueft" data-geprueft2="${idx}" title="${_esc(`Geprüft von ${g.vonName || g.von} und ${g2.vonName || g2.von}. Klicken nimmt die zweite Prüfung zurück.`)}">✓ Geprüft 2 von 2</button>`
+        + `<div class="mon-geprueft-wer">${wer(g)}<br>${wer(g2)}</div></td>`;
     }
     case 'klass':    return `<td>${_esc(_monKlass(r))}</td>`;
     case 'status': {
@@ -1363,15 +1501,17 @@ function _monZelle(id, r, idx) {
       const flags = [];
       if (_monFormatmangel(r)) flags.push(['Formatmangel', '#8a5a00', '#fff3d6']);
       if (r.manuellePruefung) flags.push([r.manuellePruefungGrund ? 'Manuell · ' + r.manuellePruefungGrund : 'Manuell', '#8a3b00', '#ffe6cc']);
-      if (r.rueckfrage)       flags.push(['Rückfrage', '#b40000', '#ffe0e0']);
+      if (r.rueckfrage)       flags.push([_monBankKlaeren(r) ? 'IBAN vor Zahlung klären' : 'Rückfrage', '#b40000', '#ffe0e0']);
+      if (_monPruefungOffen(r)) flags.push(['Prüfung nicht gelaufen', '#b40000', '#ffe0e0']);
       if (r.konvertiert)      flags.push(['techn. konvertiert', '#334155', '#e2e8f0']);
       const badges = flags.map(([t, c, bgc]) =>
         `<div title="${_esc(t)}" style="display:inline-block;margin:3px 3px 0 0;font-size:11px;font-weight:600;color:${c};background:${bgc};border-radius:3px;padding:1px 6px;">${_esc(t.length > 28 ? t.slice(0, 26) + '…' : t)}</div>`).join('');
       // Mit Bearbeiten im Monitoring öffnet „Bearbeiten“ auch die Einschätzung, hier steht nur der Stand
       const ug = typeof ugZelle === 'function' ? ugZelle(r, idx, _monGemeinsam(r)) : '';
       const tipBuchung = r.buchungAlt ? ` title="Gespeichert ist ${_esc(r.buchungAlt)}. Nach dem Prüfergebnis gilt ${_esc(r.buchung)}."` : '';
+      const erledigt = _monErledigtZelle(r, idx);
       return `<td>${(r.buchung ? `<span class="pill pill-status"${tipBuchung}>${_esc(r.buchung)}</span>` : '')
-        + (badges ? `<div>${badges}</div>` : '') + (ug ? `<div>${ug}</div>` : '') || '–'}</td>`;
+        + (badges ? `<div>${badges}</div>` : '') + (erledigt ? `<div>${erledigt}</div>` : '') + (ug ? `<div>${ug}</div>` : '') || '–'}</td>`;
     }
     case 'informiert': {
       const v = typeof ugInformiert === 'function' ? ugInformiert(r) : '';
@@ -1504,7 +1644,10 @@ function _monDetail(r, idx) {
   const t = v => (v == null || v === '' ? '' : _esc(v));
   const p = _monPartnerSicher(r);
   const flags = [_monFormatmangel(r) && 'Formatmangel', r.manuellePruefung && ('Manuelle Prüfung' + (r.manuellePruefungGrund ? ': ' + r.manuellePruefungGrund : '')),
-    r.rueckfrage && 'Rückfrage beim Lieferanten', r.konvertiert && 'technisch konvertiertes PDF', r.dublette && r.dubletteInfo].filter(Boolean);
+    r.rueckfrage && (_monBankKlaeren(r) ? 'Bankverbindung vor der Zahlung klären' : 'Rückfrage beim Lieferanten'),
+    _monPruefungOffen(r) && 'Prüfung nicht gelaufen', r.konvertiert && 'technisch konvertiertes PDF', r.dublette && r.dubletteInfo].filter(Boolean);
+  const stand = _monGeprueftMoeglich(r) ? _monPruefStand(r) : null;
+  const erledigt = art => { const x = _monErledigt(r, art); return x ? `${_monErledigtText(r, art)}: ${x.vonName || x.von || ''} am ${_monDate(x.am)}` : ''; };
   const sonstige = typeof ugSonstige === 'function' && ugSonstige(r);
   const e = sonstige && typeof ugFuer === 'function' ? ugFuer(r) : null;
   const mails = sonstige && typeof ugMailsFuer === 'function' ? ugMailsFuer(r).slice(0, 3).map(m => _ugMailStand(m)) : [];
@@ -1529,7 +1672,11 @@ function _monDetail(r, idx) {
     + block('Beträge', [['Netto', t(_monGeld(r.netto, r))], ['Brutto', t(_monGeld(r.brutto, r))], ['Bestellnummer', t((b && b.bestellnr) || r.bestellnr)]])
     + block('Prüfung', [['Ergebnis', t(r.konform) + (r.richtung === 'Ausgang' ? ' (Selbstprüfung des Konverters beim Export)' : '')], ['Hinweis', t(_monHinweis(r))], ['Status', t(r.status)],
         ['Buchung', t(r.buchung) + (r.buchungAlt ? ` (gespeichert: ${t(r.buchungAlt)})` : '')], ['Prüfschritte', t(flags.join('\n'))],
-        ['Fehler', t(r.fehler)], ['Als geprüft markiert', geprueft ? t(wer(geprueft)) : ''], ['Aufbewahrung', t(r.complianceTag)],
+        ['Fehler', t(r.fehler)], ['Als geprüft markiert', geprueft ? t(wer(geprueft)) : ''],
+        ['Zweite Prüfung', stand && _monVierAugen(r) ? (stand.zweite ? t(wer(stand.zweite)) : 'noch offen (Vier-Augen-Prinzip)') : ''],
+        ['Rückfrage', r.rueckfrage ? t(erledigt('rueckfrage') || 'noch offen') : ''],
+        ['Zurückweisung', /zur(?:ü|ue)ckgew/i.test(r.buchung || '') ? t(erledigt('zurueckweisung') || 'noch nicht gesendet') : ''],
+        ['Aufbewahrung', t(r.complianceTag)],
         ['Mails', !sonstige && typeof ugMailsFuer === 'function' ? t(ugMailsFuer(r).slice(0, 3)
           .map(m => ({ Zurueckweisung: 'Zurückweisung: ', Abweichung: 'Hinweis auf Abweichungen: ' }[m.art] || '') + _ugMailStand(m))
           .join(String.fromCharCode(10))) : '']])
@@ -2066,26 +2213,47 @@ function _monHinweis(r) {
   const k = (r.konform || '').toLowerCase();
   // Rückfrage aus dem Abgleich Bild gegen XML: dieser Grund geht vor, auch wenn die Meldung
   // dahinter KoSIT-Regelcodes enthält (die würden sonst durch einen allgemeinen Satz ersetzt)
-  const abgleich = r.rueckfrage ? s.split(' | ').map(t => t.trim()).find(t => /^Materielle Abweichung Sichtbild/.test(t)) : '';
+  const abgleich = r.rueckfrage ? s.split(' | ').map(t => t.trim()).find(t => /^(Materielle Abweichung Sichtbild|Bankverbindung vor der Zahlung)/.test(t)) : '';
+  // Alter Text bei anderer IBAN (bis 17.11.2026): nicht „aus der XML buchen“, sondern vor der Zahlung klären
+  if (abgleich && _monBankKlaeren(r) && /^Materielle/.test(abgleich)) {
+    return abgleich.replace(/ ?Gebucht wird aus der XML\.?$/, '')
+      + ' Bankverbindung vor der Zahlung beim Lieferanten über eine bekannte Telefonnummer bestätigen.';
+  }
   if (abgleich) return abgleich;
+  if (!s && _monPruefungOffen(r)) return MON_PRUEFUNG_OFFEN;
   if (k.startsWith('gr')) return r.rueckfrage ? s : '';
   // Bis 10/2026 schrieb die Prüfung bei Warnungen (und manchen Fehlern) keinen Text.
   if (!s && k.startsWith('gel')) return 'Nur Warnungen, die Rechnung ist gültig. Details im Prüfbericht.';
   if (!s && k.startsWith('rot')) return 'Nicht konform. Details im Prüfbericht.';
   if (!s) return '';
-  if (!/BR-[A-Z0-9]|CII-(SR|DT)-/i.test(s)) return s; // schon Klartext -> so anzeigen
+  if (!/BR-[A-Z0-9]|CII-(SR|DT)-/i.test(s)) return _monAlterText(s); // schon Klartext -> so anzeigen
   const regeln = [
-    [/BR-CL-18\b/i, 'Positionen ohne USt-Kategorie-Code (BT-151) — Rechnungssteller muss je Position eine USt-Kategorie angeben.'],
+    [/BR-CL-18\b/i, 'Positionen ohne USt-Kategorie-Code (BT-151). Der Rechnungssteller muss je Position eine USt-Kategorie angeben.'],
     [/BR-CO-1[0-7]\b/i, 'Rechnerische Summen stimmen nicht zusammen (Netto/USt/Brutto).'],
     [/BR-[A-Z]{1,2}-0[6-9]\b/i, 'USt-Aufschlüsselung passt nicht zu den Positionssummen.'],
     [/BR-[A-Z]{1,2}-0[1-5]\b/i, 'USt-Kategorie in der Steueraufschlüsselung unvollständig.'],
     [/BR-DEC-\d/i, 'Beträge mit falscher Anzahl Nachkommastellen.'],
-    [/BR-CL-\d/i, 'Ungültiger Code — eine Code-Liste wird nicht eingehalten.'],
+    [/BR-CL-\d/i, 'Ungültiger Code: Eine Code-Liste wird nicht eingehalten.'],
     [/CII-(SR|DT)-/i, 'CII-Syntaxfehler (Struktur/Datentyp nicht schemakonform).'],
     [/BR-\d|BR-[A-Z]/i, 'Verstoß gegen EN16931-Geschäftsregeln.'],
   ];
   for (const [re, text] of regeln) if (re.test(s)) return text;
   return 'Nicht konform (siehe KoSIT-Bericht).';
+}
+
+/**
+ * Ältere Hinweise des Prüfdienstes (bis 17.11.2026) in der heutigen Fassung zeigen. Sie sagten
+ * „gebucht“ und „Berichtigung angefordert“, obwohl beides zu dem Zeitpunkt nicht stimmt.
+ */
+const MON_ALTE_TEXTE = [
+  [/ ?Als sonstige Rechnung unter Vorbehalt gebucht, Berichtigung angefordert/g, ' Buchungsweg unter Vorbehalt, Einschätzung im Monitoring offen'],
+  [/PDF\/A-3 fehlt — als sonstige Rechnung unter Vorbehalt gebucht, Berichtigung angefordert\./g,
+    'PDF/A-3 fehlerhaft, zählt als sonstige Rechnung. Buchungsweg unter Vorbehalt, Einschätzung im Monitoring offen.'],
+  [/ — manuelle Pruefung \(Vier-Augen\) erforderlich\./g, ': Vier-Augen-Prüfung erforderlich.'],
+  [/Bitte pruefen\./g, 'Bitte prüfen.'],
+];
+function _monAlterText(s) {
+  return MON_ALTE_TEXTE.reduce((t, [re, neu]) => t.replace(re, neu), String(s || '')).trim();
 }
 
 // Datum kompakt einzeilig: ISO (YYYY-MM-DD…) -> TT.MM.JJJJ, sonst unverändert.
@@ -2154,10 +2322,13 @@ function _monKonPill(r) {
   if (v.startsWith('rot')) return `<span class="pill pill-bad">rot</span>`;
   // Langes Prüfergebnis „Sonstige Rechnung (keine E-Rechnung)“ kurz, der volle Hinweis steht im Tooltip
   if (v.startsWith('sonst')) {
-    const tip = _monHinweis(r) || 'Sonstige Rechnung: PDF ohne E-Rechnungsdaten, unter Vorbehalt gebucht.';
+    const tip = _monHinweis(r) || 'Sonstige Rechnung: PDF ohne E-Rechnungsdaten, Buchungsweg unter Vorbehalt.';
     return `<span class="pill pill-status" title="${_esc(tip)}">keine E-Rechnung</span>`;
   }
-  if (v.startsWith('ungepr')) return `<span class="pill pill-status" title="Die Prüfung ist nicht gelaufen">ungeprüft</span>`;
+  if (v.startsWith('ungepr')) {
+    return _monPruefungOffen(r) ? `<span class="pill pill-bad" title="${_esc(MON_PRUEFUNG_OFFEN)}">ungeprüft</span>`
+      : `<span class="pill pill-status" title="Die Prüfung ist nicht gelaufen">ungeprüft</span>`;
+  }
   return r.konform ? `<span class="pill" title="${_esc(r.konform)}">${_esc(r.konform)}</span>` : '';
 }
 
@@ -2210,7 +2381,7 @@ function _monRenderChips() {
   const f = _monFilter;
   const KONF = { gr: 'grün', gel: 'gelb', rot: 'rot', sonst: 'keine E-Rechnung' };
   const FLAG = { offen: 'Offen', fehler: 'Fehler / rot', dublette: 'Dubletten',
-                 manuell: 'Manuelle Prüfung', rueckfrage: 'Zur Rückfrage', zurueck: 'Zurückgewiesen',
+                 manuell: 'Vier-Augen offen', rueckfrage: 'Rückfrage offen', zurueck: 'Zurückweisung offen',
                  umsatz: '800k-Einschätzung offen', genehmigung: 'In Genehmigung', mahnung: 'Mahnungen' };
   const deDate = s => s.split('-').reverse().join('.');
   const chips = [];
@@ -2344,10 +2515,17 @@ function monInitFilterEvents() {
       else if (r) bhDialogOeffnen(r, nachBh);
       return;
     }
-    const gp = e.target.closest('[data-geprueft]');
+    const gp = e.target.closest('[data-geprueft], [data-geprueft2]');
     if (gp && typeof ugRechnungSetzen === 'function') {
-      const r = _monRows[Number(gp.getAttribute('data-geprueft'))];
-      if (r) _monGeprueftUmschalten(r, gp);
+      const zweite = gp.hasAttribute('data-geprueft2');
+      const r = _monRows[Number(gp.getAttribute(zweite ? 'data-geprueft2' : 'data-geprueft'))];
+      if (r) _monGeprueftUmschalten(r, gp, zweite);
+      return;
+    }
+    const erl = e.target.closest('[data-erledigt]');
+    if (erl && typeof ugRechnungSetzen === 'function') {
+      const r = _monRows[Number(erl.getAttribute('data-idx'))];
+      if (r) _monErledigtUmschalten(r, erl.getAttribute('data-erledigt'), erl);
       return;
     }
     const btn = e.target.closest('[data-ug]');
@@ -2401,5 +2579,6 @@ function _esc(s) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { _monRechnungsart, _monFetchLib, _monVorMonaten, _monWeiter, _monHinweis, _monFormatmangel, _monGeprueftMoeglich, _monSichtbareSpalten, _monFilter, _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monDublettenNummer, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
     _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMatchFlag, _monMitNeuenSpalten, _monLibErlaubt, _monIstMahnung,
-    _monLibsZumAktualisieren, _monDateienTauschen };
+    _monLibsZumAktualisieren, _monDateienTauschen, _monBuchungText, _monPruefungOffen, _monBankKlaeren, _monVierAugen, _monPruefStand,
+    _monErledigt, _monErledigtZelle, _monAlterText, _monZelle };
 }

@@ -161,7 +161,7 @@ aus der Empfänger-Adresse ableitet. Ablauf:
       | `ValidierungsMeldung` | `body('HTTP')?['hinweis']` (fertiger Klartext-Satz, höchstens 255 Zeichen). **Nicht** `join(meldungen)`, das ergäbe „[object Object]". Ist die Spalte mehrzeilig, geht auch `hinweisLang` (ungekürzt) oder `meldungenText` (alle Befunde). |
       | `PDFAStatus` | aus `pdfa.konform`: ok→`PDF/A-3b ok` · fehler→`PDF/A Fehler` · xml→`n/a (nur XML)` · sonst `Ungeprueft` |
       | `KoSITBerichtUrl` / `LesbarPdfUrl` | WebUrl der Sidecars aus Schritt d |
-      | `Verarbeitungsstatus` | `if(equals(body('HTTP')?['konform'],'rot'),'Fehler','Validiert')` |
+      | `Verarbeitungsstatus` | `if(equals(body('HTTP')?['konform'],'rot'),'Fehler','Validiert')`. War der Prüfdienst nicht erreichbar (`pruefungOffen`), steht hier ebenfalls „Validiert“, aber `Buchung` ist „unter_vorbehalt“ und `ValidierungsMeldung` beginnt mit „Prüfung nicht gelaufen“. Das Monitoring zählt die Rechnung dann unter „Fehler / rot“. |
 
    > **Dubletten kennzeichnet das Monitoring** (`monitoring.js`, `_monMarkDupes`): gleiche
    > Rechnungsnummer beim selben Lieferanten = „⚠ Dublette“ und KPI-Kachel, dazu der

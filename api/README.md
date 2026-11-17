@@ -251,6 +251,9 @@ POST /api/intake?werk=<Kuerzel>  -> Body = PDF|XML, Antwort = {
        dateibasis,                 // <Nummer>_<StellerVat> — kollisions-/dublettensicherer Dateiname
        buchung, kreditorAktion,    // kreditorAktion.mail: Mail bei Zurückweisung/gelb mit Prüfbericht als Anhang (src/kreditormail.js),
                                    // mail.an = Mailadresse aus der E-Rechnung (BT-43, sonst BT-34) oder null
+       rueckfrageLieferant,        // materielle Abweichung PDF ↔ XML (src/pdfabgleich.js), Grund vorn im hinweis
+       bankverbindungKlaeren,      // andere IBAN im PDF als in der XML: vor der Zahlung beim Lieferanten klären
+       pruefungOffen,              // Prüfdienst nicht erreichbar: konform 'ungeprueft', buchung 'unter_vorbehalt'
        xml,                        // extrahierte/empfangene E-Rechnungs-XML
        lesbarPdfBase64 }           // reine XML, Formatmangel, ZUGFeRD gelb: gerendertes PDF/A
 ```

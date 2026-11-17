@@ -193,19 +193,19 @@ function render(r) {
   const pf = r.preflight || { errors: [], notes: [] };
   let html = '';
   if (pf.errors.length) {
-    html += `<div class="mc-err"><h4>✗ Preflight: ${pf.errors.length} Fehler — so nicht bankfertig</h4><ul>${
+    html += `<div class="mc-err"><h4>✗ Preflight: ${pf.errors.length} Fehler, so nicht bankfertig</h4><ul>${
       pf.errors.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>`;
   } else if (azv) {
     html += `<div class="mc-ok">✅ <strong>Preflight bestanden, bankfertig für AXZ.</strong> ${pf.nbOfTxs} Posten, ${sumTxt}. `
           + `DK-Pflichtfelder, Ort und Land, IBAN-Prüfziffern, BIC-Format, Entgeltregelung, Summen, SWIFT-Zeichensatz und Feldlängen sind ok. `
           + `Einreichen per EBICS-Auftragsart AXZ.</div>`;
   } else {
-    html += `<div class="mc-ok">✅ <strong>Preflight bestanden — bankfertig.</strong> ${pf.nbOfTxs} Posten, ${eur(pf.ctrlSum)}. `
+    html += `<div class="mc-ok">✅ <strong>Preflight bestanden, bankfertig.</strong> ${pf.nbOfTxs} Posten, ${eur(pf.ctrlSum)}. `
           + `IBAN-Prüfziffern (Mod-97), BIC-Format, Summen, SEPA-Zeichensatz und Feldlängen sind ok.</div>`;
   }
   const hinweise = [...new Set([...pf.notes, ...r.warnings])];
   if (hinweise.length) {
-    html += `<div class="mc-warn"><h4>⚠ ${hinweise.length} Hinweis(e) — bitte prüfen</h4><ul>${
+    html += `<div class="mc-warn"><h4>⚠ ${hinweise.length} Hinweis(e), bitte prüfen</h4><ul>${
       hinweise.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>`;
   }
   msg.innerHTML = html;
@@ -214,7 +214,7 @@ function render(r) {
   const dl = document.getElementById('btn-download-xml');
   dl.classList.toggle('btn-xrechnung', !pf.errors.length);
   document.getElementById('export-hint').textContent = pf.errors.length
-    ? '⚠ Preflight-Fehler — vor dem Bank-Upload korrigieren'
+    ? '⚠ Preflight-Fehler: vor dem Bank-Upload korrigieren. Herunterladen nur nach Rückfrage.'
     : azv ? 'Bankfertig, per EBICS-Auftragsart AXZ einreichen' : 'Bankfertige ISO-20022-Zahldatei (Preflight bestanden)';
 
   // Posten-Tabelle
@@ -250,18 +250,25 @@ function render(r) {
 /* ── Download / Kopieren ── */
 function downloadXml() {
   if (!_result) return;
+  // Laut Prozess (BPMN Zahlungsausgang) geht nur eine Datei mit grünem Preflight zur Bank. Bei Fehlern
+  // nur nach Rückfrage, und der Dateiname sagt es, damit sie nicht versehentlich hochgeladen wird.
+  const fehler = (_result.preflight && _result.preflight.errors) || [];
+  if (fehler.length && !window.confirm(`Der Preflight meldet ${fehler.length} Fehler. So lehnt die Bank die Datei voraussichtlich ab. `
+    + 'Trotzdem herunterladen? Der Dateiname bekommt dann den Zusatz „_NICHT_BANKFERTIG“.')) return;
   const blob = new Blob([_result.xml], { type: 'application/xml' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = _fileBase + (_mode === 'azv' ? '_pain.001.001.09_AXZ.xml' : '_pain.001.001.09.xml');
+  a.href = url; a.download = _fileBase + (fehler.length ? '_NICHT_BANKFERTIG' : '')
+    + (_mode === 'azv' ? '_pain.001.001.09_AXZ.xml' : '_pain.001.001.09.xml');
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showToast('Datei heruntergeladen.', 'success');
+  if (fehler.length) showToast('Datei mit Preflight-Fehlern heruntergeladen. Bitte nicht bei der Bank einreichen.', 'error');
+  else showToast('Datei heruntergeladen.', 'success');
 }
 async function copyXml() {
   if (!_result) return;
   try { await navigator.clipboard.writeText(_result.xml); showToast('XML in die Zwischenablage kopiert.', 'success'); }
-  catch { showToast('Kopieren nicht möglich — bitte manuell markieren.', 'error'); }
+  catch { showToast('Kopieren nicht möglich, bitte von Hand markieren.', 'error'); }
 }
 
 /* ── UI-Helfer ── */
@@ -273,15 +280,25 @@ function showLoading(visible, msg = 'Verarbeitung…') {
 }
 function showToast(message, type = 'info') {
   const container = document.getElementById('toast-container');
+  if (!container) return;
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  if (type === 'error' || type === 'warn') toast.setAttribute('role', 'alert');
+  const icons = { success: '✅', error: '❌', info: 'ℹ️', warn: '⚠️' };
   // Meldungen enthalten oft Fehlertexte von außen: nur als Text einsetzen
   const icon = document.createElement('span'); icon.className = 'toast-icon'; icon.textContent = icons[type] || 'ℹ️';
   const text = document.createElement('span'); text.textContent = message;
-  toast.append(icon, text);
+  const zu = document.createElement('button');
+  zu.type = 'button'; zu.className = 'toast-zu'; zu.setAttribute('aria-label', 'Meldung schließen'); zu.textContent = '✕';
+  zu.addEventListener('click', () => toast.remove());
+  toast.append(icon, text, zu);
   container.appendChild(toast);
-  setTimeout(() => { toast.classList.add('fade-out'); toast.addEventListener('animationend', () => toast.remove()); }, 4000);
+  // Fehler bleiben, bis man sie wegklickt. Sonst 4 s plus 1 s je angefangene 60 Zeichen (wie js/app.js).
+  if (type === 'error') return;
+  setTimeout(() => {
+    toast.classList.add('fade-out');
+    toast.addEventListener('animationend', () => toast.remove());
+  }, 4000 + Math.ceil(String(message || '').length / 60) * 1000);
 }
 
 onAuthReady(() => initAdminNav());

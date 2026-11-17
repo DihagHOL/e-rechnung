@@ -142,6 +142,24 @@ function ugGeprueft(r) {
   return (zu && zu.geprueft) || null;
 }
 
+/**
+ * Zweite Prüfung im Vier-Augen-Prinzip (Reverse-Charge, innergemeinschaftlich, steuerfrei),
+ * von einer anderen Person als der ersten. { am, von, vonName } oder null.
+ */
+function ugZweitpruefung(r) {
+  const zu = _ug.daten.rechnungen[ugRechnungKey(r)];
+  return (zu && zu.geprueft2) || null;
+}
+
+/** Feld im Register für „erledigt“: Rückfrage gestellt bzw. Zurückweisung gesendet. */
+const UG_ERLEDIGT = { rueckfrage: 'rueckfrageGestellt', zurueckweisung: 'zurueckweisungGesendet' };
+
+/** Rückfrage oder Zurückweisung als erledigt markiert? art 'rueckfrage' | 'zurueckweisung'. */
+function ugErledigt(r, art) {
+  const zu = _ug.daten.rechnungen[ugRechnungKey(r)];
+  return (zu && UG_ERLEDIGT[art] && zu[UG_ERLEDIGT[art]]) || null;
+}
+
 /** Braucht die Rechnung eine Einschätzung (Button anzeigen)? */
 function ugBraucht(r) {
   return ugSonstige(r) && !ugKleinbetrag(r) && !ugAusland(r);
@@ -471,8 +489,9 @@ function _ugWer(am) {
 
 /**
  * Angabe an einer Rechnung setzen oder mit wert null zurücknehmen: 'klein' (Kleinbetrag
- * bestätigt, wert { betrag }) oder 'geprueft' (als geprüft markiert, wert {}). Wer und wann
- * kommt dazu. Ein Eintrag ohne Angaben fällt aus dem Register.
+ * bestätigt, wert { betrag }), 'geprueft' und 'geprueft2' (erste und zweite Prüfung, wert {}),
+ * 'rueckfrageGestellt' oder 'zurueckweisungGesendet' (wert {}). Wer und wann kommt dazu. Ein
+ * Eintrag ohne Angaben fällt aus dem Register.
  */
 async function ugRechnungSetzen(r, feld, wert) {
   const key = ugRechnungKey(r);

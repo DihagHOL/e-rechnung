@@ -52,7 +52,7 @@ async function extractInvoiceXml(pdfBytes) {
   }
   if (fallback) {
     const err = new Error(`Eingebettete Datei "${fallback.name}" ist kein EN16931-Format `
-      + '(z. B. openTRANS/BMEcat) — keine ZUGFeRD/Factur-X-E-Rechnung.');
+      + '(z. B. openTRANS/BMEcat), keine ZUGFeRD/Factur-X-E-Rechnung.');
     err.code = 'EMBEDDED_NOT_EINVOICE';
     throw err;
   }

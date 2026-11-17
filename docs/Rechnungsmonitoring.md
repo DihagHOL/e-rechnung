@@ -123,6 +123,24 @@ sortieren, die aufgeklappte Zeile nennt unter „Prüfung“, wer markiert hat. 
 Eingang: Ausgangsrechnungen haben weder Knopf noch Markierung, und in einer reinen
 Ausgangsansicht fehlt die Spalte.
 
+**Vier-Augen-Prüfung** (seit 17.11.2026): Bei Reverse-Charge, innergemeinschaftlicher Lieferung,
+Ausfuhr, steuerfreien und nicht steuerbaren Umsätzen (Buchungsweg „Manuell“) reicht eine
+Markierung nicht. Nach der ersten steht „✓ 1 von 2“ und der Knopf **„Zweitprüfung“**, den nur
+eine andere Person drücken kann (Feld `geprueft2` im Register). Danach steht „✓ Geprüft 2 von 2“
+mit beiden Kürzeln. Zurückgenommen wird in umgekehrter Reihenfolge.
+
+**Rückfrage und Zurückweisung erledigen**: In der Spalte „Buchung“ steht bei einer Rückfrage
+der Knopf **„Rückfrage gestellt“**, bei einer anderen IBAN im PDF **„IBAN bestätigt“** (erst
+drücken, wenn der Lieferant die Bankverbindung über eine bekannte Telefonnummer bestätigt hat),
+bei einer zurückgewiesenen Rechnung **„Zurückweisung gesendet“**. Die Markierung liegt im
+Register (`rueckfrageGestellt`, `zurueckweisungGesendet`). Eine Zurückweisung, die der Flow
+aus dem Werks-Postfach geschickt hat (Liste KreditorMails, Status „Gesendet“), zählt von selbst.
+
+**Bearbeiten-Dialog**: Oben stehen die offenen Punkte (Dublette, Mahnung, Prüfung nicht
+gelaufen, andere IBAN, offene Rückfrage, Vier-Augen nicht abgeschlossen, nicht geprüft). Vor
+„Genehmigung anfordern“ und vor dem Status „Gebucht“ fragt der Dialog bei offenen Punkten nach
+(`bhWarnungen` in js/bearbeitung.js).
+
 **Formatmangel** erscheint nicht bei Kleinbeträgen bis 250 € brutto. Sie dürfen immer sonstige
 Rechnung sein (§ 33 UStDV). Das Feld bleibt gesetzt, die 800k-Logik braucht es, ausgeblendet
 wird nur der Hinweis in der Spalte Buchung und in der aufgeklappten Zeile.
@@ -290,9 +308,19 @@ Tooltip nennt den gespeicherten Wert.
 ## KPI-Kacheln
 
 Rechnungen gesamt · Eingang · Ausgang · **Fehler / rot** ·
-**Dubletten** · Manuelle Prüfung · Zur Rückfrage · Zurückgewiesen · 800k-Einschätzung
+**Dubletten** · Vier-Augen offen · Rückfrage offen · Zurückweisung offen · 800k-Einschätzung
 offen · In Genehmigung (nur wenn ein Werk die Bearbeitung nutzt) · Typen. Die Kacheln
-beziehen sich auf die gefilterte Auswahl, ein Klick filtert.
+beziehen sich auf die gefilterte Auswahl, ein Klick filtert. Die drei Warteschlangen zählen
+seit 17.11.2026 nur, was noch offen ist: Vier-Augen ohne zweite Prüfung, Rückfragen ohne
+Markierung, Zurückweisungen, die noch nicht gesendet sind. „Fehler / rot“ zählt auch
+E-Rechnungen, deren Prüfung nicht gelaufen ist (Prüfdienst nicht erreichbar).
+
+**Buchungsweg** zeigt die Tabelle einheitlich (Automatik, Unter Vorbehalt, Manuell,
+Zurückgewiesen), egal wie der Flow ihn geschrieben hat. Ältere Hinweise des Prüfdienstes
+erscheinen in der heutigen Fassung (`_monAlterText`): „Buchungsweg unter Vorbehalt,
+Einschätzung im Monitoring offen“ statt „unter Vorbehalt gebucht, Berichtigung angefordert“.
+Bei einer anderen IBAN im PDF steht statt „Gebucht wird aus der XML“ die Bitte, die
+Bankverbindung vor der Zahlung zu bestätigen, und das Abzeichen heißt „IBAN vor Zahlung klären“.
 
 ## Filter & Suche
 

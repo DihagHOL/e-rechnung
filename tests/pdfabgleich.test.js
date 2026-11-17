@@ -67,8 +67,12 @@ async function pdf(seiten) {
   gleich(a.status, 'ok', 'Datum ausgeschrieben');
 
   a = await pdfXmlAbgleich(await pdf([[...kopf, ...fuss, 'IBAN DE02 1203 0000 0000 2020 51, BIC BEISDEXX']]), voll);
-  gleich([a.status, /IBAN DE89 3704 0044 0532 0130 00 aus der XML steht nicht im Sichtbild, dort steht DE02 1203/.test(a.hinweis)], ['abweichung', true],
-    'anderes Konto im Bild');
+  gleich([a.status, a.bankverbindung, a.hinweis.startsWith('Bankverbindung vor der Zahlung klären: IBAN in der XML DE89 3704 0044 0532 0130 00, im PDF DE02 1203'),
+    /bekannte Telefonnummer/.test(a.hinweis), /Gebucht wird aus der XML/.test(a.hinweis)], ['abweichung', true, true, true, false],
+    'anderes Konto im Bild: vor der Zahlung klären, nicht aus der XML buchen');
+  a = await pdfXmlAbgleich(await pdf([[...kopf, ...fuss, 'IBAN DE02 1203 0000 0000 2020 51, BIC BEISDEXX']]), Object.assign({}, voll, { datum: '2026-10-28' }));
+  gleich([a.bankverbindung, /^Bankverbindung/.test(a.hinweis), /Außerdem: Rechnungsdatum 28\.10\.2026/.test(a.hinweis), a.hinweis.length <= 255],
+    [true, true, true, true], 'Bankverbindung zuerst, weitere Abweichungen dahinter');
   a = await pdfXmlAbgleich(await pdf([[...kopf, ...fuss, 'Bitte überweisen Sie den Betrag ohne Abzug.']]), voll);
   gleich(a.status, 'ok', 'keine IBAN im Bild: keine Aussage');
   a = await pdfXmlAbgleich(await pdf([[...kopf, ...fuss, 'Bank: Beispielbank IBAN: DE89 3704', '0044 0532 0130 00 / BIC BEISDEXX', 'Zweitkonto IBAN DE02 1203 0000 0000 2020 51']]), voll);

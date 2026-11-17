@@ -65,7 +65,7 @@ gleich(b.ctx.zeigen(null, 'https://outlook.office365.com/x'), false, 'geblockt: 
 // 5) Ablauf in createInvoiceMail: Tab erst nach den Rückfragen, vor dem Bauen des PDFs
 const ablauf = app.slice(app.indexOf('async function createInvoiceMail('), app.indexOf('/**\n * Leeren Tab für Outlook öffnen'));
 const stelle = s => ablauf.indexOf(s);
-gleich(stelle('_preflightChecks(data, totals)') < stelle('_outlookTabVorbereiten()') && stelle('_outlookTabVorbereiten()') < stelle('_buildZugferdPdf('), true,
+gleich(stelle('_vorDemErstellen(data)') > 0 && stelle('_vorDemErstellen(data)') < stelle('_outlookTabVorbereiten()') && stelle('_outlookTabVorbereiten()') < stelle('_buildZugferdPdf('), true,
   'Tab nach den Rückfragen und vor der Arbeit');
 gleich((ablauf.match(/_outlookTabSchliessen\(outlook\)/g) || []).length >= 3, true, 'Tab bei Selbstprüfung, Fehler und .eml-Weg geschlossen');
 gleich(/text: 'In Outlook öffnen', klick: \(\) => window\.open\(draft\.webLink/.test(ablauf), true, 'Knopf bei geblocktem Fenster');

@@ -10,7 +10,7 @@
   <!-- Vorladen: Die Sicherheitsrichtlinie oben schaltet in Chrome das vorausschauende Laden ab.
        Ohne diese Hinweise holt der Browser die Skripte am Seitenende einzeln nacheinander.
        Jede Adresse steht hier aufs Zeichen so wie im Tag weiter unten. -->
-  <link rel="preload" as="style" href="css/style.css?v=fb17db4d69">
+  <link rel="preload" as="style" href="css/style.css?v=ff2be28ffb">
   <link rel="preload" as="script" href="js/vendor/msal-browser.min.js?v=c933092555">
   <link rel="preload" as="script" href="js/auth.js?v=1bbbff5340">
   <link rel="preload" as="script" href="js/access.js?v=a2d4117664">
@@ -19,11 +19,11 @@
   <link rel="preload" as="script" href="js/vendor/tesseract/tesseract.min.js?v=000c27d9cd">
   <link rel="preload" as="script" href="js/ocr.js?v=ca1f1ec809">
   <link rel="preload" as="script" href="js/lieferant.js?v=e9bdf13c40">
-  <link rel="preload" as="script" href="js/umsatzgrenze.js?v=f5d16fe097">
-  <link rel="preload" as="script" href="js/bearbeitung.js?v=0c4aff4c9f">
-  <link rel="preload" as="script" href="js/monitoring.js?v=f26d629800">
+  <link rel="preload" as="script" href="js/umsatzgrenze.js?v=1d32ca273d">
+  <link rel="preload" as="script" href="js/bearbeitung.js?v=fe8da551c9">
+  <link rel="preload" as="script" href="js/monitoring.js?v=7ed085993c">
   <link rel="preload" as="script" href="js/seite-monitoring.js?v=5831e85eeb">
-  <link rel="stylesheet" href="css/style.css?v=fb17db4d69">
+  <link rel="stylesheet" href="css/style.css?v=ff2be28ffb">
   <style>
     .mon-header { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
     .mon-header h2 { margin:0; }
@@ -214,6 +214,18 @@
     .mon-geprueft:hover { border-color:#0a6b2e; }
     .mon-geprueft:disabled, td .ug-btn:disabled { opacity:.6; cursor:wait; }
     .mon-geprueft-wer { margin-top:2px; font-size:11px; color:var(--gray-500); white-space:nowrap; }
+    .mon-geprueft.mon-geprueft-halb { color:#8a5a00; background:#fff3d6; }
+    .mon-geprueft.mon-geprueft-halb:hover { border-color:#8a5a00; }
+    td .ug-btn[data-geprueft2] { margin-top:4px; }
+    td .ug-btn[data-geprueft2]:disabled { cursor:not-allowed; }
+    /* Rückfrage gestellt, IBAN bestätigt, Zurückweisung gesendet (Spalte Buchung) */
+    .mon-erledigt { display:inline-block; font:inherit; font-size:11px; font-weight:600; color:#b40000; background:#fff;
+                border:1px solid #e8a3a3; border-radius:999px; padding:1px 8px; margin:3px 3px 0 0; cursor:pointer; white-space:nowrap; }
+    .mon-erledigt:hover { border-color:#b40000; }
+    .mon-erledigt.mon-erledigt-ok { color:#0a6b2e; background:#e3f5e9; border-color:transparent; }
+    .mon-erledigt.mon-erledigt-ok:hover { border-color:#0a6b2e; }
+    div.mon-erledigt { cursor:default; }
+    .mon-erledigt:disabled { opacity:.6; cursor:wait; }
 
     #ug-dialog, #bh-dialog, #sp-dialog { margin:auto; border:none; border-radius:12px; padding:0; width:min(680px, calc(100vw - 32px));
                 max-height:calc(100vh - 48px); box-shadow:0 20px 50px rgba(0,0,0,.25); }
@@ -335,6 +347,12 @@
     .bh-box { display:flex; flex-direction:column; gap:8px; padding:12px 14px; background:var(--gray-50);
               border:1px solid var(--gray-200); border-radius:8px; }
     .bh-stand { margin:0; font-size:13px; color:var(--gray-700); }
+    /* Offene Punkte vor Genehmigung und Buchung (js/bearbeitung.js, bhWarnungen) */
+    .bh-warnungen { margin:0; padding:10px 14px; background:#fff4f4; border:1px solid #f0b4b4; border-left:4px solid #b40000;
+              border-radius:8px; font-size:13px; color:#5c0b0b; }
+    .bh-warnungen strong { display:block; margin-bottom:4px; }
+    .bh-warnungen ul { margin:0; padding-left:18px; }
+    .bh-warnungen li + li { margin-top:3px; }
     #bh-anf { display:flex; flex-direction:column; gap:10px; }
     .bh-such { position:relative; }
     .bh-such > label { font-size:12px; font-weight:600; color:var(--gray-600); }
@@ -486,9 +504,9 @@
 <script src="js/vendor/tesseract/tesseract.min.js?v=000c27d9cd"></script>
 <script src="js/ocr.js?v=ca1f1ec809"></script>
 <script src="js/lieferant.js?v=e9bdf13c40"></script>
-<script src="js/umsatzgrenze.js?v=f5d16fe097"></script>
-<script src="js/bearbeitung.js?v=0c4aff4c9f"></script>
-<script src="js/monitoring.js?v=f26d629800"></script>
+<script src="js/umsatzgrenze.js?v=1d32ca273d"></script>
+<script src="js/bearbeitung.js?v=fe8da551c9"></script>
+<script src="js/monitoring.js?v=7ed085993c"></script>
 
 <script src="js/seite-monitoring.js?v=5831e85eeb"></script>
 </body>

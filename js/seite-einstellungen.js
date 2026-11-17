@@ -265,16 +265,22 @@ function showToast(message, type = 'info') {
   if (!container) return;
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  if (type === 'error' || type === 'warn') toast.setAttribute('role', 'alert');
+  const icons = { success: '✅', error: '❌', info: 'ℹ️', warn: '⚠️' };
   // Meldungen enthalten oft Fehlertexte von außen: nur als Text einsetzen
   const icon = document.createElement('span'); icon.className = 'toast-icon'; icon.textContent = icons[type] || 'ℹ️';
   const text = document.createElement('span'); text.textContent = message;
-  toast.append(icon, text);
+  const zu = document.createElement('button');
+  zu.type = 'button'; zu.className = 'toast-zu'; zu.setAttribute('aria-label', 'Meldung schließen'); zu.textContent = '✕';
+  zu.addEventListener('click', () => toast.remove());
+  toast.append(icon, text, zu);
   container.appendChild(toast);
+  // Fehler bleiben, bis man sie wegklickt. Sonst 4 s plus 1 s je angefangene 60 Zeichen (wie js/app.js).
+  if (type === 'error') return;
   setTimeout(() => {
     toast.classList.add('fade-out');
     toast.addEventListener('animationend', () => toast.remove());
-  }, 4000);
+  }, 4000 + Math.ceil(String(message || '').length / 60) * 1000);
 }
 
 /* ── Ereignisse (früher onclick im HTML; die Content-Security-Policy erlaubt keine Inline-Handler) ── */

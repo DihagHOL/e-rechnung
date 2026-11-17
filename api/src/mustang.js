@@ -102,8 +102,8 @@ function parseMustangReport(report, opts = {}) {
   // automatische Zurueckweisung mit Standardtext, kein Ermessen im Pruefschritt.
   if (opts.minimalprofil) {
     konform = 'rot';
-    hinweis = 'Profil Factur-X/ZUGFeRD MINIMUM bzw. BASIC-WL — keine E-Rechnung nach '
-      + '§14 UStG (UStAE 14.1 Abs. 14). Automatische Zurueckweisung.';
+    hinweis = 'Profil Factur-X/ZUGFeRD MINIMUM bzw. BASIC-WL: keine E-Rechnung nach '
+      + '§ 14 UStG (UStAE 14.1 Abs. 14). Automatisch zurückgewiesen.';
     zurueckweisung = { grund: 'MINIMUM/BASIC-WL', text: TEXT_ZURUECKWEISUNG_MINIMAL };
   }
 

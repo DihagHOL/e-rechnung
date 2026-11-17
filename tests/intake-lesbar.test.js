@@ -22,8 +22,9 @@ let pruefung = { konform: 'gruen', konformLabel: 'Gruen - KoSIT ok' };
 let renderFehler = null;
 let gerendert = 0;
 const XML = '<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"/>';
-attrappe(path.join(SRC, 'kosit.js'), { validateXml: async () => pruefung, istMinimalprofil: () => false });
-attrappe(path.join(SRC, 'mustang.js'), { validateMustang: async () => pruefung });
+const urteil = async () => { if (pruefung instanceof Error) throw pruefung; return pruefung; };
+attrappe(path.join(SRC, 'kosit.js'), { validateXml: urteil, istMinimalprofil: () => false });
+attrappe(path.join(SRC, 'mustang.js'), { validateMustang: urteil });
 attrappe(path.join(SRC, 'pdfxml.js'), { extractInvoiceXml: async () => XML });
 attrappe(path.join(SRC, 'verapdf.js'), { validatePdfA: async () => ({ konform: 'ok' }) });
 attrappe(path.join(SRC, 'converter.js'), {
@@ -95,6 +96,23 @@ async function lauf(body, urteil) {
     [true, true, true, true], 'Rückfrage: Grund vorn und vollständig');
   gleich([r.hinweisLang.includes('Text der Regel. Text der Regel.'), r.hinweisLang.length > 255], [true, true], 'voller Text in hinweisLang');
   abgleich = { status: 'ok', pruefbar: true, materiell: false, hinweis: '' };
+
+  // Andere IBAN im Bild: eigenes Kennzeichen, Hinweis vorn
+  abgleich = { status: 'abweichung', pruefbar: true, materiell: true, bankverbindung: true,
+    hinweis: 'Bankverbindung vor der Zahlung klären: IBAN in der XML DE89 3704 0044 0532 0130 00, im PDF DE02 1203 0000 0000 2020 51. '
+      + 'Beim Lieferanten über eine bekannte Telefonnummer bestätigen.' };
+  r = await lauf(PDF, { konform: 'gruen', konformLabel: 'Gruen - KoSIT ok' });
+  gleich([r.rueckfrageLieferant, r.bankverbindungKlaeren, r.hinweis.startsWith('Bankverbindung vor der Zahlung klären')], [true, true, true], 'IBAN: vor der Zahlung klären');
+  abgleich = { status: 'ok', pruefbar: true, materiell: false, hinweis: '' };
+  r = await lauf(PDF, { konform: 'gruen', konformLabel: 'Gruen - KoSIT ok' });
+  gleich(r.bankverbindungKlaeren, undefined, 'ohne Abweichung kein Kennzeichen');
+
+  // Prüfdienst nicht erreichbar: nicht Automatik, Hinweis vorn
+  r = await lauf(PDF, new Error('KoSIT antwortet nicht (Zeitlimit)'));
+  gleich([r.konform, r.buchung, r.pruefungOffen, r.hinweis.startsWith('Prüfung nicht gelaufen'), r.validierungsFehler],
+    ['ungeprueft', 'unter_vorbehalt', true, true, 'KoSIT antwortet nicht (Zeitlimit)'], 'Prüfdienst weg: unter Vorbehalt');
+  r = await lauf(Buffer.from(XML), new Error('Verbindung abgelehnt'));
+  gleich([r.klassifizierung, r.buchung, r.pruefungOffen], ['xrechnung-xml', 'unter_vorbehalt', true], 'XML, Prüfdienst weg');
 
   console.log(`intake-lesbar: ${n} Prüfungen grün`);
 })().catch(e => { console.error(e); process.exit(1); });

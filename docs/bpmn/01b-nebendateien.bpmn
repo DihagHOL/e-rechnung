@@ -27,7 +27,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:sequenceFlow id="Flow_S_kosit_S_join" sourceRef="S_kosit" targetRef="S_join" />
       <bpmn:sequenceFlow id="Flow_S_xml_S_join" sourceRef="S_xml" targetRef="S_join" />
       <bpmn:sequenceFlow id="Flow_S_join_S_end" sourceRef="S_join" targetRef="S_end" />
-      <bpmn:textAnnotation id="SN_lesbar"><bpmn:text>Entsteht bei XRechnung-XML und bei ZUGFeRD mit Formatmangel. Das Original bleibt immer erhalten.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="SN_lesbar"><bpmn:text>Entsteht bei XRechnung-XML, bei ZUGFeRD mit Formatmangel und bei ZUGFeRD gelb (seit 12.11.2026). Das Original bleibt immer erhalten.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_SN_lesbar" associationDirection="None" sourceRef="S_lesbar" targetRef="SN_lesbar" />
       <bpmn:textAnnotation id="SN_xml"><bpmn:text>Bei reiner XRechnung ist das Original schon die XML, darum keine zweite Datei.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_SN_xml" associationDirection="None" sourceRef="S_xml" targetRef="SN_xml" />
@@ -51,8 +51,8 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNEdge id="Flow_S_kosit_S_join_di" bpmnElement="Flow_S_kosit_S_join"><di:waypoint x="671" y="370" /><di:waypoint x="750" y="370" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_S_xml_S_join_di" bpmnElement="Flow_S_xml_S_join"><di:waypoint x="671" y="490" /><di:waypoint x="775" y="490" /><di:waypoint x="775" y="395" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_S_join_S_end_di" bpmnElement="Flow_S_join_S_end"><di:waypoint x="800" y="370" /><di:waypoint x="927" y="370" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNShape id="SN_lesbar_di" bpmnElement="SN_lesbar" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="530" y="102" width="280" height="56" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Assoc_SN_lesbar_di" bpmnElement="Assoc_SN_lesbar"><di:waypoint x="605" y="208" /><di:waypoint x="605" y="158" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="SN_lesbar_di" bpmnElement="SN_lesbar" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="530" y="94" width="300" height="72" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_SN_lesbar_di" bpmnElement="Assoc_SN_lesbar"><di:waypoint x="605" y="208" /><di:waypoint x="605" y="166" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="SN_xml_di" bpmnElement="SN_xml" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="530" y="582" width="280" height="56" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_SN_xml_di" bpmnElement="Assoc_SN_xml"><di:waypoint x="605" y="532" /><di:waypoint x="605" y="582" /></bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>

@@ -75,6 +75,8 @@ beim Speichern im Editor in die Dokumentation der Kollaboration, der Import in d
 Prozesses. Beides muss erhalten bleiben (`procXmlDokuNeu` für den Prozess, die
 Kollaborations-Doku unverändert übernehmen).
 
+Stand im Repo 17.11.2026, noch nicht ins RMS übernommen: Rechnungseingang (S/MIME, Archiv-Mail als Regel, Dublette und Mahnung, andere IBAN vor der Zahlung, Vier-Augen mit zwei Personen, Rückfrage und Zurückweisung markieren), Eingangsprüfung (Abgleich mit Empfänger, Ort, Datum, IBAN, Prüfdienst nicht erreichbar, lesbares PDF bei gelb), Nebendateien, Freigabe (offene Punkte vor der Anforderung), Rechnungsausgang (keine Mail ohne Ablage), Prüfen und erzeugen (Reihenfolge und Rückfragen), Zahlungsausgang (Download bei rot nur nach Rückfrage). Vor dem Hochladen die RMS-Fassung lesen und vergleichen (siehe oben).
+
 Letzte Übernahme: 11.11.2026, Rechnungsausgang v0.10, Erkennen und erfassen v0.7, Prüfen und erzeugen v0.7
 (Stammdaten komplett gesperrt, harte Prüfung gegen das Werk, Notiz zum ZUGFeRD-PDF aus dem eigenen Original).
 

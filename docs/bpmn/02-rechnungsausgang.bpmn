@@ -14,8 +14,8 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
     <bpmn:laneSet id="LaneSet_P_Aus">
       <bpmn:lane id="LV" name="Versand / Lager"><bpmn:flowNodeRef>V_start</bpmn:flowNodeRef><bpmn:flowNodeRef>V_wa</bpmn:flowNodeRef></bpmn:lane>
       <bpmn:lane id="LF" name="Vertrieb / Fakturierung"><bpmn:flowNodeRef>F_gwErp</bpmn:flowNodeRef><bpmn:flowNodeRef>F_fakt</bpmn:flowNodeRef><bpmn:flowNodeRef>F_gwSap</bpmn:flowNodeRef><bpmn:flowNodeRef>F_edi</bpmn:flowNodeRef><bpmn:flowNodeRef>F_endEdi</bpmn:flowNodeRef><bpmn:flowNodeRef>F_send</bpmn:flowNodeRef><bpmn:flowNodeRef>F_end</bpmn:flowNodeRef></bpmn:lane>
-      <bpmn:lane id="LK" name="Konverter (Browser-App)"><bpmn:flowNodeRef>K_vorl</bpmn:flowNodeRef><bpmn:flowNodeRef>K_upload</bpmn:flowNodeRef><bpmn:flowNodeRef>K_erk</bpmn:flowNodeRef><bpmn:flowNodeRef>K_exp</bpmn:flowNodeRef><bpmn:flowNodeRef>K_bErr</bpmn:flowNodeRef><bpmn:flowNodeRef>K_fix</bpmn:flowNodeRef><bpmn:flowNodeRef>K_mail</bpmn:flowNodeRef></bpmn:lane>
-      <bpmn:lane id="LS" name="SharePoint &amp; Monitoring"><bpmn:flowNodeRef>S_abl</bpmn:flowNodeRef><bpmn:flowNodeRef>S_meta</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="LK" name="Konverter (Browser-App)"><bpmn:flowNodeRef>K_vorl</bpmn:flowNodeRef><bpmn:flowNodeRef>K_upload</bpmn:flowNodeRef><bpmn:flowNodeRef>K_erk</bpmn:flowNodeRef><bpmn:flowNodeRef>K_exp</bpmn:flowNodeRef><bpmn:flowNodeRef>K_bErr</bpmn:flowNodeRef><bpmn:flowNodeRef>K_fix</bpmn:flowNodeRef><bpmn:flowNodeRef>K_abl</bpmn:flowNodeRef><bpmn:flowNodeRef>K_mail</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="LS" name="SharePoint &amp; Monitoring"><bpmn:flowNodeRef>S_abl</bpmn:flowNodeRef><bpmn:flowNodeRef>S_gwAbl</bpmn:flowNodeRef><bpmn:flowNodeRef>S_meta</bpmn:flowNodeRef></bpmn:lane>
     </bpmn:laneSet>
       <bpmn:startEvent id="V_start" name="Lieferung oder Leistung erbracht"><bpmn:outgoing>Flow_V_start_V_wa</bpmn:outgoing></bpmn:startEvent>
       <bpmn:manualTask id="V_wa" name="Warenausgang buchen (bei Warenlieferung)"><bpmn:incoming>Flow_V_start_V_wa</bpmn:incoming><bpmn:outgoing>Flow_V_wa_F_gwErp</bpmn:outgoing></bpmn:manualTask>
@@ -32,8 +32,10 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
 [[rms:modell=01NH6NP5H2DLCLK76FEZD3NJGW55W4XJUW]]</bpmn:documentation><bpmn:incoming>Flow_K_erk_K_exp</bpmn:incoming><bpmn:incoming>Flow_K_vorl_K_exp</bpmn:incoming><bpmn:outgoing>Flow_K_exp_S_abl</bpmn:outgoing></bpmn:callActivity>
       <bpmn:boundaryEvent id="K_bErr" name="Prüfung nicht bestanden" attachedToRef="K_exp" cancelActivity="true"><bpmn:outgoing>Flow_K_bErr_K_fix</bpmn:outgoing><bpmn:errorEventDefinition id="K_bErr_def" errorRef="Error_Pruefung" /></bpmn:boundaryEvent>
       <bpmn:userTask id="K_fix" name="Daten korrigieren"><bpmn:incoming>Flow_K_bErr_K_fix</bpmn:incoming><bpmn:outgoing>Flow_K_fix_K_erk</bpmn:outgoing></bpmn:userTask>
-      <bpmn:serviceTask id="S_abl" name="E-Rechnung, lesbares PDF und Prüfpfad in AR_&lt;Werk&gt; ablegen"><bpmn:incoming>Flow_K_exp_S_abl</bpmn:incoming><bpmn:outgoing>Flow_S_abl_S_meta</bpmn:outgoing></bpmn:serviceTask>
-      <bpmn:serviceTask id="S_meta" name="Metadaten setzen (Ausgang, Format, konform, USt-IdNr.-Nachweis)"><bpmn:incoming>Flow_S_abl_S_meta</bpmn:incoming><bpmn:outgoing>Flow_S_meta_K_mail</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:serviceTask id="S_abl" name="E-Rechnung, lesbares PDF und Prüfpfad in AR_&lt;Werk&gt; ablegen"><bpmn:incoming>Flow_K_exp_S_abl</bpmn:incoming><bpmn:incoming>Flow_K_abl_S_abl</bpmn:incoming><bpmn:outgoing>Flow_S_abl_S_gwAbl</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:exclusiveGateway id="S_gwAbl" name="Abgelegt?"><bpmn:incoming>Flow_S_abl_S_gwAbl</bpmn:incoming><bpmn:outgoing>Flow_S_gwAbl_S_meta</bpmn:outgoing><bpmn:outgoing>Flow_S_gwAbl_K_abl</bpmn:outgoing></bpmn:exclusiveGateway>
+      <bpmn:userTask id="K_abl" name="Ablage wiederholen (ohne Ablage keine Mail)"><bpmn:incoming>Flow_S_gwAbl_K_abl</bpmn:incoming><bpmn:outgoing>Flow_K_abl_S_abl</bpmn:outgoing></bpmn:userTask>
+      <bpmn:serviceTask id="S_meta" name="Metadaten setzen (Ausgang, Format, konform, USt-IdNr.-Nachweis)"><bpmn:incoming>Flow_S_gwAbl_S_meta</bpmn:incoming><bpmn:outgoing>Flow_S_meta_K_mail</bpmn:outgoing></bpmn:serviceTask>
       <bpmn:userTask id="K_mail" name="Mail-Entwurf mit Anhang erstellen (Outlook oder .eml)"><bpmn:incoming>Flow_S_meta_K_mail</bpmn:incoming><bpmn:outgoing>Flow_K_mail_F_send</bpmn:outgoing></bpmn:userTask>
       <bpmn:userTask id="F_send" name="Rechnung an den Kunden senden"><bpmn:incoming>Flow_K_mail_F_send</bpmn:incoming><bpmn:outgoing>Flow_F_send_F_end</bpmn:outgoing></bpmn:userTask>
       <bpmn:endEvent id="F_end" name="versendet"><bpmn:incoming>Flow_F_send_F_end</bpmn:incoming></bpmn:endEvent>
@@ -51,7 +53,10 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:sequenceFlow id="Flow_K_bErr_K_fix" sourceRef="K_bErr" targetRef="K_fix" />
       <bpmn:sequenceFlow id="Flow_K_fix_K_erk" sourceRef="K_fix" targetRef="K_erk" name="erneut" />
       <bpmn:sequenceFlow id="Flow_K_exp_S_abl" sourceRef="K_exp" targetRef="S_abl" />
-      <bpmn:sequenceFlow id="Flow_S_abl_S_meta" sourceRef="S_abl" targetRef="S_meta" />
+      <bpmn:sequenceFlow id="Flow_S_abl_S_gwAbl" sourceRef="S_abl" targetRef="S_gwAbl" />
+      <bpmn:sequenceFlow id="Flow_S_gwAbl_S_meta" sourceRef="S_gwAbl" targetRef="S_meta" name="ja" />
+      <bpmn:sequenceFlow id="Flow_S_gwAbl_K_abl" sourceRef="S_gwAbl" targetRef="K_abl" name="nein" />
+      <bpmn:sequenceFlow id="Flow_K_abl_S_abl" sourceRef="K_abl" targetRef="S_abl" name="erneut" />
       <bpmn:sequenceFlow id="Flow_S_meta_K_mail" sourceRef="S_meta" targetRef="K_mail" />
       <bpmn:sequenceFlow id="Flow_K_mail_F_send" sourceRef="K_mail" targetRef="F_send" />
       <bpmn:sequenceFlow id="Flow_F_send_F_end" sourceRef="F_send" targetRef="F_end" />
@@ -61,17 +66,17 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:association id="Assoc_N_vorl" associationDirection="None" sourceRef="K_vorl" targetRef="N_vorl" />
       <bpmn:textAnnotation id="N_abl"><bpmn:text>Ablegen darf, wer im Werk FIBU oder Vertrieb ist (Mitwirken auf AR_&lt;Werk&gt;).</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_abl" associationDirection="None" sourceRef="S_abl" targetRef="N_abl" />
-      <bpmn:textAnnotation id="N_mail"><bpmn:text>Die Rechnungsadresse des Kunden ist gemerkt. Alternativ Datei herunterladen und im Kundenportal hochladen.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="N_mail"><bpmn:text>Die Mail trägt genau die abgelegte Datei. Die Rechnungsadresse des Kunden ist gemerkt. Alternativ Datei herunterladen und im Kundenportal hochladen.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_mail" associationDirection="None" sourceRef="K_mail" targetRef="N_mail" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="Diagram_ausgang">
     <bpmndi:BPMNPlane id="Plane_ausgang" bpmnElement="Collab_ausgang">
-      <bpmndi:BPMNShape id="P_Kunde_di" bpmnElement="P_Kunde" isHorizontal="true" bioc:stroke="#5B6472" bioc:fill="#F6F7F9" color:background-color="#F6F7F9" color:border-color="#5B6472"><dc:Bounds x="100" y="60" width="2320" height="70" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="P_Aus_di" bpmnElement="P_Aus" isHorizontal="true" bioc:stroke="#1A2644" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1A2644"><dc:Bounds x="100" y="200" width="2320" height="1280" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="LV_di" bpmnElement="LV" isHorizontal="true" bioc:stroke="#424241" bioc:fill="#F7F7F6" color:background-color="#F7F7F6" color:border-color="#424241"><dc:Bounds x="130" y="200" width="2290" height="140" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="LF_di" bpmnElement="LF" isHorizontal="true" bioc:stroke="#C2410C" bioc:fill="#FFF8F1" color:background-color="#FFF8F1" color:border-color="#C2410C"><dc:Bounds x="130" y="340" width="2290" height="380" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="LK_di" bpmnElement="LK" isHorizontal="true" bioc:stroke="#1A2644" bioc:fill="#F3F6FB" color:background-color="#F3F6FB" color:border-color="#1A2644"><dc:Bounds x="130" y="720" width="2290" height="500" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="LS_di" bpmnElement="LS" isHorizontal="true" bioc:stroke="#0F766E" bioc:fill="#F1FAF8" color:background-color="#F1FAF8" color:border-color="#0F766E"><dc:Bounds x="130" y="1220" width="2290" height="260" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="P_Kunde_di" bpmnElement="P_Kunde" isHorizontal="true" bioc:stroke="#5B6472" bioc:fill="#F6F7F9" color:background-color="#F6F7F9" color:border-color="#5B6472"><dc:Bounds x="100" y="60" width="2490" height="70" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="P_Aus_di" bpmnElement="P_Aus" isHorizontal="true" bioc:stroke="#1A2644" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1A2644"><dc:Bounds x="100" y="200" width="2490" height="1280" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="LV_di" bpmnElement="LV" isHorizontal="true" bioc:stroke="#424241" bioc:fill="#F7F7F6" color:background-color="#F7F7F6" color:border-color="#424241"><dc:Bounds x="130" y="200" width="2460" height="140" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="LF_di" bpmnElement="LF" isHorizontal="true" bioc:stroke="#C2410C" bioc:fill="#FFF8F1" color:background-color="#FFF8F1" color:border-color="#C2410C"><dc:Bounds x="130" y="340" width="2460" height="380" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="LK_di" bpmnElement="LK" isHorizontal="true" bioc:stroke="#1A2644" bioc:fill="#F3F6FB" color:background-color="#F3F6FB" color:border-color="#1A2644"><dc:Bounds x="130" y="720" width="2460" height="500" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="LS_di" bpmnElement="LS" isHorizontal="true" bioc:stroke="#0F766E" bioc:fill="#F1FAF8" color:background-color="#F1FAF8" color:border-color="#0F766E"><dc:Bounds x="130" y="1220" width="2460" height="260" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="V_start_di" bpmnElement="V_start" bioc:stroke="#1E7B3A" bioc:fill="#DDF3E4" color:background-color="#DDF3E4" color:border-color="#1E7B3A"><dc:Bounds x="247" y="252" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="205" y="293" width="120" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="V_wa_di" bpmnElement="V_wa" bioc:stroke="#424241" bioc:fill="#E6E6E4" color:background-color="#E6E6E4" color:border-color="#424241"><dc:Bounds x="369" y="228" width="132" height="84" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="F_gwErp_di" bpmnElement="F_gwErp" isMarkerVisible="true" bioc:stroke="#8A6100" bioc:fill="#FFF8DB" color:background-color="#FFF8DB" color:border-color="#8A6100"><dc:Bounds x="580" y="385" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="505" y="439" width="96" height="15" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
@@ -86,10 +91,12 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNShape id="K_bErr_di" bpmnElement="K_bErr" bioc:stroke="#B42318" bioc:fill="#FDE2E1" color:background-color="#FDE2E1" color:border-color="#B42318"><dc:Bounds x="1475" y="814" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1363" y="848" width="108" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="K_fix_di" bpmnElement="K_fix" bioc:stroke="#A65F00" bioc:fill="#FFF1CC" color:background-color="#FFF1CC" color:border-color="#A65F00"><dc:Bounds x="1219" y="868" width="132" height="84" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="S_abl_di" bpmnElement="S_abl" bioc:stroke="#0F766E" bioc:fill="#D2EEE8" color:background-color="#D2EEE8" color:border-color="#0F766E"><dc:Bounds x="1559" y="1248" width="132" height="84" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="S_meta_di" bpmnElement="S_meta" bioc:stroke="#0F766E" bioc:fill="#D2EEE8" color:background-color="#D2EEE8" color:border-color="#0F766E"><dc:Bounds x="1729" y="1248" width="132" height="84" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="K_mail_di" bpmnElement="K_mail" bioc:stroke="#1A2644" bioc:fill="#DCE5F2" color:background-color="#DCE5F2" color:border-color="#1A2644"><dc:Bounds x="1899" y="748" width="132" height="84" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="F_send_di" bpmnElement="F_send" bioc:stroke="#C2410C" bioc:fill="#FFE3C8" color:background-color="#FFE3C8" color:border-color="#C2410C"><dc:Bounds x="2069" y="368" width="132" height="84" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="F_end_di" bpmnElement="F_end" bioc:stroke="#1E7B3A" bioc:fill="#DDF3E4" color:background-color="#DDF3E4" color:border-color="#1E7B3A"><dc:Bounds x="2287" y="392" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2245" y="433" width="120" height="15" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_gwAbl_di" bpmnElement="S_gwAbl" isMarkerVisible="true" bioc:stroke="#8A6100" bioc:fill="#FFF8DB" color:background-color="#FFF8DB" color:border-color="#8A6100"><dc:Bounds x="1770" y="1265" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="1695" y="1246" width="96" height="15" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="K_abl_di" bpmnElement="K_abl" bioc:stroke="#A65F00" bioc:fill="#FFF1CC" color:background-color="#FFF1CC" color:border-color="#A65F00"><dc:Bounds x="1729" y="868" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_meta_di" bpmnElement="S_meta" bioc:stroke="#0F766E" bioc:fill="#D2EEE8" color:background-color="#D2EEE8" color:border-color="#0F766E"><dc:Bounds x="1899" y="1248" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="K_mail_di" bpmnElement="K_mail" bioc:stroke="#1A2644" bioc:fill="#DCE5F2" color:background-color="#DCE5F2" color:border-color="#1A2644"><dc:Bounds x="2069" y="748" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="F_send_di" bpmnElement="F_send" bioc:stroke="#C2410C" bioc:fill="#FFE3C8" color:background-color="#FFE3C8" color:border-color="#C2410C"><dc:Bounds x="2239" y="368" width="132" height="84" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="F_end_di" bpmnElement="F_end" bioc:stroke="#1E7B3A" bioc:fill="#DDF3E4" color:background-color="#DDF3E4" color:border-color="#1E7B3A"><dc:Bounds x="2457" y="392" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2415" y="433" width="120" height="15" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_V_start_V_wa_di" bpmnElement="Flow_V_start_V_wa"><di:waypoint x="283" y="270" /><di:waypoint x="369" y="270" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_V_wa_F_gwErp_di" bpmnElement="Flow_V_wa_F_gwErp"><di:waypoint x="501" y="270" /><di:waypoint x="541" y="270" /><di:waypoint x="541" y="410" /><di:waypoint x="580" y="410" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_F_gwErp_F_fakt_di" bpmnElement="Flow_F_gwErp_F_fakt"><di:waypoint x="630" y="410" /><di:waypoint x="709" y="410" /><bpmndi:BPMNLabel><dc:Bounds x="636" y="393" width="25" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
@@ -104,19 +111,22 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNEdge id="Flow_K_bErr_K_fix_di" bpmnElement="Flow_K_bErr_K_fix"><di:waypoint x="1493" y="850" /><di:waypoint x="1493" y="910" /><di:waypoint x="1351" y="910" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_K_fix_K_erk_di" bpmnElement="Flow_K_fix_K_erk"><di:waypoint x="1285" y="868" /><di:waypoint x="1285" y="832" /><bpmndi:BPMNLabel><dc:Bounds x="1291" y="843" width="50" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_K_exp_S_abl_di" bpmnElement="Flow_K_exp_S_abl"><di:waypoint x="1521" y="790" /><di:waypoint x="1540" y="790" /><di:waypoint x="1540" y="1290" /><di:waypoint x="1559" y="1290" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_S_abl_S_meta_di" bpmnElement="Flow_S_abl_S_meta"><di:waypoint x="1691" y="1290" /><di:waypoint x="1729" y="1290" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_S_meta_K_mail_di" bpmnElement="Flow_S_meta_K_mail"><di:waypoint x="1861" y="1290" /><di:waypoint x="1880" y="1290" /><di:waypoint x="1880" y="790" /><di:waypoint x="1899" y="790" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_K_mail_F_send_di" bpmnElement="Flow_K_mail_F_send"><di:waypoint x="2031" y="790" /><di:waypoint x="2050" y="790" /><di:waypoint x="2050" y="410" /><di:waypoint x="2069" y="410" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_F_send_F_end_di" bpmnElement="Flow_F_send_F_end"><di:waypoint x="2201" y="410" /><di:waypoint x="2287" y="410" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_S_abl_S_gwAbl_di" bpmnElement="Flow_S_abl_S_gwAbl"><di:waypoint x="1691" y="1290" /><di:waypoint x="1770" y="1290" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_S_gwAbl_S_meta_di" bpmnElement="Flow_S_gwAbl_S_meta"><di:waypoint x="1820" y="1290" /><di:waypoint x="1899" y="1290" /><bpmndi:BPMNLabel><dc:Bounds x="1826" y="1273" width="25" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_S_gwAbl_K_abl_di" bpmnElement="Flow_S_gwAbl_K_abl"><di:waypoint x="1795" y="1265" /><di:waypoint x="1795" y="952" /><bpmndi:BPMNLabel><dc:Bounds x="1801" y="1102" width="38" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_K_abl_S_abl_di" bpmnElement="Flow_K_abl_S_abl"><di:waypoint x="1729" y="910" /><di:waypoint x="1625" y="910" /><di:waypoint x="1625" y="1248" /><bpmndi:BPMNLabel><dc:Bounds x="1673" y="893" width="50" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_S_meta_K_mail_di" bpmnElement="Flow_S_meta_K_mail"><di:waypoint x="2031" y="1290" /><di:waypoint x="2050" y="1290" /><di:waypoint x="2050" y="790" /><di:waypoint x="2069" y="790" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_K_mail_F_send_di" bpmnElement="Flow_K_mail_F_send"><di:waypoint x="2201" y="790" /><di:waypoint x="2220" y="790" /><di:waypoint x="2220" y="410" /><di:waypoint x="2239" y="410" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_F_send_F_end_di" bpmnElement="Flow_F_send_F_end"><di:waypoint x="2371" y="410" /><di:waypoint x="2457" y="410" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_edi_di" bpmnElement="N_edi" bioc:stroke="#8A8F98" bioc:fill="#F1F1F3" color:background-color="#F1F1F3" color:border-color="#8A8F98"><dc:Bounds x="1040" y="622" width="300" height="56" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_N_edi_di" bpmnElement="Assoc_N_edi"><di:waypoint x="1115" y="572" /><di:waypoint x="1115" y="622" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_vorl_di" bpmnElement="N_vorl" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="700" y="1108" width="300" height="84" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_N_vorl_di" bpmnElement="Assoc_N_vorl"><di:waypoint x="775" y="1072" /><di:waypoint x="775" y="1108" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_abl_di" bpmnElement="N_abl" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="1550" y="1382" width="300" height="56" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_N_abl_di" bpmnElement="Assoc_N_abl"><di:waypoint x="1625" y="1332" /><di:waypoint x="1625" y="1382" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNShape id="N_mail_di" bpmnElement="N_mail" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="1890" y="874" width="260" height="72" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Assoc_N_mail_di" bpmnElement="Assoc_N_mail"><di:waypoint x="1965" y="832" /><di:waypoint x="1965" y="874" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Msg_F_send_P_Kunde_di" bpmnElement="Msg_F_send_P_Kunde"><di:waypoint x="2135" y="368" /><di:waypoint x="2135" y="130" /><bpmndi:BPMNLabel><dc:Bounds x="2143" y="151" width="170" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="N_mail_di" bpmnElement="N_mail" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="2060" y="862" width="260" height="96" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_N_mail_di" bpmnElement="Assoc_N_mail"><di:waypoint x="2135" y="832" /><di:waypoint x="2135" y="862" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Msg_F_send_P_Kunde_di" bpmnElement="Msg_F_send_P_Kunde"><di:waypoint x="2305" y="368" /><di:waypoint x="2305" y="130" /><bpmndi:BPMNLabel><dc:Bounds x="2313" y="151" width="170" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
 </bpmn:definitions>
