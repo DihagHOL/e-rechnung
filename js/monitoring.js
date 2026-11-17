@@ -2064,6 +2064,10 @@ function _monPartnerCell(r) {
 function _monHinweis(r) {
   const s = (r.meldung || '').trim();
   const k = (r.konform || '').toLowerCase();
+  // Rückfrage aus dem Abgleich Bild gegen XML: dieser Grund geht vor, auch wenn die Meldung
+  // dahinter KoSIT-Regelcodes enthält (die würden sonst durch einen allgemeinen Satz ersetzt)
+  const abgleich = r.rueckfrage ? s.split(' | ').map(t => t.trim()).find(t => /^Materielle Abweichung Sichtbild/.test(t)) : '';
+  if (abgleich) return abgleich;
   if (k.startsWith('gr')) return r.rueckfrage ? s : '';
   // Bis 10/2026 schrieb die Prüfung bei Warnungen (und manchen Fehlern) keinen Text.
   if (!s && k.startsWith('gel')) return 'Nur Warnungen, die Rechnung ist gültig. Details im Prüfbericht.';

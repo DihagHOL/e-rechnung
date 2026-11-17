@@ -353,7 +353,9 @@ app.http('intake', {
         res.pdfXmlAbgleich = ab;
         if (ab.status === 'abweichung' && ab.materiell) {
           res.rueckfrageLieferant = true;
-          res.hinweis = [res.hinweis, ab.hinweis].filter(Boolean).join(' | ');
+          // Grund der Rueckfrage zuerst: Auf 255 Zeichen gekuerzt (feldGrenzen) fallen sonst
+          // genau diese Saetze weg, und im Monitoring steht eine Rueckfrage ohne Grund.
+          res.hinweis = [ab.hinweis, res.hinweis].filter(Boolean).join(' | ');
         } else if (ab.status === 'nicht-pruefbar' && ab.hinweis) {
           res.hinweis = [res.hinweis, ab.hinweis].filter(Boolean).join(' | ');
         }

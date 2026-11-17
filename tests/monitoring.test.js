@@ -243,6 +243,9 @@ M._monMarkDupes(paar);
 gleich([paar[0].dublette, paar[1].dublette], [false, false], 'Rechnung und Mahnung mit gleicher Nummer sind keine Dubletten');
 
 // Rückfrage: Der Grund steht auch bei grünem Ergebnis in den Details
+gleich(M._monHinweis({ konform: 'Gelb - Warnungen', meldung: 'Materielle Abweichung Sichtbild ↔ XML: IBAN anders. Gebucht wird aus der XML. | Warnungen: [BR-DE-21] x', rueckfrage: true }),
+  'Materielle Abweichung Sichtbild ↔ XML: IBAN anders. Gebucht wird aus der XML.', 'Rückfrage: Grund aus dem Abgleich vor den Regelcodes');
+gleich(M._monHinweis({ konform: 'Gelb - Warnungen', meldung: 'Warnungen: [BR-DE-21] x', rueckfrage: false }), 'Verstoß gegen EN16931-Geschäftsregeln.', 'ohne Rückfrage wie bisher');
 gleich(M._monHinweis({ konform: 'Gruen - KoSIT ok', meldung: 'Materielle Abweichung', rueckfrage: true }), 'Materielle Abweichung', 'Grund der Rückfrage');
 gleich(M._monHinweis({ konform: 'Gruen - KoSIT ok', meldung: 'Sonstiges' }), '', 'grün ohne Rückfrage ohne Hinweis');
 

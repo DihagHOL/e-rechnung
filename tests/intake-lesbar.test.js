@@ -31,7 +31,8 @@ attrappe(path.join(SRC, 'converter.js'), {
   parseInvoiceData: () => ({ nummer: 'R-100', datum: '2026-11-12', steller: 'Muster Lieferant GmbH', stellerVat: 'DE123456789',
     empfaenger: 'Beispiel Werk GmbH', netto: 100, mwst: 19, brutto: 119, waehrung: 'EUR', steuerkategorie: 'S' }),
 });
-attrappe(path.join(SRC, 'pdfabgleich.js'), { pdfXmlAbgleich: async () => ({ status: 'ok', pruefbar: true, materiell: false, hinweis: '' }) });
+let abgleich = { status: 'ok', pruefbar: true, materiell: false, hinweis: '' };
+attrappe(path.join(SRC, 'pdfabgleich.js'), { pdfXmlAbgleich: async () => abgleich });
 attrappe(path.join(SRC, 'kopfdaten.js'), { kopfdatenAusPdf: async () => null });
 require(path.join(SRC, 'functions', 'intake.js'));
 
@@ -84,6 +85,16 @@ async function lauf(body, urteil) {
   r = await lauf(PDF, { konform: 'gelb', konformLabel: 'Gelb - Warnungen' });
   gleich([r.lesbarPdfBase64, r.konvertiertesPdf, r.renderFehler], [null, false, 'Renderer kaputt'], 'gelb, Renderfehler');
   renderFehler = null;
+
+  // Rückfrage aus dem Abgleich: Grund vorn, Meldung höchstens 255 Zeichen (Spalte ValidierungsMeldung)
+  abgleich = { status: 'abweichung', pruefbar: true, materiell: true,
+    hinweis: 'Materielle Abweichung Sichtbild ↔ XML: IBAN DE89 3704 0044 0532 0130 00 aus der XML steht nicht im Sichtbild, '
+      + 'dort steht DE02 1203 0000 0000 2020 51. Gebucht wird aus der XML.' };
+  r = await lauf(PDF, { konform: 'gelb', konformLabel: 'Gelb - Warnungen', hinweis: 'Warnungen: [BR-DE-21] ' + 'Text der Regel. '.repeat(15) });
+  gleich([r.rueckfrageLieferant, r.hinweis.startsWith('Materielle Abweichung Sichtbild'), r.hinweis.length <= 255, /DE02 1203/.test(r.hinweis)],
+    [true, true, true, true], 'Rückfrage: Grund vorn und vollständig');
+  gleich([r.hinweisLang.includes('Text der Regel. Text der Regel.'), r.hinweisLang.length > 255], [true, true], 'voller Text in hinweisLang');
+  abgleich = { status: 'ok', pruefbar: true, materiell: false, hinweis: '' };
 
   console.log(`intake-lesbar: ${n} Prüfungen grün`);
 })().catch(e => { console.error(e); process.exit(1); });

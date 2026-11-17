@@ -136,8 +136,9 @@ async function pdfXmlAbgleich(pdfBuf, daten) {
   if (abw.length) {
     return {
       status: 'abweichung', pruefbar: true, materiell: true,
-      hinweis: 'Materielle Abweichung Sichtbild ↔ XML: ' + abw.join('; ')
-             + '. Gebucht wird aus der XML (bindend); automatische Rückfrage an den Lieferanten.',
+      // Kurz halten: Die Spalte ValidierungsMeldung nimmt 255 Zeichen, /api/intake stellt diesen
+      // Grund bei einer Rueckfrage nach vorn (feldlaenge.js kuerzt hinten).
+      hinweis: 'Materielle Abweichung Sichtbild ↔ XML: ' + abw.join('; ') + '. Gebucht wird aus der XML.',
     };
   }
   return { status: 'ok', pruefbar: true, materiell: false, hinweis: '' };
