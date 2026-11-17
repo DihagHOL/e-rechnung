@@ -28,7 +28,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0, auf den Commit festgelegt
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
         with:
-          node-version: "20"
+          # Wie auf dem Entwicklungsrechner. Unter Node 20 scheitern fünf Tests: pdf.js 6 braucht
+          # Promise.withResolvers, und Node 20 liest Windows-1252 anders (Zeichen 0x80 bis 0x9F).
+          node-version: "24"
 
       # npm ci: Das Lockfile entscheidet, welche Pakete kommen. sync.js legt die Konverter aus js/
       # nach api/vendor, damit die Tests denselben Code prüfen, den die Function ausführt.
