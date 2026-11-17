@@ -136,10 +136,14 @@ bei einer zurückgewiesenen Rechnung **„Zurückweisung gesendet“**. Die Mark
 Register (`rueckfrageGestellt`, `zurueckweisungGesendet`). Eine Zurückweisung, die der Flow
 aus dem Werks-Postfach geschickt hat (Liste KreditorMails, Status „Gesendet“), zählt von selbst.
 
-**Bearbeiten-Dialog**: Oben stehen die offenen Punkte (Dublette, Mahnung, Prüfung nicht
-gelaufen, andere IBAN, offene Rückfrage, Vier-Augen nicht abgeschlossen, nicht geprüft). Vor
-„Genehmigung anfordern“ und vor dem Status „Gebucht“ fragt der Dialog bei offenen Punkten nach
-(`bhWarnungen` in js/bearbeitung.js).
+**Bearbeiten-Dialog**: Oben stehen die offenen Punkte (`bhWarnungen` in js/bearbeitung.js).
+Dublette, Mahnung, Prüfung nicht gelaufen, andere IBAN und eine nicht abgeschlossene
+Vier-Augen-Prüfung müssen vor Genehmigung und Buchung geklärt sein: Vor „Genehmigung anfordern“
+und vor dem Status „Gebucht“ fragt der Dialog dann nach. Eine gewöhnliche Rückfrage kommt laut
+Prozess erst nach der Buchung, und „noch nicht als geprüft markiert“ ist eine Erinnerung. Beide
+stehen nur als Hinweis da, ohne Rückfrage. Die Erledigt-Knöpfe stehen auch in der aufgeklappten
+Zeile, falls die Spalte „Buchung“ ausgeblendet ist. Bei nicht gelaufener Prüfung zeigt die
+Spalte „Verarbeitung“ „Nicht geprüft“ statt „Validiert“.
 
 **Formatmangel** erscheint nicht bei Kleinbeträgen bis 250 € brutto. Sie dürfen immer sonstige
 Rechnung sein (§ 33 UStDV). Das Feld bleibt gesetzt, die 800k-Logik braucht es, ausgeblendet

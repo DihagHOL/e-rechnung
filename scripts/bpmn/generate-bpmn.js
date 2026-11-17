@@ -586,7 +586,7 @@ const FREIGABE = {
       { id: 'GN_start', of: 'G_start', lane: 'LB9', c: 1, r: 1, w: 150, h: 84,
         text: 'Werke mit Genehmigung im Monitoring (Einstellungen), z. B. WGC und SHB.' },
       { id: 'GN_anf', of: 'G_anf', lane: 'LB9', c: 2, r: 1, w: 300, h: 96,
-        text: 'Dublette, offene Rückfrage, andere IBAN oder fehlende Prüfung stehen oben im Dialog und brauchen vor dem Anfordern eine Bestätigung. Mehrere Genehmiger mit „;“, dann gilt die erste Antwort.' },
+        text: 'Dublette, Mahnung, andere IBAN, nicht gelaufene Prüfung und offene Vier-Augen-Prüfung stehen oben im Dialog und brauchen vor dem Anfordern eine Bestätigung. Mehrere Genehmiger mit „;“.' },
       { id: 'GN_send', of: 'G_send', lane: 'LF9', c: 5, r: 1, w: 300, h: 84,
         text: 'Ein Flow je Werk, zum Beispiel „Genehmigung WGC (Monitoring)“. Er startet nur, wenn „Genehmigung anfordern“ gesetzt ist. Eine Genehmigung wartet höchstens 30 Tage.' },
     ],

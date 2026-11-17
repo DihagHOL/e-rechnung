@@ -49,7 +49,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:sequenceFlow id="Flow_G_neinMail_G_endNein" sourceRef="G_neinMail" targetRef="G_endNein" />
       <bpmn:textAnnotation id="GN_start"><bpmn:text>Werke mit Genehmigung im Monitoring (Einstellungen), z. B. WGC und SHB.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_GN_start" associationDirection="None" sourceRef="G_start" targetRef="GN_start" />
-      <bpmn:textAnnotation id="GN_anf"><bpmn:text>Dublette, offene Rückfrage, andere IBAN oder fehlende Prüfung stehen oben im Dialog und brauchen vor dem Anfordern eine Bestätigung. Mehrere Genehmiger mit „;“, dann gilt die erste Antwort.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="GN_anf"><bpmn:text>Dublette, Mahnung, andere IBAN, nicht gelaufene Prüfung und offene Vier-Augen-Prüfung stehen oben im Dialog und brauchen vor dem Anfordern eine Bestätigung. Mehrere Genehmiger mit „;“.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_GN_anf" associationDirection="None" sourceRef="G_anf" targetRef="GN_anf" />
       <bpmn:textAnnotation id="GN_send"><bpmn:text>Ein Flow je Werk, zum Beispiel „Genehmigung WGC (Monitoring)“. Er startet nur, wenn „Genehmigung anfordern“ gesetzt ist. Eine Genehmigung wartet höchstens 30 Tage.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_GN_send" associationDirection="None" sourceRef="G_send" targetRef="GN_send" />

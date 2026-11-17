@@ -254,33 +254,37 @@ function bhOhneGenehmigung(r) {
 }
 
 /**
- * Offene Punkte, die vor „Genehmigung anfordern“ und vor dem Buchen auffallen sollen (BPMN
- * Rechnungseingang: erst prüfen, Dublette und Mahnung nicht buchen, Rückfrage klären, bei
- * anderer IBAN vor der Zahlung beim Lieferanten nachfragen). Liste von Sätzen, leer = nichts offen.
+ * Offene Punkte für den Bearbeiten-Dialog, nach dem Prozess „Rechnungseingang“ (BPMN):
+ * Dublette und Mahnung nicht buchen, andere IBAN vor der Zahlung klären, Vier-Augen vor dem
+ * Buchen. Diese Punkte haben vorher = true: Vor „Genehmigung anfordern“ und „Gebucht“ fragt der
+ * Dialog nach. Eine gewöhnliche Rückfrage kommt laut Prozess erst nach der Buchung, und „nicht
+ * als geprüft markiert“ ist eine Erinnerung. Beide stehen nur als Hinweis da (vorher = false).
  * Nutzt die Funktionen des Monitorings, wenn sie geladen sind.
+ * @returns {{text: string, vorher: boolean}[]}
  */
 function bhWarnungen(r) {
   if (!r || r.richtung === 'Ausgang') return [];
   const w = [];
-  if (r.dublette) w.push('Dublette: ' + (r.dubletteInfo || 'gleiche Rechnungsnummer beim selben Lieferanten') + '. Nicht doppelt buchen.');
-  if (r.mahnung) w.push('Mahnung oder Zahlungserinnerung, keine Rechnung. Nicht buchen.');
+  const punkt = (text, vorher) => w.push({ text, vorher });
+  if (r.dublette) punkt('Dublette: ' + (r.dubletteInfo || 'gleiche Rechnungsnummer beim selben Lieferanten') + '. Nicht doppelt buchen.', true);
+  if (r.mahnung) punkt('Mahnung oder Zahlungserinnerung, keine Rechnung. Nicht buchen.', true);
   if (typeof _monPruefungOffen === 'function' && _monPruefungOffen(r)) {
-    w.push('Prüfung nicht gelaufen (Prüfdienst nicht erreichbar). Die IT muss die Prüfung neu anstoßen.');
+    punkt('Prüfung nicht gelaufen (Prüfdienst nicht erreichbar). Die IT muss die Prüfung neu anstoßen.', true);
   }
   const offen = r.rueckfrage && !(typeof _monErledigt === 'function' && _monErledigt(r, 'rueckfrage'));
   if (offen && typeof _monBankKlaeren === 'function' && _monBankKlaeren(r)) {
-    w.push('Bankverbindung vor der Zahlung klären: Die IBAN im PDF weicht von der XML ab. Beim Lieferanten über eine bekannte Telefonnummer bestätigen.');
+    punkt('Bankverbindung vor der Zahlung klären: Die IBAN im PDF weicht von der XML ab. Beim Lieferanten über eine bekannte Telefonnummer bestätigen.', true);
   } else if (offen) {
     const grund = typeof _monHinweis === 'function' ? _monHinweis(r) : '';
-    w.push('Rückfrage beim Lieferanten offen' + (grund ? ': ' + grund : '.'));
+    punkt('Rückfrage an den Lieferanten nach der Buchung stellen' + (grund ? ': ' + grund : '.'), false);
   }
   if (typeof _monGeprueftMoeglich === 'function' && _monGeprueftMoeglich(r) && typeof _monPruefStand === 'function') {
     const stand = _monPruefStand(r);
     if (typeof _monVierAugen === 'function' && _monVierAugen(r) && !stand.fertig) {
-      w.push(`Vier-Augen-Prüfung${r.manuellePruefungGrund ? ' (' + r.manuellePruefungGrund + ')' : ''} nicht abgeschlossen, `
-        + `${stand.zweite ? 2 : stand.erste ? 1 : 0} von 2 Prüfungen.`);
+      punkt(`Vier-Augen-Prüfung${r.manuellePruefungGrund ? ' (' + r.manuellePruefungGrund + ')' : ''} nicht abgeschlossen, `
+        + `${stand.zweite ? 2 : stand.erste ? 1 : 0} von 2 Prüfungen.`, true);
     } else if (!stand.erste) {
-      w.push('Noch nicht als geprüft markiert.');
+      punkt('Noch nicht als geprüft markiert.', false);
     }
   }
   return w;
@@ -502,8 +506,9 @@ function bhDialogOeffnen(r, onGespeichert, wechsel) {
         <button type="button" class="ug-x" data-bh-zu aria-label="Schließen">✕</button>
       </div>
       <p class="ug-regel">${_esc([partner, betrag, r.werk, typeof _monDate === 'function' ? _monDate(r.datum) : ''].filter(Boolean).join(' · '))}</p>
-      ${warnungen.length ? `<div class="bh-warnungen" role="alert"><strong>Vor Genehmigung und Buchung offen</strong><ul>${
-        warnungen.map(x => `<li>${_esc(x)}</li>`).join('')}</ul></div>` : ''}
+      ${warnungen.length ? `<div class="bh-warnungen${warnungen.some(x => x.vorher) ? '' : ' bh-nur-hinweis'}"${warnungen.some(x => x.vorher) ? ' role="alert"' : ''}>`
+        + `<strong>${warnungen.some(x => x.vorher) ? 'Vor Genehmigung und Buchung offen' : 'Hinweis'}</strong><ul>${
+        warnungen.map(x => `<li${x.vorher ? '' : ' class="bh-hinweis-punkt"'}>${_esc(x.text)}</li>`).join('')}</ul></div>` : ''}
       <div class="bh-raster bh-kopfdaten">
         <label class="ug-lbl">Rechnungsnummer<input id="bh-nummer" value="${_esc(r.nummer)}" autocomplete="off"></label>
         <label class="ug-lbl"><span>Lieferant${p.bestaetigt ? ' <span class="ug-siegel" title="Von der Kreditorenbuchhaltung geprüft und bestätigt">✓ Bestätigt</span>' : ''}</span><input id="bh-lieferant" list="bh-lieferanten" value="${_esc(lieferant)}" autocomplete="off"></label>
@@ -760,9 +765,9 @@ async function _bhSpeichern() {
   }
   // Offene Punkte (Dublette, Rückfrage, Prüfung): vor Genehmigung oder Buchung einmal bestätigen lassen
   const bucht = /^gebucht/i.test(neu.bstatus || '') && !/^gebucht/i.test(a.b.bstatus || '');
-  const warnungen = bhWarnungen(a.r);
-  if ((anfordern || bucht) && warnungen.length && !window.confirm(`${anfordern ? 'Genehmigung anfordern' : 'Als gebucht speichern'}, `
-    + 'obwohl noch etwas offen ist?\n\n' + warnungen.map(x => '• ' + x).join('\n'))) return;
+  const offenVorher = bhWarnungen(a.r).filter(x => x.vorher);
+  if ((anfordern || bucht) && offenVorher.length && !window.confirm(`${anfordern ? 'Genehmigung anfordern' : 'Als gebucht speichern'}, `
+    + 'obwohl noch etwas offen ist?\n\n' + offenVorher.map(x => '• ' + x.text).join('\n'))) return;
   // Korrigierte Rechnungsnummer und Lieferant
   const merkenBox = dlg.querySelector('#bh-merken');
   const korr = bhKopfAenderungen({ nummer: a.r.nummer, lieferant: a.lieferantVorher },

@@ -334,10 +334,21 @@ const monFn = ['_monPruefungOffen', '_monErledigt', '_monBankKlaeren', '_monHinw
 for (const k of monFn) global[k] = M[k];
 gleich(B.bhWarnungen(Object.assign({}, rc)), [], 'Vier-Augen fertig: nichts offen');
 delete reg['RC-1'].geprueft2;
-gleich(B.bhWarnungen(rc), ['Vier-Augen-Prüfung (Reverse-Charge (§13b UStG)) nicht abgeschlossen, 1 von 2 Prüfungen.'], 'Vier-Augen halb');
+gleich(B.bhWarnungen(rc), [{ text: 'Vier-Augen-Prüfung (Reverse-Charge (§13b UStG)) nicht abgeschlossen, 1 von 2 Prüfungen.', vorher: true }], 'Vier-Augen halb: vor dem Buchen');
 const allesOffen = Object.assign({ nummer: 'X-1', richtung: 'Eingang', buchung: 'Automatik', dublette: true, dubletteInfo: 'gleiche Nummer wie X-1 vom 03.11.2026' }, ibanAlt);
 const w = B.bhWarnungen(allesOffen);
-gleich([w.length, /^Dublette: gleiche Nummer/.test(w[0]), /^Bankverbindung vor der Zahlung klären/.test(w[1]), w[2]], [3, true, true, 'Noch nicht als geprüft markiert.'], 'Dublette, IBAN, nicht geprüft');
+gleich([w.length, /^Dublette: gleiche Nummer/.test(w[0].text), w[0].vorher, /^Bankverbindung vor der Zahlung klären/.test(w[1].text), w[1].vorher, w[2]],
+  [3, true, true, true, true, { text: 'Noch nicht als geprüft markiert.', vorher: false }], 'Dublette und IBAN vorher klären, nicht geprüft nur Hinweis');
+// Gewöhnliche Rückfrage: laut Prozess nach der Buchung, deshalb nur Hinweis
+const rfNormal = { nummer: 'RN-1', richtung: 'Eingang', buchung: 'Automatik', konform: 'Gruen - KoSIT ok', rueckfrage: true,
+  meldung: 'Materielle Abweichung Sichtbild ↔ XML: Rechnungsdatum 28.10.2026 steht nicht im Sichtbild. Gebucht wird aus der XML.' };
+reg['RN-1'] = { geprueft: { am: '2026-11-17T08:00:00Z', von: 'erste@firma.example' } };
+const wn = B.bhWarnungen(rfNormal);
+gleich([wn.length, /^Rückfrage an den Lieferanten nach der Buchung stellen: Materielle Abweichung/.test(wn[0].text), wn[0].vorher], [1, true, false], 'Rückfrage nur Hinweis');
+
+// Verarbeitung bei nicht gelaufener Prüfung: „Nicht geprüft“ statt „Validiert“
+gleich(M._monGroup([datei('R-11_DE1.pdf', { Format: 'ZUGFeRD', Konformitaet: 'Ungeprueft', Verarbeitungsstatus: 'Validiert', Title: 'R-11' })])[0].status, 'Nicht geprüft', 'Status ehrlich');
+gleich(M._monGroup([datei('R-12_DE1.pdf', { Format: 'ZUGFeRD', Konformitaet: 'Gruen - KoSIT ok', Verarbeitungsstatus: 'Validiert', Title: 'R-12' })])[0].status, 'Validiert', 'geprüft bleibt Validiert');
 gleich(B.bhWarnungen({ nummer: 'A-1', richtung: 'Ausgang', dublette: true }), [], 'Ausgang: keine Warnungen');
 for (const k of monFn) delete global[k];
 for (const k of ['ugGeprueft', 'ugZweitpruefung', 'ugErledigt', 'ugMailsFuer', 'ugRechnungSetzen', 'getAuthUser']) delete global[k];

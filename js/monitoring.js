@@ -593,6 +593,8 @@ function _monGroup(recs) {
       // Prüfdienst war nicht erreichbar: ohne Prüfung nicht auf Automatik (seit 17.11.2026 auch im Prüfdienst)
       else if (_monPruefungOffen(primary)) { primary.buchungAlt = primary.buchung; primary.buchung = 'Unter Vorbehalt'; }
     }
+    // Der Flow schreibt bei nicht gelaufener Prüfung „Validiert“ (alles außer rot). Das stimmt nicht.
+    if (_monPruefungOffen(primary) && /^validiert$/i.test(primary.status || '')) primary.status = 'Nicht geprüft';
     // "öffnen" muss immer eine Datei treffen: hat die Primärzeile keine URL,
     // die erste verfügbare Geschwisterdatei nehmen.
     if (!primary.url) { const s = arr.find(r => r.url); if (s) primary.url = s.url; }
@@ -1660,7 +1662,8 @@ function _monDetail(r, idx) {
     .concat((r.dateien || []).map(d => `<a href="${_esc(d.url)}" target="_blank" rel="noopener">${_esc(d.label)} ↗</a>`))
     .filter(Boolean).join('<br>');
   const aktionen = (b ? `<button type="button" class="bh-btn" data-bh="${idx}">Bearbeiten</button>` : '')
-    + (sonstige && typeof ugZelle === 'function' ? ugZelle(r, idx, _monGemeinsam(r)) : '');
+    + (sonstige && typeof ugZelle === 'function' ? ugZelle(r, idx, _monGemeinsam(r)) : '')
+    + _monErledigtZelle(r, idx);
   return `<div class="mon-det">`
     + block('Rechnung', [['Nummer', t(r.nummer) + (r.nummerAusDatei && r.nummer ? ' (aus dem Dateinamen)' : '')], ['Datum', t(_monDate(r.datum))],
         ['Erstellt am', t(_monZeit(r.erstellt))], ['Fällig am', t(_monDate(r.faelligkeit))],
