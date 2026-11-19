@@ -17,9 +17,12 @@
   'use strict';
 
   // USt-IdNr. der eigenen Gesellschaften: die aus js/parser.js (_COMPANY_REGISTRY, wie in
-  // api/src/eigene.js) und die der Schmiedeberger Gießerei (SCH).
+  // api/src/eigene.js), die der Schmiedeberger Gießerei (SCH) und die der DIHAG Solutions (DSO).
+  // DSO stellt keine Ausgangsrechnungen über den Konverter, steht aber als Kunden-USt-IdNr. auf
+  // den Rechnungen ihrer Lieferanten (19.11.2026: bei 49 DSO-Rechnungen als Lieferant gelesen).
   const EIGENE_VAT = ['DE140598967', 'DE812264517', 'DE368990137', 'DE368676368',
-    'DE811154479', 'DE812737567', 'DE281233945', 'DE150528912', 'DE140462641'];
+    'DE811154479', 'DE812737567', 'DE281233945', 'DE150528912', 'DE140462641', 'DE453718391'];
+  const istEigeneVat = v => EIGENE_VAT.includes(String(v || '').replace(/[\s.-]+/g, '').toUpperCase());
   // Namensteile der eigenen Gesellschaften (klein, ohne Umlaut-Varianten). „Schmiederberger“
   // schreiben manche Lieferanten aus Tschechien.
   const EIGENE_NAMEN = ['dihag', 'gienanth', 'walzengie', 'coswig guss', 'hartgusswerk', 'leipzig guss',
@@ -49,8 +52,9 @@
   function vatKandidaten(zeilen) {
     const out = [];
     zeilen.forEach((z, i) => {
-      // „Unsere USt.-IdNr.“ direkt unter „Ihre USt.-IdNr.“ ist die des Lieferanten
-      const fremd = /\b(Ihre|Kunden|Your|Empf(?:ä|ae)nger)\b/i.test(z)
+      // „Unsere USt.-IdNr.“ direkt unter „Ihre USt.-IdNr.“ ist die des Lieferanten.
+      // „KD-UST-Id-Nr.“ und „Kd.-USt-IdNr.“ sind die des Kunden.
+      const fremd = /\b(Ihre|Kunden|Your|Customer|Empf(?:ä|ae)nger)\b|\bKD\b[-.\s]*(?:USt|UID|VAT)/i.test(z)
         || (/\b(Ihre|Kunden|Your)\b/i.test(zeilen[i - 1] || '') && !/\b(Unsere|Our)\b/i.test(z));
       let m;
       VAT_DE.lastIndex = 0;
@@ -173,6 +177,18 @@
     return `${j}-${String(mo).padStart(2, '0')}-${String(t).padStart(2, '0')}`;
   }
 
+  // „11. November 2026“, „3. Okt. 2026“: Monat als Wort
+  const MONATE = ['jan', 'feb', 'm(?:ä|ae)r', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
+  const DATUM_WORT = new RegExp(`(\\d{1,2})\\.\\s*(${MONATE.map(m => m + '[a-zä]*').join('|')})\\.?\\s+(\\d{4})(?!\\d)`, 'i');
+  function wortDatum(s) {
+    const m = DATUM_WORT.exec(String(s || ''));
+    if (!m) return '';
+    const mo = MONATE.findIndex(x => new RegExp('^' + x, 'i').test(m[2])) + 1;
+    // „Mai“ ohne Zusatz, aber keine Wörter wie „Mainz“ oder „Juniorpartner“
+    if (!mo || !/^(januar|februar|m(?:ä|ae)rz|april|mai|juni|juli|august|september|oktober|november|dezember|jan|feb|m(?:ä|ae)r|apr|jun|jul|aug|sept?|okt|nov|dez)$/i.test(m[2])) return '';
+    return isoDatum([m[0], m[1], String(mo), m[3]]);
+  }
+
   function rechnungsdatum(zeilen) {
     const label = /(Rechnungs-?\s?|Beleg-?|Invoice\s*)datum|Invoice date|Datum der Rechnung/i;
     for (let i = 0; i < zeilen.length; i++) {
@@ -184,13 +200,17 @@
       const vorher = /^\s*\d{1,2}\.\d{1,2}\.\d{2,4}\s*$/.test(zeilen[i - 1] || '') ? zeilen[i - 1] : '';
       const m = DATUM.exec(hier) || DATUM.exec(zeilen[i + 1] || '') || DATUM.exec(vorher);
       if (m && isoDatum(m)) return isoDatum(m);
+      const w = wortDatum(hier) || wortDatum(zeilen[i + 1]);
+      if (w) return w;
     }
     for (let i = 0; i < Math.min(zeilen.length, 60); i++) {
-      // „Datum21.09.2026" oder „22.09.2026Datum"
+      // „Datum21.09.2026", „22.09.2026Datum" oder „Datum: 11. November 2026"
       const z = zeilen[i];
       if (!/(^|[^A-Za-z])Datum|Datum($|[^A-Za-z])/.test(z) || /Liefer|Leistung|Bestell|Auftrag|Druck|Fällig|Faellig|bis zum/i.test(z)) continue;
       const m = DATUM.exec(z);
       if (m && isoDatum(m)) return isoDatum(m);
+      const w = wortDatum(z);
+      if (w) return w;
     }
     return '';
   }
@@ -219,6 +239,10 @@
       const z = zeilen[i].trim();
       let m = /^Rechnung\s+([A-Z]{0,4}[-/]?\d{4,}[0-9A-Z/-]*)$/i.exec(z)
            || /^Nummer\s*([A-Z]{0,4}[-/]?\d[0-9A-Z/-]{3,})$/i.exec(z);
+      // Überschrift „VORKASSERECHNUNG“, wenige Zeilen darunter „Nummer: 1234567 Seite 1 / 1“
+      if (!m && zeilen.slice(Math.max(0, i - 4), i).some(x => /^\s*[A-Za-zÄÖÜäöü-]*rechnung\s*$/i.test(x))) {
+        m = /^Nummer\s*:\s*([A-Z]{0,4}[-/]?\d[0-9A-Z/-]{3,})(?:\s|$)/i.exec(z);
+      }
       if (m) return m[1];
     }
     return '';
@@ -356,7 +380,7 @@
       const rest = z.slice(m.index);
       if (skonto.test(z) && !ohneAbzug.test(z)) return;
       const d = DATUM.exec(rest) || (/^\s*\d{1,2}\.\d{1,2}\.\d{2,4}\s*$/.test(zeilen[i + 1] || '') ? DATUM.exec(zeilen[i + 1]) : null);
-      const iso = d ? isoDatum(d) : '';
+      const iso = d ? isoDatum(d) : wortDatum(rest);
       if (iso && (!datum || iso >= datum)) daten.push(iso);
     });
     if (daten.length) return daten.sort().slice(-1)[0];
@@ -669,7 +693,7 @@
       .join(String.fromCharCode(10));
   }
 
-  const api = { lieferantAusText, istEigen, keinName, istEigeneMail, EIGENE_VAT, textAusPdf, textAusItems };
+  const api = { lieferantAusText, istEigen, keinName, istEigeneMail, istEigeneVat, EIGENE_VAT, textAusPdf, textAusItems };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else Object.assign(global, api);
 })(typeof window !== 'undefined' ? window : globalThis);

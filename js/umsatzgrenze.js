@@ -80,6 +80,16 @@ function ugKey(name) {
     .replace(/[^a-z0-9äöüß]+/g, ' ').trim();
 }
 
+/**
+ * USt-IdNr. eines Lieferanten: ohne Leerzeichen, '' bei einer eigenen Gesellschaft. Die eigene
+ * steht als Kunden-USt-IdNr. auf der Rechnung. Bis 19.11.2026 las der Prüfdienst sie bei DSO als
+ * die des Lieferanten, und solche Nummern stehen noch an Rechnungen und im Register.
+ */
+function ugVat(v) {
+  const s = String(v || '').replace(/\s+/g, '').toUpperCase();
+  return !s || (typeof istEigeneVat === 'function' && istEigeneVat(s)) ? '' : s;
+}
+
 /** Schlüssel einer Rechnung, bleibt beim Einsortieren Rechnungseingang -> ERAR_<Werk> gleich. */
 function ugRechnungKey(r) {
   return ((r.richtung || '').slice(0, 1) + '|' + (r.baseKey || r.file || r.nummer || '')).toLowerCase();
@@ -333,12 +343,15 @@ function ugLieferantFuer(r) {
   const treffer = (key, art) => key && d.lieferanten[key] ? Object.assign({ key, treffer: art }, d.lieferanten[key]) : null;
   const zu = d.rechnungen[ugRechnungKey(r)];
   if (zu && zu.lieferant && d.lieferanten[zu.lieferant]) return treffer(zu.lieferant, 'rechnung');
-  if (r.ustid) {
-    const k = Object.keys(d.lieferanten).find(x => d.lieferanten[x].vat === r.ustid);
+  // Eigene USt-IdNr. zählen weder an der Rechnung noch im Register
+  const vat = ugVat(r.ustid);
+  const regVat = k => ugVat(d.lieferanten[k].vat);
+  if (vat) {
+    const k = Object.keys(d.lieferanten).find(x => regVat(x) === vat);
     if (k) return treffer(k, 'vat');
   }
   const name = ugKey(r.steller);
-  const passt = k => !(r.ustid && d.lieferanten[k].vat && d.lieferanten[k].vat !== r.ustid);
+  const passt = k => !(vat && regVat(k) && regVat(k) !== vat);
   if (name && d.lieferanten[name] && passt(name)) return treffer(name, 'name');
   const k = name.length >= 5 && Object.keys(d.lieferanten).find(x => passt(x)
     && (d.lieferanten[x].aliase || []).some(a => ugKey(a) === name));
@@ -387,13 +400,14 @@ function ugLieferantName(r) {
  * der Rechnung (PDF-Text) ab, kommt er zu den aliase, damit die nächste Rechnung mit
  * derselben Schreibweise erkannt wird. Mit opt.bestaetigen setzt die Kreditorenbuchhaltung
  * ihr Siegel (wer und wann). Alles andere bleibt, auch ein früheres Siegel.
- * @param opt  { bestaetigen: boolean, vat: USt-IdNr. aus dem Dialog }
+ * @param opt  { bestaetigen: boolean, vat: USt-IdNr. aus dem Dialog, vatSetzen: die aus dem
+ *              Dialog ersetzt eine gemerkte (von Hand korrigiert) }
  */
 function ugLieferantMerken(alt, name, r, user, jetzt, opt) {
   const o = opt || {};
   const e = Object.assign({}, alt || {});
   e.name = String(name).trim();
-  e.vat = e.vat || o.vat || r.ustid || '';
+  e.vat = (o.vatSetzen && ugVat(o.vat)) || ugVat(e.vat) || ugVat(o.vat) || ugVat(r.ustid) || '';
   const gelesen = String(r.steller || '').trim();
   const aliase = (e.aliase || []).filter(a => ugKey(a) !== ugKey(e.name));
   const eigen = typeof istEigen === 'function' && istEigen(gelesen);
@@ -456,7 +470,7 @@ async function ugSpeichern(r, name, vermutung, vat, nummer, informiert, mail) {
   const neu = await _ugSchreiben(d => {
     const alt = d.lieferanten[key];
     const e = Object.assign(ugLieferantMerken(alt, name, r, user, am), {
-      vat: vat || (alt && alt.vat) || r.ustid || '',
+      vat: ugVat(vat) || ugVat(alt && alt.vat) || ugVat(r.ustid) || '',
       vermutung, am,
       von: user.username || '',
       vonName: user.name || user.username || '',
@@ -477,7 +491,8 @@ async function ugSpeichern(r, name, vermutung, vat, nummer, informiert, mail) {
  * Lieferant prüfen und bestätigen (Kreditorenbuchhaltung: Knopf im 800k-Dialog oder
  * „Bearbeiten“) und merken. Eine Einschätzung und die Mailadresse bleiben, die Rechnung
  * wird dem Lieferanten zugeordnet.
- * @param extra  { vat } USt-IdNr., falls der Dialog sie kennt
+ * @param extra  { vat, vatSetzen } USt-IdNr., falls der Dialog sie kennt; vatSetzen: von Hand
+ *               korrigiert, ersetzt die gemerkte
  */
 async function ugBestaetigen(r, name, extra) {
   const user = (typeof getAuthUser === 'function' && getAuthUser()) || {};
@@ -487,7 +502,7 @@ async function ugBestaetigen(r, name, extra) {
   const neu = await _ugSchreiben(d => ({
     version: 1,
     lieferanten: Object.assign({}, d.lieferanten, { [key]: ugLieferantMerken(d.lieferanten[key], name, r, user, am,
-      { bestaetigen: true, vat: extra && extra.vat }) }),
+      { bestaetigen: true, vat: extra && extra.vat, vatSetzen: !!(extra && extra.vatSetzen) }) }),
     rechnungen: Object.assign({}, d.rechnungen, { [ugRechnungKey(r)]: Object.assign({}, d.rechnungen[ugRechnungKey(r)],
       { lieferant: key, am, von: user.username || '' }) }),
   }));
@@ -564,7 +579,7 @@ function ugOffeneLieferanten(offen) {
     // Ein Lieferant aus dem Register geht vor dem gelesenen Namen
     const reg = ugLieferantFuer(r);
     const n = ugKey(r.steller);
-    const vat = (reg && reg.vat) || r.ustid || nameZuVat.get(n) || '';
+    const vat = ugVat(reg && reg.vat) || r.ustid || nameZuVat.get(n) || '';
     const key = reg ? 'r:' + reg.key : vat || n;
     if (!key) { ohne.push(r); continue; }
     if (!map.has(key)) map.set(key, { key, vat, rechnungen: [], namen: new Map(), mails: new Set(), feste: reg ? reg.name : '' });
@@ -906,7 +921,7 @@ function ugDialogOeffnen(r, onGespeichert, wechsel) {
     name: ugLieferantName(r),
     nr: r.nummer || '',
     datum: _monDate(r.datum),
-    vat: r.ustid || (l && l.vat) || '',
+    vat: r.ustid || ugVat(l && l.vat) || '',
     phase: ugPhase(r.datum),
     absender: user.name || '',
     // Adresse: Mail an diese Rechnung, sonst beim Lieferanten gemerkt, sonst Absender der
@@ -1507,7 +1522,7 @@ async function _ugAbschliessen(modus) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { UG, UG_MAIL_ART, ugVersandAktiv, ugKannSenden, _ugMailStand, ugKey, ugRechnungKey, ugPhase, ugSonstige, ugKleinbetrag, ugKleinVermutet, ugSummenStimmig, ugOffeneLieferanten,
+  module.exports = { UG, UG_MAIL_ART, ugVat, ugVersandAktiv, ugKannSenden, _ugMailStand, ugKey, ugRechnungKey, ugPhase, ugSonstige, ugKleinbetrag, ugKleinVermutet, ugSummenStimmig, ugOffeneLieferanten,
     ugSammelSetzen, ugSammelKlein, ugBraucht, ugDialogMoeglich, ugZelle, ugFolge, ugVorlage,
     ugMailOk, ugMailHtml, ugInformiert, ugSpeichern, ugBestaetigen, ugLieferantFuer, ugLieferantMerken, ugLieferantName,
     ugMitXml, ugFuer, ugLaden, ugKleinBestaetigt, ugAusland, ugGeprueft, ugRechnungSetzen, ugAuslandSetzen, ugNummerSpeichern,

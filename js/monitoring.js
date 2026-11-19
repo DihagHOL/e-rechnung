@@ -418,12 +418,15 @@ function _monMap(it, f, lib) {
   const baseKey = ausgang ? stem.replace(/_\d{6,8}$/, '') : stem;
   const titleClean = (f.Title && String(f.Title).trim()) || '';
   // Spalte RechnungsstellerUStID trug bis zur Flow-Korrektur den Namen: nur echte USt-IdNr. nehmen
-  const ustid = /^[A-Z]{2}[0-9A-Z]{8,12}$/.test(String(f.RechnungsstellerUStID || '').replace(/\s+/g, ''))
+  const ustidRoh = /^[A-Z]{2}[0-9A-Z]{8,12}$/.test(String(f.RechnungsstellerUStID || '').replace(/\s+/g, ''))
     ? String(f.RechnungsstellerUStID).replace(/\s+/g, '') : '';
+  // Im Eingang ist die USt-IdNr. einer eigenen Gesellschaft nie die des Lieferanten. Der
+  // Prüfdienst las bis 19.11.2026 bei DSO die Kunden-USt-IdNr. („KD-UST-Id-Nr.“).
+  const ustid = !ausgang && typeof istEigeneVat === 'function' && istEigeneVat(ustidRoh) ? '' : ustidRoh;
   // Anzeige-Nr.: echter Title, sonst aus dem Dateinamen. Bei XML-Dateien setzt SharePoint
   // den Title selbst auf den Dateinamen, der zählt nicht.
   const titelEcht = _monTitelEcht(titleClean, stem, baseKey) ? titleClean : '';
-  const nummer = titelEcht || _monNummerAusDatei(baseKey, ustid, f.Rechnungssteller);
+  const nummer = titelEcht || _monNummerAusDatei(baseKey, ustidRoh, f.Rechnungssteller);
   return {
     file, ext, sidecar, baseKey,
     nummerAusDatei: !titelEcht,
@@ -1549,7 +1552,7 @@ function _monZelle(id, r, idx) {
         .concat(anlChip).join('');
       const bhTipp = (_monGemeinsam(r) ? '800k-Einschätzung, ' : '')
         + (typeof bhOhneGenehmigung === 'function' && bhOhneGenehmigung(r) ? 'Varialnummer, Kontierung, Notiz' : 'Varialnummer, Kontierung, Genehmigung');
-      return `<td>${bh ? `<button type="button" class="bh-btn" data-bh="${idx}" title="${bhTipp}">Bearbeiten</button>` : ''}${dateien}</td>`;
+      return `<td>${bh ? `<button type="button" class="bh-btn" data-bh="${idx}" title="${bhTipp}">Bearbeiten</button>` : ''}${_monDatenKnopf(r, idx)}${dateien}</td>`;
     }
     default: return '<td></td>';
   }
@@ -1663,13 +1666,19 @@ function _monDetail(r, idx) {
     .concat((r.dateien || []).map(d => `<a href="${_esc(d.url)}" target="_blank" rel="noopener">${_esc(d.label)} ↗</a>`))
     .filter(Boolean).join('<br>');
   const aktionen = (b ? `<button type="button" class="bh-btn" data-bh="${idx}">Bearbeiten</button>` : '')
+    + _monDatenKnopf(r, idx)
     + (sonstige && typeof ugZelle === 'function' ? ugZelle(r, idx, _monGemeinsam(r)) : '')
     + _monErledigtZelle(r, idx);
+  const daten = typeof rdGeprueft === 'function' ? rdGeprueft(r) : null;
+  const datenText = daten ? `${wer(daten)}${daten.felder && daten.felder.length
+    ? ', korrigiert: ' + daten.felder.map(k => (typeof RD_NAMEN !== 'undefined' && RD_NAMEN[k]) || k).join(', ') : ', nichts geändert'}`
+    : _monGelesen(r) ? 'aus der PDF gelesen, noch nicht geprüft' : '';
   return `<div class="mon-det">`
     + block('Rechnung', [['Nummer', t(r.nummer) + (r.nummerAusDatei && r.nummer ? ' (aus dem Dateinamen)' : '')], ['Datum', t(_monDate(r.datum))],
         ['Erstellt am', t(_monZeit(r.erstellt))], ['Fällig am', t(_monDate(r.faelligkeit))],
         ['Werk', t(r.werk)], ['Richtung', t(r.richtung)], ['Typ', t(_monKlass(r))], ['Rechnungsart', r.mahnung ? 'Mahnung (keine Rechnung)' : t(_monRechnungsart(r.art))],
-        ['In derselben Mail', r.mailRechnungen ? t('Rechnung ' + r.mailRechnungen.join(', ')) : '']])
+        ['In derselben Mail', r.mailRechnungen ? t('Rechnung ' + r.mailRechnungen.join(', ')) : ''],
+        ['Rechnungsdaten', t(datenText)]])
     + block(r.richtung === 'Eingang' ? 'Lieferant' : 'Kunde', [
         ['Name', p.name ? t(p.name) + t(_monPartnerQuelle(r, p)) : ''],
         ['Rechnungsmail von', t(r.absenderMail)], ['USt-IdNr.', t(r.ustid)]])
@@ -2170,9 +2179,22 @@ function _monPartnerSicher(r) {
   return r.steller ? { name: r.steller, quelle: 'gelesen' } : { name: '', quelle: '' };
 }
 
-/** Wert stammt aus dem PDF-Text oder Scan, nicht aus einer E-Rechnung? */
+/**
+ * Wert stammt aus dem PDF-Text oder Scan, nicht aus einer E-Rechnung, und niemand hat ihn unter
+ * „Daten prüfen“ (js/rechnungsdaten.js) geprüft? Dann zeigt die Tabelle ihn grau.
+ */
 function _monGelesen(r) {
-  return r.richtung === 'Eingang' && typeof ugMitXml === 'function' && !ugMitXml(r);
+  return r.richtung === 'Eingang' && typeof ugMitXml === 'function' && !ugMitXml(r)
+    && !(typeof rdGeprueft === 'function' && rdGeprueft(r));
+}
+
+/** Knopf „Daten prüfen“ für PDFs ohne E-Rechnung, in jedem Werk (auch ohne „Bearbeiten“). */
+function _monDatenKnopf(r, idx) {
+  if (typeof rdMoeglich !== 'function' || !rdMoeglich(r)) return '';
+  const g = rdGeprueft(r);
+  return g
+    ? `<button type="button" class="bh-btn" data-rd="${idx}" title="${_esc(`Rechnungsdaten geprüft von ${g.vonName || g.von || ''} am ${_monDate(g.am)}`)}">Daten ✓</button>`
+    : `<button type="button" class="bh-btn" data-rd="${idx}" title="Aus der PDF gelesene Rechnungsdaten prüfen und korrigieren">Daten prüfen</button>`;
 }
 
 /** Woher der Name stammt und ob er bestätigt ist, als Zusatz in Klammern ('' bei XML ohne Siegel). */
@@ -2519,6 +2541,13 @@ function monInitFilterEvents() {
       else if (r) bhDialogOeffnen(r, nachBh);
       return;
     }
+    const rd = e.target.closest('[data-rd]');
+    if (rd && typeof rdDialogOeffnen === 'function') {
+      const r = _monRows[Number(rd.getAttribute('data-rd'))];
+      // Nummer, Lieferant und Beträge können sich geändert haben: neu zusammenfassen (Dubletten, Kacheln)
+      if (r) rdDialogOeffnen(r, () => { _monRecords = _monGroup(_monDateien); _monMarkDupes(_monRecords); _monBuildFilterOptions(_monLibs); _monSyncControls(); _monApply(); });
+      return;
+    }
     const gp = e.target.closest('[data-geprueft], [data-geprueft2]');
     if (gp && typeof ugRechnungSetzen === 'function') {
       const zweite = gp.hasAttribute('data-geprueft2');
@@ -2584,5 +2613,5 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = { _monRechnungsart, _monFetchLib, _monVorMonaten, _monWeiter, _monHinweis, _monFormatmangel, _monGeprueftMoeglich, _monSichtbareSpalten, _monFilter, _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monDublettenNummer, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
     _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMatchFlag, _monMitNeuenSpalten, _monLibErlaubt, _monIstMahnung,
     _monLibsZumAktualisieren, _monDateienTauschen, _monBuchungText, _monPruefungOffen, _monBankKlaeren, _monVierAugen, _monPruefStand,
-    _monErledigt, _monErledigtZelle, _monAlterText, _monZelle };
+    _monErledigt, _monErledigtZelle, _monAlterText, _monZelle, _monGelesen, _monDatenKnopf };
 }

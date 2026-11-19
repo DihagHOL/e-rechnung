@@ -19,7 +19,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:startEvent id="E8_start" name="Sonstige Rechnung unter Vorbehalt"><bpmn:outgoing>Flow_E8_start_E8_reg</bpmn:outgoing></bpmn:startEvent>
       <bpmn:serviceTask id="E8_reg" name="Lieferant im Lieferantenregister nachschlagen"><bpmn:incoming>Flow_E8_start_E8_reg</bpmn:incoming><bpmn:outgoing>Flow_E8_reg_E8_aus</bpmn:outgoing></bpmn:serviceTask>
       <bpmn:serviceTask id="E8_aus" name="Hinweise auf Ausland prüfen (Land im Kopf, IBAN, USt-IdNr.)"><bpmn:incoming>Flow_E8_reg_E8_aus</bpmn:incoming><bpmn:outgoing>Flow_E8_aus_E8_lief</bpmn:outgoing></bpmn:serviceTask>
-      <bpmn:userTask id="E8_lief" name="Lieferant prüfen und bestätigen"><bpmn:incoming>Flow_E8_aus_E8_lief</bpmn:incoming><bpmn:outgoing>Flow_E8_lief_E8_gwKlein</bpmn:outgoing></bpmn:userTask>
+      <bpmn:userTask id="E8_lief" name="Lieferant und gelesene Daten prüfen, korrigieren"><bpmn:incoming>Flow_E8_aus_E8_lief</bpmn:incoming><bpmn:outgoing>Flow_E8_lief_E8_gwKlein</bpmn:outgoing></bpmn:userTask>
       <bpmn:exclusiveGateway id="E8_gwKlein" name="Kleinbetrag bis 250 € brutto?"><bpmn:incoming>Flow_E8_lief_E8_gwKlein</bpmn:incoming><bpmn:outgoing>Flow_E8_gwKlein_E8_klein</bpmn:outgoing><bpmn:outgoing>Flow_E8_gwKlein_E8_gwAus</bpmn:outgoing></bpmn:exclusiveGateway>
       <bpmn:userTask id="E8_klein" name="Kleinbetrag bestätigen"><bpmn:incoming>Flow_E8_gwKlein_E8_klein</bpmn:incoming><bpmn:outgoing>Flow_E8_klein_E8_endKlein</bpmn:outgoing></bpmn:userTask>
       <bpmn:endEvent id="E8_endKlein" name="ausgenommen: Kleinbetrag"><bpmn:incoming>Flow_E8_klein_E8_endKlein</bpmn:incoming></bpmn:endEvent>

@@ -205,4 +205,34 @@ gleich(istEigeneMail('info@muster.de'), false, 'fremde Mail');
   gleich(l.waehrung, 'CZK', 'Fremdwährung');
 }
 
+// Kunden-USt-IdNr. als „KD-UST-Id-Nr.“ im Anschriftenblock, eigene erst im Fuß; Nummer unter der
+// Überschrift, Datum mit Monatswort (Layout einer DSO-Rechnung vom 11.11.2026, Namen erfunden)
+r = lieferantAusText(text([
+  'Muster Arbeitsschutz GmbH · Industriestraße 1 · 12345 Musterstadt',
+  'VORKASSERECHNUNG',
+  'DIHAG Solutions GmbH',
+  'Nummer: 7654321 Seite 1 / 1',
+  'Kunden-Nr.: 10020030 Vt. 12 /',
+  'KD-UST-Id-Nr.: DE453718391',
+  'Datum: 11. November 2026',
+  'Ihre Bestellung: 88990011 vom: 09.11.2026',
+  'Warenwert Frachtkosten Netto-Betrag Mehrwertsteuer Gesamt-Betrag',
+  'EUR 1.000,00 1.000,00 19,00 % 190,00 1.190,00',
+  'Muster Arbeitsschutz GmbH Tel (0 12 34) 56 78 - 0 HRB 1234 St.-Nr. 012 345 678 90',
+  'Industriestraße 1 info@muster-arbeitsschutz.de BIC COBADEFFXXX USt-ID DE 123 456 788',
+]));
+gleich(r.vat, 'DE123456788', 'KD-UST-Id-Nr. ist die des Kunden, die eigene steht im Fuß');
+gleich([r.nummer, r.datum], ['7654321', '2026-11-11'], 'Nummer unter der Überschrift, Datum mit Monatswort');
+gleich([r.netto, r.brutto], [1000, 1190], 'Beträge');
+// DSO-Nummer ohne Hinweis auf den Kunden: trotzdem nie die des Lieferanten
+r = lieferantAusText(text([
+  'Beispiel Handel GmbH - Weg 2 - 54321 Beispielort', 'Rechnung 556677', 'Datum 3. Okt. 2026',
+  'USt-IdNr. DE453718391', 'Summe 100,00', 'USt-IdNr.: DE 987 654 321',
+]));
+gleich([r.vat, r.datum], ['DE987654321', '2026-10-03'], 'eigene USt-IdNr. der DSO, Monat abgekürzt');
+gleich(require('../js/lieferant.js').istEigeneVat('DE 453 718 391'), true, 'istEigeneVat mit Leerzeichen');
+// „Mainz“ ist kein Monat
+r = lieferantAusText(text(['Beispiel Handel GmbH - Weg 2 - 54321 Beispielort', 'Rechnung 556677', 'Datum 3. Mainz 2026', 'Summe 100,00']));
+gleich(r.datum, '', 'kein Monatswort, kein Datum');
+
 console.log(`lieferant: ${n} Pruefungen gruen`);

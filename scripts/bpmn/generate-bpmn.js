@@ -499,7 +499,7 @@ const EINSCHAETZUNG = {
         { id: 'E8_start', k: 'start', n: 'Sonstige Rechnung unter Vorbehalt', lane: 'LM8', c: 0, r: 0 },
         { id: 'E8_reg', k: 'service', n: 'Lieferant im Lieferantenregister nachschlagen', lane: 'LM8', c: 1, r: 0 },
         { id: 'E8_aus', k: 'service', n: 'Hinweise auf Ausland prüfen (Land im Kopf, IBAN, USt-IdNr.)', lane: 'LM8', c: 2, r: 0 },
-        { id: 'E8_lief', k: 'user', n: 'Lieferant prüfen und bestätigen', lane: 'LK8', c: 3, r: 0 },
+        { id: 'E8_lief', k: 'user', n: 'Lieferant und gelesene Daten prüfen, korrigieren', lane: 'LK8', c: 3, r: 0 },
         { id: 'E8_gwKlein', k: 'gw', n: 'Kleinbetrag bis 250 € brutto?', lane: 'LK8', c: 4, r: 0 },
         { id: 'E8_klein', k: 'user', n: 'Kleinbetrag bestätigen', lane: 'LK8', c: 4, r: 1 },
         { id: 'E8_endKlein', k: 'end', n: 'ausgenommen: Kleinbetrag', lane: 'LK8', c: 4, r: 2 },

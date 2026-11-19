@@ -18,10 +18,11 @@
   <link rel="modulepreload" href="js/pdfjs-laden.mjs?v=d5130719d1">
   <link rel="preload" as="script" href="js/vendor/tesseract/tesseract.min.js?v=000c27d9cd">
   <link rel="preload" as="script" href="js/ocr.js?v=ca1f1ec809">
-  <link rel="preload" as="script" href="js/lieferant.js?v=e9bdf13c40">
-  <link rel="preload" as="script" href="js/umsatzgrenze.js?v=1430bee50e">
+  <link rel="preload" as="script" href="js/lieferant.js?v=8751b03b66">
+  <link rel="preload" as="script" href="js/umsatzgrenze.js?v=e9fab685d0">
   <link rel="preload" as="script" href="js/bearbeitung.js?v=eca149ce8f">
-  <link rel="preload" as="script" href="js/monitoring.js?v=f1fba76d77">
+  <link rel="preload" as="script" href="js/rechnungsdaten.js?v=c517b667cf">
+  <link rel="preload" as="script" href="js/monitoring.js?v=cdf5b8ed60">
   <link rel="preload" as="script" href="js/seite-monitoring.js?v=5831e85eeb">
   <link rel="stylesheet" href="css/style.css?v=ff2be28ffb">
   <style>
@@ -227,9 +228,9 @@
     div.mon-erledigt { cursor:default; }
     .mon-erledigt:disabled { opacity:.6; cursor:wait; }
 
-    #ug-dialog, #bh-dialog, #sp-dialog { margin:auto; border:none; border-radius:12px; padding:0; width:min(680px, calc(100vw - 32px));
+    #ug-dialog, #bh-dialog, #sp-dialog, #rd-dialog { margin:auto; border:none; border-radius:12px; padding:0; width:min(680px, calc(100vw - 32px));
                 max-height:calc(100vh - 48px); box-shadow:0 20px 50px rgba(0,0,0,.25); }
-    #ug-dialog::backdrop, #bh-dialog::backdrop, #sp-dialog::backdrop, #ug-sammel::backdrop { background:rgba(17,24,39,.45); }
+    #ug-dialog::backdrop, #bh-dialog::backdrop, #sp-dialog::backdrop, #rd-dialog::backdrop, #ug-sammel::backdrop { background:rgba(17,24,39,.45); }
     #ug-sammel { margin:auto; border:none; border-radius:12px; padding:0; width:min(920px, calc(100vw - 32px));
                 max-height:calc(100vh - 48px); box-shadow:0 20px 50px rgba(0,0,0,.25); }
     .ug-s-block { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; background:var(--gray-100);
@@ -497,6 +498,7 @@
 <!-- 800k-Umsatzgrenze: Einschaetzung + Mailvorlage (js/umsatzgrenze.js) -->
 <dialog id="ug-dialog" aria-label="Umsatzgrenze 800.000 €"></dialog>
 <dialog id="bh-dialog" aria-label="Rechnung bearbeiten"></dialog>
+<dialog id="rd-dialog" aria-label="Rechnungsdaten prüfen"></dialog>
 <dialog id="sp-dialog" aria-label="Spalten je Werk"></dialog>
 <dialog id="ug-sammel" aria-label="800k-Einschätzung je Lieferant"></dialog>
 
@@ -507,10 +509,11 @@
 <script type="module" src="js/pdfjs-laden.mjs?v=d5130719d1"></script>
 <script src="js/vendor/tesseract/tesseract.min.js?v=000c27d9cd"></script>
 <script src="js/ocr.js?v=ca1f1ec809"></script>
-<script src="js/lieferant.js?v=e9bdf13c40"></script>
-<script src="js/umsatzgrenze.js?v=1430bee50e"></script>
+<script src="js/lieferant.js?v=8751b03b66"></script>
+<script src="js/umsatzgrenze.js?v=e9fab685d0"></script>
 <script src="js/bearbeitung.js?v=eca149ce8f"></script>
-<script src="js/monitoring.js?v=f1fba76d77"></script>
+<script src="js/rechnungsdaten.js?v=c517b667cf"></script>
+<script src="js/monitoring.js?v=cdf5b8ed60"></script>
 
 <script src="js/seite-monitoring.js?v=5831e85eeb"></script>
 </body>
