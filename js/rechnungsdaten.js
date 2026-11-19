@@ -68,6 +68,7 @@ function rdWerte(r) {
     netto: r.netto == null ? null : r.netto,
     brutto: r.brutto == null ? null : r.brutto,
     waehrung: r.waehrungFeld || r.waehrung || 'EUR',
+    werk: r.werk || '',
   };
 }
 
@@ -90,8 +91,11 @@ function rdAenderungen(alt, neu) {
   const vat = rdVat(neu.vat);
   if (vat !== rdVat(alt.vat)) {
     if (vat && !/^[A-Z]{2}[0-9A-Z]{8,12}$/.test(vat)) fehler.push('Die USt-IdNr. hat nicht das übliche Format (etwa DE123456789).');
-    else if (vat && typeof istEigeneVat === 'function' && istEigeneVat(vat)) {
-      fehler.push('Das ist die USt-IdNr. einer eigenen Gesellschaft, also des Kunden. Gesucht ist die des Lieferanten.');
+    else if (vat && typeof vatDesWerks === 'function' && vat === vatDesWerks(alt.werk)) {
+      fehler.push(`Das ist die USt-IdNr. von ${alt.werk}, also des Empfängers. Gesucht ist die des Lieferanten.`);
+    } else if (vat && typeof istEigeneVat === 'function' && istEigeneVat(vat)
+        && !(typeof istEigen === 'function' && istEigen(lieferant || alt.lieferant))) {
+      fehler.push('Das ist die USt-IdNr. einer Konzerngesellschaft. Sie passt nur, wenn diese Gesellschaft der Lieferant ist.');
     } else setze('vat', vat);
   }
   const nummer = text('nummer');

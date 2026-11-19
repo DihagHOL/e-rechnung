@@ -420,9 +420,11 @@ function _monMap(it, f, lib) {
   // Spalte RechnungsstellerUStID trug bis zur Flow-Korrektur den Namen: nur echte USt-IdNr. nehmen
   const ustidRoh = /^[A-Z]{2}[0-9A-Z]{8,12}$/.test(String(f.RechnungsstellerUStID || '').replace(/\s+/g, ''))
     ? String(f.RechnungsstellerUStID).replace(/\s+/g, '') : '';
-  // Im Eingang ist die USt-IdNr. einer eigenen Gesellschaft nie die des Lieferanten. Der
-  // Prüfdienst las bis 19.11.2026 bei DSO die Kunden-USt-IdNr. („KD-UST-Id-Nr.“).
-  const ustid = !ausgang && typeof istEigeneVat === 'function' && istEigeneVat(ustidRoh) ? '' : ustidRoh;
+  // Im Eingang eines Werks ist seine eigene USt-IdNr. die des Empfängers, nie die des Lieferanten.
+  // Der Prüfdienst las sie bis 19.11.2026 bei DSO („KD-UST-Id-Nr.“), davor bei LEG und EWA. Die
+  // Nummer einer anderen Konzerngesellschaft bleibt: Sie liefert dann wirklich (Umlage der Holding).
+  const werkDerDatei = (lib.werk || f.Gesellschaft || '').toString();
+  const ustid = !ausgang && typeof vatDesWerks === 'function' && ustidRoh && ustidRoh === vatDesWerks(werkDerDatei) ? '' : ustidRoh;
   // Anzeige-Nr.: echter Title, sonst aus dem Dateinamen. Bei XML-Dateien setzt SharePoint
   // den Title selbst auf den Dateinamen, der zählt nicht.
   const titelEcht = _monTitelEcht(titleClean, stem, baseKey) ? titleClean : '';

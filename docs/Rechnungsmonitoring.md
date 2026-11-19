@@ -179,12 +179,15 @@ Rechnungsdatum + Tage („30 Tage netto“), Skontofristen zählen nicht. Gelese
 keine Buchung. Der 800k-Dialog liest einen Scan, den der Eingang schon gelesen hat, nicht noch
 einmal.
 
-Die USt-IdNr. einer eigenen Gesellschaft ist nie die des Lieferanten. Sie steht auf vielen
+Im Eingang eines Werks ist seine eigene USt-IdNr. immer die des Empfängers. Sie steht auf vielen
 Rechnungen als Kunden-USt-IdNr. („Ihre USt-IdNr.“, „KD-UST-Id-Nr.“). Bis zum 19.11.2026 fehlte die
 der DIHAG Solutions (DSO) in der Liste der eigenen Nummern, deshalb stand sie an 49 DSO-Rechnungen
-als die des Lieferanten, und das Lieferantenregister ordnete sie alle demselben Lieferanten zu. Das
-Monitoring blendet eine eigene USt-IdNr. im Eingang aus, an der Rechnung wie im Register, ohne die
-gespeicherten Werte zu ändern.
+als die des Lieferanten, und das Lieferantenregister ordnete sie alle demselben Lieferanten zu (bei
+LEG und EWA gab es das bis Anfang November ebenso). Das Monitoring blendet im Eingang die Nummer des
+empfangenden Werks aus. Die Nummer einer anderen Konzerngesellschaft bleibt, denn dann liefert
+diese wirklich (Umlage der Holding, Lieferung eines anderen Werks). Im Register zählt eine
+Konzernnummer nur an einem Lieferanten, der selbst zum Konzern gehört. Die falschen Werte an den
+Rechnungen und im Register sind am 19.11.2026 bereinigt (siehe Session-Log).
 
 **Daten prüfen:** Jede PDF ohne E-Rechnung im Eingang hat den Knopf „Daten prüfen“, in jedem Werk,
 auch wenn „Bearbeiten“ für das Werk aus ist. Der Dialog zeigt Lieferant, USt-IdNr., Rechnungsnummer,
@@ -195,8 +198,8 @@ Waehrung), SharePoint führt dazu den Versionsverlauf. Mit dem Speichern gilt di
 geprüft: Im Lieferantenregister stehen an der Rechnung wer, wann und welche Felder geändert wurden
 (`rechnungen[..].daten`), der Lieferant ist bestätigt (Siegel ✓), eine korrigierte USt-IdNr. ersetzt
 die gemerkte. Ab dann stehen die Werte nicht mehr grau in der Tabelle, der Knopf heißt „Daten ✓“.
-Eine eigene USt-IdNr., ein Brutto kleiner als das Netto und Eingaben im falschen Format lehnt der
-Dialog ab. Schreiben dürfen alle mit „Mitwirken“ auf `ERAR_<Werk>` und auf dem Register.
+Die USt-IdNr. des empfangenden Werks, eine Konzernnummer bei einem Lieferanten außerhalb des
+Konzerns, ein Brutto kleiner als das Netto und Eingaben im falschen Format lehnt der Dialog ab. Schreiben dürfen alle mit „Mitwirken“ auf `ERAR_<Werk>` und auf dem Register.
 
 „Fällig am“ wird nur rot, wo die Buchung im Monitoring läuft (Bearbeitung an) und die Rechnung
 nicht als gebucht markiert ist. Die anderen Werke buchen im SAP, dort kennt das Monitoring den

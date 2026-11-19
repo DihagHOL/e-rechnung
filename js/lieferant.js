@@ -23,6 +23,12 @@
   const EIGENE_VAT = ['DE140598967', 'DE812264517', 'DE368990137', 'DE368676368',
     'DE811154479', 'DE812737567', 'DE281233945', 'DE150528912', 'DE140462641', 'DE453718391'];
   const istEigeneVat = v => EIGENE_VAT.includes(String(v || '').replace(/[\s.-]+/g, '').toUpperCase());
+  // Je Werk die eigene Nummer. Im Eingang eines Werks ist sie immer die des Empfängers. Die
+  // Nummer einer anderen Gesellschaft kann dort richtig sein (Umlage der Holding, Lieferung
+  // eines anderen Werks).
+  const VAT_DES_WERKS = { WGC: 'DE140598967', SHB: 'DE812264517', ZAI: 'DE368990137', EIS: 'DE368676368',
+    LEG: 'DE811154479', EWA: 'DE812737567', HOL: 'DE281233945', MEG: 'DE150528912', SCH: 'DE140462641', DSO: 'DE453718391' };
+  const vatDesWerks = werk => VAT_DES_WERKS[String(werk || '').toUpperCase()] || '';
   // Namensteile der eigenen Gesellschaften (klein, ohne Umlaut-Varianten). „Schmiederberger“
   // schreiben manche Lieferanten aus Tschechien.
   const EIGENE_NAMEN = ['dihag', 'gienanth', 'walzengie', 'coswig guss', 'hartgusswerk', 'leipzig guss',
@@ -693,7 +699,7 @@
       .join(String.fromCharCode(10));
   }
 
-  const api = { lieferantAusText, istEigen, keinName, istEigeneMail, istEigeneVat, EIGENE_VAT, textAusPdf, textAusItems };
+  const api = { lieferantAusText, istEigen, keinName, istEigeneMail, istEigeneVat, vatDesWerks, EIGENE_VAT, textAusPdf, textAusItems };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else Object.assign(global, api);
 })(typeof window !== 'undefined' ? window : globalThis);

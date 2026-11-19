@@ -6,7 +6,7 @@
 const assert = require('assert');
 const L = require('../js/lieferant.js');
 // Die Skripte rufen sich im Browser über globale Namen auf
-global.istEigeneVat = L.istEigeneVat;
+Object.assign(global, { istEigeneVat: L.istEigeneVat, vatDesWerks: L.vatDesWerks, istEigen: L.istEigen });
 const ug = require('../js/umsatzgrenze.js');
 const B = require('../js/bearbeitung.js');
 Object.assign(global, { ugMitXml: ug.ugMitXml, ugLieferantFuer: ug.ugLieferantFuer, ugRechnungKey: ug.ugRechnungKey, _ug: ug._ug,
@@ -38,14 +38,18 @@ gleich(RD.rdMoeglich(Object.assign({}, pdf, { listId: '' })), false, 'ohne Datei
 
 // 3) Änderungen als Spalten
 const alt = { lieferant: 'Muster Arbeitsschutz GmbH', vat: '', nummer: 'Ab_7654321_1112223', datum: '', faelligkeit: '',
-  netto: 1000, brutto: 1190, waehrung: 'EUR' };
+  netto: 1000, brutto: 1190, waehrung: 'EUR', werk: 'DSO' };
 const eingabe = Object.assign({}, alt, { netto: '1.000,00', brutto: '1.190,00' });
 gleich(RD.rdAenderungen(alt, eingabe), { felder: {}, geaendert: [], fehler: [] }, 'nichts geändert');
 let a = RD.rdAenderungen(alt, Object.assign({}, eingabe, { vat: 'de 123 456 788', nummer: '7654321', datum: '2026-11-11' }));
 gleich(a.felder, { RechnungsstellerUStID: 'DE123456788', Title: '7654321', Rechnungsdatum: '2026-11-11T12:00:00Z' }, 'USt-IdNr., Nummer, Datum');
 gleich(a.geaendert, ['vat', 'nummer', 'datum'], 'geänderte Felder');
 a = RD.rdAenderungen(alt, Object.assign({}, eingabe, { vat: 'DE453718391' }));
-gleich(a.fehler.length === 1 && /eigenen Gesellschaft/.test(a.fehler[0]), true, 'eigene USt-IdNr. abgelehnt');
+gleich(a.fehler.length === 1 && /von DSO, also des Empfängers/.test(a.fehler[0]), true, 'Nummer des empfangenden Werks abgelehnt');
+a = RD.rdAenderungen(alt, Object.assign({}, eingabe, { vat: 'DE281233945' }));
+gleich(a.fehler.length === 1 && /Konzerngesellschaft/.test(a.fehler[0]), true, 'Holding-Nummer bei fremdem Lieferanten abgelehnt');
+a = RD.rdAenderungen(alt, Object.assign({}, eingabe, { lieferant: 'DIHAG Holding GmbH', vat: 'DE281233945' }));
+gleich([a.fehler, a.felder.RechnungsstellerUStID], [[], 'DE281233945'], 'Umlage der Holding: ihre Nummer passt');
 a = RD.rdAenderungen(alt, Object.assign({}, eingabe, { vat: 'DE12' }));
 gleich(/Format/.test(a.fehler[0]), true, 'kein gültiges Format');
 a = RD.rdAenderungen(alt, Object.assign({}, eingabe, { brutto: '100,00' }));
@@ -62,11 +66,15 @@ const z = Object.assign({}, pdf, { erstellt: '2026-11-11T09:00:00Z', datum: '202
 RD.rdUebernehmen(z, { Title: '7654321', Rechnungsdatum: '2026-11-10T12:00:00Z', Bruttobetrag: 10, RechnungsstellerUStID: 'DE123456788' });
 gleich([z.nummer, z.nummerAusDatei, z.datum, z.datumAusRechnung, z.brutto, z.ustid], ['7654321', false, '2026-11-10', true, 10, 'DE123456788'], 'Übernahme');
 
-// 5) Eigene USt-IdNr. im Register und an der Rechnung zählen nicht
-gleich([ug.ugVat('DE 453 718 391'), ug.ugVat('de123456788')], ['', 'DE123456788'], 'ugVat');
+// 5) Konzernnummer im Register zählt nur bei einem Konzernnamen
+gleich([ug.ugVat('DE 453 718 391'), ug.ugVat('de123456788'), ug.ugVat('DE453718391', 'Muster GmbH'), ug.ugVat('DE281233945', 'DIHAG Holding GmbH')],
+  ['DE453718391', 'DE123456788', '', 'DE281233945'], 'ugVat');
 ug._ug.daten = { version: 1, rechnungen: {}, lieferanten: {
   'muster arbeitsschutz gmbh': { name: 'Muster Arbeitsschutz GmbH', vat: 'DE453718391' },
+  'dihag holding gmbh': { name: 'DIHAG Holding GmbH', vat: 'DE281233945' },
 } };
+const umlage = { richtung: 'Eingang', ustid: 'DE281233945', steller: 'Holding', baseKey: 'x3', format: 'ZUGFeRD' };
+gleich((ug.ugLieferantFuer(umlage) || {}).name, 'DIHAG Holding GmbH', 'Umlage der Holding über ihre Nummer erkannt');
 const fremd = { richtung: 'Eingang', ustid: 'DE453718391', steller: 'Ganz Andere GmbH', baseKey: 'x1' };
 gleich(ug.ugLieferantFuer(fremd), null, 'eigene USt-IdNr. ordnet keinem Lieferanten zu');
 const echt = { richtung: 'Eingang', ustid: 'DE123456788', steller: 'Muster Arbeitsschutz GmbH', baseKey: 'x2' };
@@ -76,15 +84,28 @@ gleich(ug.ugLieferantMerken({ name: 'X', vat: 'DE453718391' }, 'X', echt, user, 
 gleich(ug.ugLieferantMerken({ name: 'X', vat: 'DE111111111' }, 'X', echt, user, '2026-11-19', { vat: 'DE222222222' }).vat, 'DE111111111', 'ohne vatSetzen bleibt die gemerkte');
 gleich(ug.ugLieferantMerken({ name: 'X', vat: 'DE111111111' }, 'X', echt, user, '2026-11-19', { vat: 'DE222222222', vatSetzen: true }).vat, 'DE222222222', 'von Hand korrigiert ersetzt sie');
 
-// 6) Monitoring: eigene USt-IdNr. im Eingang leer, im Ausgang bleibt sie (Verkäufer = eigene Gesellschaft)
-const datei = (richtung, ustid) => M._monMap({ id: '1', createdDateTime: '2026-11-11T10:00:00Z', webUrl: 'u' },
+// 6) Monitoring: Nummer des empfangenden Werks im Eingang leer, andere Konzernnummern und Ausgang bleiben
+const datei = (richtung, ustid, werk) => M._monMap({ id: '1', createdDateTime: '2026-11-11T10:00:00Z', webUrl: 'u' },
   { FileLeafRef: `7654321_${ustid}.pdf`, RechnungsstellerUStID: ustid, Rechnungssteller: 'Muster Arbeitsschutz GmbH' },
-  { id: 'L', werk: 'DSO', richtung });
-gleich(datei('Eingang', 'DE453718391').ustid, '', 'Eingang: eigene USt-IdNr. ausgeblendet');
+  { id: 'L', werk: werk || 'DSO', richtung });
+gleich(datei('Eingang', 'DE453718391').ustid, '', 'Eingang DSO: DSO-Nummer ausgeblendet');
 gleich(datei('Eingang', 'DE453718391').nummer, '7654321', 'Nummer aus dem Dateinamen trotzdem ohne USt-IdNr.');
+gleich(datei('Eingang', 'DE281233945', 'WGC').ustid, 'DE281233945', 'Eingang WGC: Nummer der Holding bleibt');
 gleich(datei('Ausgang', 'DE453718391').ustid, 'DE453718391', 'Ausgang unverändert');
 
-// 7) Geprüfte Daten sind nicht mehr grau
+// 7) Werk-Nummern wie in der Registry (js/parser.js); DSO und SCH stehen dort ohne Nummer
+const registry = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'parser.js'), 'utf8');
+let werkKey = '', geprueft = 0;
+for (const zeile of registry.split(/\r?\n/)) {
+  const k = /^  ([A-Z]{3}): /.exec(zeile);
+  if (k) werkKey = k[1];
+  const v = /^\s+verkaeufervat:\s*'(DE\d{9})'/.exec(zeile);
+  if (v && werkKey) { gleich(L.vatDesWerks(werkKey), v[1], 'Werk-Nummer ' + werkKey); geprueft++; werkKey = ''; }
+}
+gleich(geprueft >= 8, true, 'alle Werke der Registry geprüft');
+gleich([L.vatDesWerks('dso'), L.vatDesWerks('XYZ')], ['DE453718391', ''], 'DSO, unbekanntes Werk');
+
+// 8) Geprüfte Daten sind nicht mehr grau
 const zeile = Object.assign({}, pdf, { ustid: '' });
 gleich(M._monGelesen(zeile), true, 'gelesen, nicht geprüft');
 gleich(/Daten prüfen/.test(M._monDatenKnopf(zeile, 3)), true, 'Knopf „Daten prüfen“');

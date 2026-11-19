@@ -81,13 +81,17 @@ function ugKey(name) {
 }
 
 /**
- * USt-IdNr. eines Lieferanten: ohne Leerzeichen, '' bei einer eigenen Gesellschaft. Die eigene
- * steht als Kunden-USt-IdNr. auf der Rechnung. Bis 19.11.2026 las der Prüfdienst sie bei DSO als
- * die des Lieferanten, und solche Nummern stehen noch an Rechnungen und im Register.
+ * USt-IdNr. eines Lieferanten, ohne Leerzeichen. Mit name: Die Nummer einer eigenen Gesellschaft
+ * gilt nur, wenn der Lieferant selbst eine eigene Gesellschaft ist (Holding, anderes Werk). Sonst
+ * ist sie die Kunden-USt-IdNr. von der Rechnung, die der Prüfdienst bis 19.11.2026 bei DSO, LEG
+ * und EWA als die des Lieferanten las, und gibt ''.
  */
-function ugVat(v) {
+function ugVat(v, name) {
   const s = String(v || '').replace(/\s+/g, '').toUpperCase();
-  return !s || (typeof istEigeneVat === 'function' && istEigeneVat(s)) ? '' : s;
+  if (!s) return '';
+  if (name !== undefined && typeof istEigeneVat === 'function' && istEigeneVat(s)
+      && !(typeof istEigen === 'function' && istEigen(String(name || '')))) return '';
+  return s;
 }
 
 /** Schlüssel einer Rechnung, bleibt beim Einsortieren Rechnungseingang -> ERAR_<Werk> gleich. */
@@ -343,9 +347,10 @@ function ugLieferantFuer(r) {
   const treffer = (key, art) => key && d.lieferanten[key] ? Object.assign({ key, treffer: art }, d.lieferanten[key]) : null;
   const zu = d.rechnungen[ugRechnungKey(r)];
   if (zu && zu.lieferant && d.lieferanten[zu.lieferant]) return treffer(zu.lieferant, 'rechnung');
-  // Eigene USt-IdNr. zählen weder an der Rechnung noch im Register
+  // Die Nummer des empfangenden Werks blendet schon das Monitoring aus (_monMap). Eine Konzernnummer
+  // im Register zählt nur bei einem Konzernnamen, sonst ist sie eine falsch gelesene Kunden-Nummer.
   const vat = ugVat(r.ustid);
-  const regVat = k => ugVat(d.lieferanten[k].vat);
+  const regVat = k => ugVat(d.lieferanten[k].vat, d.lieferanten[k].name);
   if (vat) {
     const k = Object.keys(d.lieferanten).find(x => regVat(x) === vat);
     if (k) return treffer(k, 'vat');
@@ -407,7 +412,7 @@ function ugLieferantMerken(alt, name, r, user, jetzt, opt) {
   const o = opt || {};
   const e = Object.assign({}, alt || {});
   e.name = String(name).trim();
-  e.vat = (o.vatSetzen && ugVat(o.vat)) || ugVat(e.vat) || ugVat(o.vat) || ugVat(r.ustid) || '';
+  e.vat = (o.vatSetzen && ugVat(o.vat, e.name)) || ugVat(e.vat, e.name) || ugVat(o.vat, e.name) || ugVat(r.ustid, e.name) || '';
   const gelesen = String(r.steller || '').trim();
   const aliase = (e.aliase || []).filter(a => ugKey(a) !== ugKey(e.name));
   const eigen = typeof istEigen === 'function' && istEigen(gelesen);
@@ -470,7 +475,7 @@ async function ugSpeichern(r, name, vermutung, vat, nummer, informiert, mail) {
   const neu = await _ugSchreiben(d => {
     const alt = d.lieferanten[key];
     const e = Object.assign(ugLieferantMerken(alt, name, r, user, am), {
-      vat: ugVat(vat) || ugVat(alt && alt.vat) || ugVat(r.ustid) || '',
+      vat: ugVat(vat, name) || ugVat(alt && alt.vat, name) || ugVat(r.ustid, name) || '',
       vermutung, am,
       von: user.username || '',
       vonName: user.name || user.username || '',
@@ -579,7 +584,7 @@ function ugOffeneLieferanten(offen) {
     // Ein Lieferant aus dem Register geht vor dem gelesenen Namen
     const reg = ugLieferantFuer(r);
     const n = ugKey(r.steller);
-    const vat = ugVat(reg && reg.vat) || r.ustid || nameZuVat.get(n) || '';
+    const vat = ugVat(reg && reg.vat, reg && reg.name) || r.ustid || nameZuVat.get(n) || '';
     const key = reg ? 'r:' + reg.key : vat || n;
     if (!key) { ohne.push(r); continue; }
     if (!map.has(key)) map.set(key, { key, vat, rechnungen: [], namen: new Map(), mails: new Set(), feste: reg ? reg.name : '' });
@@ -921,7 +926,7 @@ function ugDialogOeffnen(r, onGespeichert, wechsel) {
     name: ugLieferantName(r),
     nr: r.nummer || '',
     datum: _monDate(r.datum),
-    vat: r.ustid || ugVat(l && l.vat) || '',
+    vat: r.ustid || ugVat(l && l.vat, l && l.name) || '',
     phase: ugPhase(r.datum),
     absender: user.name || '',
     // Adresse: Mail an diese Rechnung, sonst beim Lieferanten gemerkt, sonst Absender der
