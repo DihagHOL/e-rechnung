@@ -240,9 +240,10 @@ async function _monAeltereLaden() {
  */
 function _monLibsZumAktualisieren(libs, f) {
   if (!f.werk) return null;
+  const richtung = _monRichtungBasis(f.richtung);
   const auswahl = libs.filter(l => (l.intake
-    ? f.richtung !== 'Ausgang'
-    : l.werk === f.werk && (!f.richtung || l.richtung === f.richtung)));
+    ? richtung !== 'Ausgang'
+    : l.werk === f.werk && (!richtung || l.richtung === richtung)));
   return auswahl.some(l => !l.intake) ? auswahl : null;
 }
 
@@ -939,7 +940,7 @@ function _monMatchBase(r, f, q) {
   // Von/Bis gilt für das Rechnungsdatum oder das Erstelldatum (Auswahl daneben)
   const d = f.datumArt === 'erstellt' ? _monTag(r.erstellt).slice(0, 10) : (r.datum || '').slice(0, 10);
   return (!f.werk     || r.werk === f.werk)
-      && (!f.richtung || r.richtung === f.richtung)
+      && _monPasstRichtung(r, f.richtung)
       && (!f.klass    || _monKlass(r) === f.klass)
       && (!f.konform  || (r.konform || '').toLowerCase().startsWith(f.konform))
       && (!f.buchung  || (f.buchung === '__klein' ? _monKlein(r)
@@ -1368,6 +1369,25 @@ function _monPruefungOffen(r) {
 const MON_BANK = /^Bankverbindung vor der Zahlung klären|^Materielle Abweichung Sichtbild[^|]*\bIBAN\b/;
 function _monBankKlaeren(r) {
   return !!(r && r.rueckfrage) && String(r.meldung || '').split(' | ').some(t => MON_BANK.test(t.trim()));
+}
+
+/**
+ * Richtungsfilter: Der Eingang lässt sich nach der Spalte „Geprüft“ teilen. Geprüft heißt fertig
+ * geprüft, mit Vier-Augen-Prinzip also erst nach der zweiten Prüfung („1 von 2“ ist nicht geprüft).
+ */
+const MON_RICHTUNG_PRUEF = { 'Eingang geprüft': true, 'Eingang nicht geprüft': false };
+
+/** Eingang oder Ausgang hinter einem Wert des Richtungsfilters. */
+function _monRichtungBasis(wert) {
+  return Object.prototype.hasOwnProperty.call(MON_RICHTUNG_PRUEF, wert) ? 'Eingang' : (wert || '');
+}
+
+/** Passt die Zeile zum Richtungsfilter (leer = alle)? */
+function _monPasstRichtung(r, wert) {
+  if (!wert) return true;
+  if (r.richtung !== _monRichtungBasis(wert)) return false;
+  if (!Object.prototype.hasOwnProperty.call(MON_RICHTUNG_PRUEF, wert)) return true;
+  return _monPruefStand(r).fertig === MON_RICHTUNG_PRUEF[wert];
 }
 
 /** Vier-Augen-Prüfung nötig (Reverse-Charge, innergemeinschaftlich, steuerfrei)? */

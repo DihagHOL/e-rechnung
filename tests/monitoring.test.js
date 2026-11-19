@@ -318,6 +318,19 @@ const normal = { nummer: 'N-1', richtung: 'Eingang', buchung: 'Automatik' };
 reg['N-1'] = { geprueft: { am: '2026-11-17T08:00:00Z', von: 'erste@firma.example' } };
 gleich([M._monVierAugen(normal), M._monPruefStand(normal).fertig, /✓ Geprüft</.test(M._monZelle('geprueft', normal, 1))], [false, true, true], 'ohne Vier-Augen eine Prüfung');
 
+// Richtungsfilter oben: Eingang geprüft und nicht geprüft (Vier-Augen erst mit der zweiten Prüfung geprüft)
+const imFilter = (r, richtung) => M._monMatchBase(Object.assign({ steller: '', empf: '', datum: '2026-11-17' }, r), { richtung }, '');
+const ungeprueft = { nummer: 'N-2', richtung: 'Eingang', buchung: 'Automatik' };
+const halb = { nummer: 'RC-2', richtung: 'Eingang', manuellePruefung: true, buchung: 'Manuell' };
+reg['RC-2'] = { geprueft: { am: '2026-11-17T08:00:00Z', von: 'erste@firma.example' } };
+const aus1 = { nummer: 'A-1', richtung: 'Ausgang' };
+gleich([imFilter(normal, 'Eingang geprüft'), imFilter(normal, 'Eingang nicht geprüft'), imFilter(normal, 'Eingang')], [true, false, true], 'geprüft');
+gleich([imFilter(ungeprueft, 'Eingang geprüft'), imFilter(ungeprueft, 'Eingang nicht geprüft')], [false, true], 'nicht geprüft');
+gleich([imFilter(halb, 'Eingang geprüft'), imFilter(halb, 'Eingang nicht geprüft'), imFilter(rc, 'Eingang geprüft')], [false, true, true], 'Vier-Augen: 1 von 2 ist nicht geprüft');
+gleich([imFilter(aus1, 'Eingang nicht geprüft'), imFilter(aus1, 'Ausgang'), imFilter(aus1, '')], [false, true, true], 'Ausgang nur bei Ausgang oder allen');
+const libsWgc = [{ werk: 'WGC', richtung: 'Eingang', id: 'e' }, { werk: 'WGC', richtung: 'Ausgang', id: 'a' }, { intake: true, id: 'i' }];
+gleich(M._monLibsZumAktualisieren(libsWgc, { werk: 'WGC', richtung: 'Eingang nicht geprüft' }).map(l => l.id), ['e', 'i'], 'Aktualisieren lädt den Eingang');
+
 const rf = Object.assign({ nummer: 'RF-1', richtung: 'Eingang', buchung: 'Automatik', konform: 'Gruen - KoSIT ok' }, ibanAlt);
 gleich([M._monMatchFlag(rf, 'rueckfrage'), /IBAN bestätigt/.test(M._monErledigtZelle(rf, 2))], [true, true], 'IBAN offen, Knopf „IBAN bestätigt“');
 reg['RF-1'] = { rueckfrageGestellt: { am: '2026-11-17T10:00:00Z', von: 'erste@firma.example', vonName: 'Erika Erste' } };

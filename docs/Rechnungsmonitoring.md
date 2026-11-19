@@ -358,6 +358,12 @@ Empfänger, USt-IdNr., Absendermail, Varialnummer, Kontierung, Bestellnummer, No
 Vor „Datum von/bis“ steht, welches Datum gilt: **Rechnungsdatum** (Standard) oder
 **Erstellt am**. Gefiltert wird nach dem Kalendertag in Deutschland.
 
+Die Richtung teilt den Eingang nach der Spalte „Geprüft“: **Eingang nicht geprüft** zeigt
+den Eingang, der noch zu prüfen ist, **Eingang geprüft** den erledigten. Bei Vier-Augen-Prüfung
+(Reverse-Charge, innergemeinschaftlich, steuerfrei) gilt eine Rechnung erst mit der zweiten
+Prüfung als geprüft, „1 von 2“ steht also unter „nicht geprüft“. Wer eine Rechnung als geprüft
+markiert, sieht sie im Filter „nicht geprüft“ sofort verschwinden.
+
 ## Konformität + Klartext-Hinweis
 
 Die Ampel kommt aus der KoSIT-Prüfung (`Konformitaet`). Ist eine Rechnung **nicht**
