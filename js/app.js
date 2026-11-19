@@ -1404,7 +1404,7 @@ function _outlookTabVorbereiten() {
     if (!tab) return null;
     tab.opener = null;
     tab.document.title = 'Outlook-Entwurf wird erstellt …';
-    tab.document.body.style.font = '15px Segoe UI, sans-serif';
+    tab.document.body.style.font = '15px Exo, system-ui, sans-serif';
     tab.document.body.style.margin = '40px';
     tab.document.body.textContent = 'Der Rechnungsentwurf wird erstellt. Outlook öffnet sich hier gleich.';
     return tab;

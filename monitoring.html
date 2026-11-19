@@ -6,13 +6,14 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://login.microsoftonline.com https://graph.microsoft.com https://*.sharepoint.com https://*.azurewebsites.net; frame-src https://login.microsoftonline.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Monitoring | E-Rechnung Konverter | DIHAG</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧾</text></svg>">
+  <link rel="icon" type="image/png" href="assets/dihag-zeichen.png">
+  <link rel="preload" as="font" type="font/woff2" href="assets/fonts/exo-latin.woff2" crossorigin>
   <!-- Vorladen: Die Sicherheitsrichtlinie oben schaltet in Chrome das vorausschauende Laden ab.
        Ohne diese Hinweise holt der Browser die Skripte am Seitenende einzeln nacheinander.
        Jede Adresse steht hier aufs Zeichen so wie im Tag weiter unten. -->
-  <link rel="preload" as="style" href="css/style.css?v=ff2be28ffb">
+  <link rel="preload" as="style" href="css/style.css?v=27ac86b4de">
   <link rel="preload" as="script" href="js/vendor/msal-browser.min.js?v=c933092555">
-  <link rel="preload" as="script" href="js/auth.js?v=1bbbff5340">
+  <link rel="preload" as="script" href="js/auth.js?v=8a5dba6a1f">
   <link rel="preload" as="script" href="js/access.js?v=a2d4117664">
   <link rel="preload" as="script" href="js/sharepoint.js?v=a622b8f687">
   <link rel="modulepreload" href="js/pdfjs-laden.mjs?v=d5130719d1">
@@ -24,7 +25,7 @@
   <link rel="preload" as="script" href="js/rechnungsdaten.js?v=8dfa8ca65e">
   <link rel="preload" as="script" href="js/monitoring.js?v=c3c61b4578">
   <link rel="preload" as="script" href="js/seite-monitoring.js?v=5831e85eeb">
-  <link rel="stylesheet" href="css/style.css?v=ff2be28ffb">
+  <link rel="stylesheet" href="css/style.css?v=27ac86b4de">
   <style>
     .mon-header { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
     .mon-header h2 { margin:0; }
@@ -40,7 +41,7 @@
     .mon-tile.active .mon-tile-label { color:var(--gray-800); font-weight:600; }
     .mon-tile-val { font-size:24px; font-weight:700; color:var(--gray-900); line-height:1.1; }
     .mon-tile-label { font-size:12px; color:var(--gray-500); margin-top:4px; }
-    .mon-tile.in   { border-left-color:#2563eb; }
+    .mon-tile.in   { border-left-color:var(--primary); }
     .mon-tile.out  { border-left-color:#0e9f6e; }
     .mon-tile.warn { border-left-color:var(--warning); }
     .mon-tile.bad  { border-left-color:var(--danger); }
@@ -66,7 +67,7 @@
     .mon-chips { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
     .mon-chips:empty { display:none; }
     .mon-chip { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
-                background:var(--primary-light,#e8f0fb); color:var(--primary-dark,#0f3a6e);
+                background:var(--primary-light,#e9f0f8); color:var(--primary-dark,#103b73);
                 border-radius:999px; padding:4px 5px 4px 11px; }
     .mon-chip button { border:none; background:rgba(0,0,0,.10); color:inherit; width:17px; height:17px;
                 border-radius:50%; cursor:pointer; font-size:10px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0; }
@@ -203,7 +204,7 @@
     .ug-btn:hover { background:var(--primary); color:#fff; }
     .ug-badge { border:1px solid transparent; }
     .ug-badge.ug-bis   { background:#e3f5e9; color:#0a6b2e; }
-    .ug-badge.ug-ueber { background:#e8f0fb; color:#134080; }
+    .ug-badge.ug-ueber { background:var(--primary-light); color:var(--primary-dark); }
     .ug-badge.ug-nicht { background:#ffe6cc; color:#8a3b00; }
     .ug-badge.ug-klein { background:var(--gray-100); color:var(--gray-600); cursor:default; }
     button.ug-badge.ug-klein { cursor:pointer; }
@@ -370,7 +371,7 @@
     .bh-vorschlaege li[data-i] { display:flex; flex-direction:column; padding:6px 9px; border-radius:6px; cursor:pointer; }
     .bh-vorschlaege li[data-i] strong { font-size:13px; color:var(--gray-900); }
     .bh-vorschlaege li[data-i] span { font-size:12px; color:var(--gray-500); }
-    .bh-vorschlaege li[data-i]:hover, .bh-vorschlaege li.aktiv { background:var(--primary-light, #e8f0fb); }
+    .bh-vorschlaege li[data-i]:hover, .bh-vorschlaege li.aktiv { background:var(--primary-light, #e9f0f8); }
     .bh-vorschlag-info { padding:6px 9px; font-size:12px; color:var(--gray-500); }
     .bh-vorschlag-info button { border:1px solid var(--primary); background:#fff; color:var(--primary); border-radius:6px;
               font-size:12px; font-weight:600; padding:3px 8px; cursor:pointer; }
@@ -394,7 +395,7 @@
 <body class="auth-guard">
 
 <header class="site-header">
-  <div class="site-logo">DIHAG <span>E-Rechnung</span></div>
+  <div class="site-logo"><img src="assets/dihag-zeichen.png" alt="" width="24" height="26">DIHAG <span>E-Rechnung</span></div>
   <nav class="site-nav">
     <a href="index.html">Konverter</a>
     <a href="index.html?modus=manuell" id="nav-manuell">Manuelle Rechnung</a>
@@ -503,7 +504,7 @@
 <dialog id="ug-sammel" aria-label="800k-Einschätzung je Lieferant"></dialog>
 
 <script src="js/vendor/msal-browser.min.js?v=c933092555"></script>
-<script src="js/auth.js?v=1bbbff5340"></script>
+<script src="js/auth.js?v=8a5dba6a1f"></script>
 <script src="js/access.js?v=a2d4117664"></script>
 <script src="js/sharepoint.js?v=a622b8f687"></script>
 <script type="module" src="js/pdfjs-laden.mjs?v=d5130719d1"></script>

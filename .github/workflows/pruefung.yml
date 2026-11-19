@@ -83,7 +83,7 @@ jobs:
       - name: Dateien der Seite zusammenstellen
         run: |
           mkdir -p _site/docs
-          cp -r index.html einstellungen.html mc-converter.html monitoring.html prozess.html verlauf.html xml-zu-pdf.html CNAME css js _site/
+          cp -r index.html einstellungen.html mc-converter.html monitoring.html prozess.html verlauf.html xml-zu-pdf.html CNAME assets css js _site/
           cp -r docs/bpmn _site/docs/
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9   # v5.0.0

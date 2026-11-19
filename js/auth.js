@@ -161,14 +161,14 @@ function _showAuthError(err) {
   document.body.classList.remove('auth-guard');
   document.body.innerHTML = `
     <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;
-                font-family:'Segoe UI',sans-serif;background:#f9fafb;">
+                font-family:'Exo',system-ui,sans-serif;background:#f0f2f5;">
       <div style="background:#fff;border-radius:12px;padding:40px;max-width:440px;width:90%;
                   box-shadow:0 4px 24px rgba(0,0,0,.12);text-align:center;">
         <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
-        <h2 style="color:#1f2937;margin-bottom:8px;">Anmeldefehler</h2>
+        <h2 style="color:#1a2644;margin-bottom:8px;">Anmeldefehler</h2>
         <p id="auth-fehlertext" style="color:#6b7280;font-size:14px;margin-bottom:20px;"></p>
         <button id="auth-neu-laden"
-          style="padding:10px 24px;background:#1a56a0;color:#fff;border:none;
+          style="padding:10px 24px;background:#17509e;color:#fff;border:none;
                  border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">
           Erneut versuchen
         </button>

@@ -1,7 +1,40 @@
+/* ════════════════════════════════════════════════════════════════
+   DIHAG E-Rechnung, Corporate Design wie im RMS (DIHAG Foundry Group):
+   Exo · Azurblau #17509E · Navy #1A2644 · Anthrazit #424241 ·
+   Lichtblau #99B7CD · Orange #F08300
+════════════════════════════════════════════════════════════════ */
+
+/* Exo, selbst ausgeliefert wie im RMS (SIL Open Font License 1.1, assets/fonts/OFL.txt).
+   Eine Datei je Zeichensatz deckt alle Strichstärken ab (variable Schrift). */
+@font-face {
+  font-family: 'Exo';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../assets/fonts/exo-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Exo';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../assets/fonts/exo-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
-  --primary: #1a56a0;
-  --primary-dark: #134080;
-  --primary-light: #e8f0fb;
+  --primary: #17509e;        /* Azurblau */
+  --primary-dark: #103b73;
+  --primary-light: #e9f0f8;
+  /* DIHAG-Markenfarben */
+  --navy: #1a2644;
+  --azur: #17509e;
+  --lichtblau: #99b7cd;
+  --orange: #f08300;
+  --anthrazit: #424241;
+  --bg: #f0f2f5;
+  --border: #e5e9ef;
   --secondary: #0e9f6e;
   --secondary-dark: #0a7a55;
   --danger: #c81e1e;
@@ -27,37 +60,41 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'Exo', system-ui, sans-serif;
   font-size: 14px;
-  color: var(--gray-800);
-  background: var(--gray-50);
+  color: var(--navy);
+  background: var(--bg);
   line-height: 1.5;
   min-height: 100vh;
 }
 
-/* ── Header ── */
+/* ── Header (hell wie die Leisten im RMS) ── */
 .site-header {
-  background: var(--primary);
-  color: #fff;
+  background: #fff;
+  color: var(--navy);
+  border-bottom: 1px solid var(--border);
   padding: 0 24px;
   display: flex;
   align-items: center;
   gap: 32px;
   height: 56px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
 .site-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-weight: 700;
-  font-size: 18px;
-  letter-spacing: -0.3px;
+  font-size: 17px;
+  color: var(--primary);
   white-space: nowrap;
 }
 
-.site-logo span { color: #7dd3fc; }
+.site-logo img { display: block; flex-shrink: 0; }
+.site-logo span { color: var(--navy); }
 
 .site-nav {
   display: flex;
@@ -66,7 +103,7 @@ body {
 }
 
 .site-nav a {
-  color: rgba(255,255,255,0.85);
+  color: var(--gray-600);
   text-decoration: none;
   padding: 6px 14px;
   border-radius: 6px;
@@ -75,10 +112,8 @@ body {
   transition: background var(--transition), color var(--transition);
 }
 
-.site-nav a:hover, .site-nav a.active {
-  background: rgba(255,255,255,0.15);
-  color: #fff;
-}
+.site-nav a:hover { background: #f0f4ff; color: var(--primary); }
+.site-nav a.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
 
 /* ── Page wrapper ── */
 .page-content {
@@ -89,7 +124,7 @@ body {
 
 /* ── Hero ── */
 .hero {
-  background: linear-gradient(135deg, var(--primary) 0%, #2563eb 100%);
+  background: linear-gradient(135deg, var(--navy) 0%, var(--primary) 100%);
   color: #fff;
   border-radius: 12px;
   padding: 32px 40px;
@@ -445,7 +480,7 @@ body {
 .form-group select:focus,
 .form-group textarea:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(26,86,160,0.12);
+  box-shadow: 0 0 0 3px rgba(23,80,158,0.12);
 }
 
 .form-group input.error { border-color: var(--danger); }
@@ -512,7 +547,7 @@ body {
 .positions-table td input:focus,
 .positions-table td select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(26,86,160,0.1);
+  box-shadow: 0 0 0 2px rgba(23,80,158,0.1);
 }
 
 .positions-table td.td-readonly {
@@ -600,7 +635,7 @@ body {
 
 /* ── Export Section ── */
 .export-section {
-  background: linear-gradient(135deg, #1e3a5f 0%, var(--primary) 100%);
+  background: linear-gradient(135deg, var(--navy) 0%, var(--primary) 100%);
   color: #fff;
   border-radius: 12px;
   padding: 28px 32px;
@@ -779,7 +814,7 @@ body {
 
 .verlauf-search:focus-within {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(26,86,160,.15);
+  box-shadow: 0 0 0 2px rgba(23,80,158,.15);
 }
 
 .verlauf-search-icon { font-size: 13px; opacity: 0.6; }
@@ -921,7 +956,7 @@ body {
   outline: none;
 }
 
-.export-gesellschaft select option { background: #1e3a5f; color: #fff; }
+.export-gesellschaft select option { background: var(--navy); color: #fff; }
 
 /* ── Toast ── */
 .toast-container {
@@ -952,7 +987,7 @@ body {
 
 .toast.success { background: #065f46; border-left: 4px solid var(--secondary); }
 .toast.error { background: #7f1d1d; border-left: 4px solid var(--danger); }
-.toast.info { background: #1e3a5f; border-left: 4px solid var(--primary); }
+.toast.info { background: var(--navy); border-left: 4px solid var(--primary); }
 .toast.warn { background: #6b4204; border-left: 4px solid var(--warning); }
 
 .toast-icon { font-size: 18px; flex-shrink: 0; }
@@ -1099,21 +1134,20 @@ body.auth-guard { visibility: hidden; }
   gap: 10px;
   margin-left: 8px;
   padding-left: 16px;
-  border-left: 1px solid rgba(255,255,255,0.2);
+  border-left: 1px solid var(--border);
 }
 
 .auth-avatar {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.22);
+  background: var(--primary);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   font-weight: 700;
-  border: 2px solid rgba(255,255,255,0.4);
   flex-shrink: 0;
   letter-spacing: -0.5px;
 }
@@ -1123,7 +1157,7 @@ body.auth-guard { visibility: hidden; }
 .auth-user-name {
   font-size: 13px;
   font-weight: 600;
-  color: #fff;
+  color: var(--navy);
   line-height: 1.2;
   max-width: 160px;
   overflow: hidden;
@@ -1133,7 +1167,7 @@ body.auth-guard { visibility: hidden; }
 
 .auth-user-email {
   font-size: 11px;
-  color: rgba(255,255,255,0.65);
+  color: var(--gray-400);
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1141,9 +1175,9 @@ body.auth-guard { visibility: hidden; }
 }
 
 .btn-auth-logout {
-  background: rgba(255,255,255,0.12);
-  border: 1px solid rgba(255,255,255,0.28);
-  color: rgba(255,255,255,0.85);
+  background: #fff;
+  border: 1px solid var(--gray-300);
+  color: var(--gray-700);
   padding: 5px 12px;
   border-radius: 5px;
   font-size: 12px;
@@ -1154,8 +1188,8 @@ body.auth-guard { visibility: hidden; }
 }
 
 .btn-auth-logout:hover {
-  background: rgba(255,255,255,0.22);
-  color: #fff;
+  background: var(--gray-100);
+  color: var(--navy);
 }
 
 /* ── Misc ── */
@@ -1334,7 +1368,7 @@ body.auth-guard { visibility: hidden; }
   transition: border-color var(--transition);
 }
 
-.upn-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(26,86,160,.15); }
+.upn-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(23,80,158,.15); }
 
 .settings-save-row {
   display: flex;
