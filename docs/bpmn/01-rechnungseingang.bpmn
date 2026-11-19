@@ -11,7 +11,7 @@
     <bpmn:messageFlow id="Msg_D_iban_P_Lief" name="Rückruf zur Bankverbindung" sourceRef="D_iban" targetRef="P_Lief" />
   </bpmn:collaboration>
   <bpmn:process id="Process_ERechnung_Eingang" name="E-Rechnung Rechnungseingang" isExecutable="false">
-    <bpmn:documentation>Eingangsrechnungen kommen per Mail ins Rechnungspostfach des Werks. Ein Flow je Werk packt signierte Mails aus, gibt jeden PDF- oder XML-Anhang an den Prüfdienst und legt Original und Prüfergebnis in ERAR_&lt;Werk&gt; ab. ZAI, HOL, LEG und EWA bekommen zusätzlich eine Archiv-Mail ins eigene Postfach, die anderen Werke arbeiten nur im Monitoring. Die Kreditorenbuchhaltung prüft im Monitoring (Dubletten, Mahnungen, abweichende Bankverbindung, bei Reverse-Charge und steuerfreien Umsätzen zwei Personen) und schätzt sonstige Rechnungen ein. Wo genehmigt wird, steht je Werk in den Einstellungen: im Monitoring (WGC, SHB) oder im SAP (ZAI, HOL, LEG, EWA, EIS, DSO), dort geht die Rechnung nicht noch einmal durchs Monitoring.
+    <bpmn:documentation>Eingangsrechnungen kommen per Mail ins Rechnungspostfach des Werks. Ein Flow je Werk packt signierte Mails aus, gibt jeden PDF- oder XML-Anhang an den Prüfdienst und legt Original und Prüfergebnis in ERAR_&lt;Werk&gt; ab. ZAI, HOL, LEG, EWA und DSO bekommen zusätzlich eine Archiv-Mail ins eigene Postfach, je E-Rechnung nur mit der lesbaren Rechnung. Die anderen Werke arbeiten nur im Monitoring. Die Kreditorenbuchhaltung prüft im Monitoring (Dubletten, Mahnungen, abweichende Bankverbindung, bei Reverse-Charge und steuerfreien Umsätzen zwei Personen) und schätzt sonstige Rechnungen ein. Wo genehmigt wird, steht je Werk in den Einstellungen: im Monitoring (WGC, SHB) oder im SAP (ZAI, HOL, LEG, EWA, EIS, DSO), dort geht die Rechnung nicht noch einmal durchs Monitoring.
 Anwender-Ansicht: https://e-rechnung.dihag-extern.com/prozess.html#eingang
 Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflichten
 [[rms:policies=119]]</bpmn:documentation>
@@ -76,7 +76,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:sequenceFlow id="Flow_A_gwErr_A_liefMail" sourceRef="A_gwErr" targetRef="A_liefMail" name="ja" />
       <bpmn:sequenceFlow id="Flow_A_liefMail_A_gwWerk" sourceRef="A_liefMail" targetRef="A_gwWerk" />
       <bpmn:sequenceFlow id="Flow_A_gwErr_A_gwWerk" sourceRef="A_gwErr" targetRef="A_gwWerk" name="nein" />
-      <bpmn:sequenceFlow id="Flow_A_gwWerk_A_merk" sourceRef="A_gwWerk" targetRef="A_merk" name="ja: ZAI, HOL, LEG, EWA" />
+      <bpmn:sequenceFlow id="Flow_A_gwWerk_A_merk" sourceRef="A_gwWerk" targetRef="A_merk" name="ja: ZAI, HOL, LEG, EWA, DSO" />
       <bpmn:sequenceFlow id="Flow_A_gwWerk_D_check" sourceRef="A_gwWerk" targetRef="D_check" name="nein: nur Monitoring" />
       <bpmn:sequenceFlow id="Flow_A_merk_A_archSend" sourceRef="A_merk" targetRef="A_archSend" name="nach allen Anhängen" />
       <bpmn:sequenceFlow id="Flow_A_archSend_D_check" sourceRef="A_archSend" targetRef="D_check" />
@@ -106,13 +106,13 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:sequenceFlow id="Flow_D_gwRf_E_ok" sourceRef="D_gwRf" targetRef="E_ok" name="nein" />
       <bpmn:sequenceFlow id="Flow_D_gwRf_D_kred" sourceRef="D_gwRf" targetRef="D_kred" name="ja" />
       <bpmn:sequenceFlow id="Flow_D_kred_E_kred" sourceRef="D_kred" targetRef="E_kred" />
-      <bpmn:textAnnotation id="N_arch"><bpmn:text>ZAI, HOL, LEG, EWA. Schleifenschutz: Die eigene Archiv-Mail kommt hier wieder an und wird nur einsortiert. In diesem Ordner arbeitet die Buchhaltung.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="N_arch"><bpmn:text>ZAI, HOL, LEG, EWA, DSO. Schleifenschutz: Die eigene Archiv-Mail kommt hier wieder an und wird nur einsortiert. In diesem Ordner arbeitet die Buchhaltung.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_arch" associationDirection="None" sourceRef="A_move" targetRef="N_arch" />
       <bpmn:textAnnotation id="N_lief"><bpmn:text>Bei Zurückweisung oder Abweichung. Empfänger aus der E-Rechnung. Der Schalter „Lieferantenmails“ steht bis zum 1.1.2027 auf aus.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_lief" associationDirection="None" sourceRef="A_liefMail" targetRef="N_lief" />
-      <bpmn:textAnnotation id="N_archSend"><bpmn:text>HOL, LEG, EWA: eine Archiv-Mail je E-Rechnung, die übrigen PDFs der Mail kommen mit. ZAI noch je Anhang. Die Originalmail bleibt im Posteingang.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="N_archSend"><bpmn:text>Je E-Rechnung eine Archiv-Mail nur mit der lesbaren Rechnung bzw. dem ZUGFeRD-PDF. Weitere PDFs der Mail kommen nicht ins Archiv. Ohne E-Rechnung eine Mail mit allen PDFs, bei ZAI je PDF eine. Die Originalmail bleibt im Posteingang.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_archSend" associationDirection="None" sourceRef="A_archSend" targetRef="N_archSend" />
-      <bpmn:textAnnotation id="N_wgc"><bpmn:text>Die anderen Werke (z. B. WGC, SHB, DSO, MEG) arbeiten nur im Monitoring, WGC und SHB seit 05.11.2026 ohne die alte Eingangsrechnungsliste.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="N_wgc"><bpmn:text>Die anderen Werke (z. B. WGC, SHB, MEG) arbeiten nur im Monitoring, WGC und SHB seit 05.11.2026 ohne die alte Eingangsrechnungsliste.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_wgc" associationDirection="None" sourceRef="A_gwWerk" targetRef="N_wgc" />
       <bpmn:textAnnotation id="N_check"><bpmn:text>„Als geprüft markieren“ speichert, wer wann geprüft hat. Bei Reverse-Charge, innergemeinschaftlich und steuerfrei braucht es eine zweite Prüfung von einer anderen Person.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_check" associationDirection="None" sourceRef="D_check" targetRef="N_check" />
@@ -191,7 +191,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNEdge id="Flow_A_gwErr_A_liefMail_di" bpmnElement="Flow_A_gwErr_A_liefMail"><di:waypoint x="1965" y="295" /><di:waypoint x="1965" y="390" /><di:waypoint x="2239" y="390" /><bpmndi:BPMNLabel><dc:Bounds x="1973" y="373" width="25" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_A_liefMail_A_gwWerk_di" bpmnElement="Flow_A_liefMail_A_gwWerk"><di:waypoint x="2371" y="390" /><di:waypoint x="2426" y="390" /><di:waypoint x="2426" y="270" /><di:waypoint x="2450" y="270" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_A_gwErr_A_gwWerk_di" bpmnElement="Flow_A_gwErr_A_gwWerk"><di:waypoint x="1990" y="270" /><di:waypoint x="2450" y="270" /><bpmndi:BPMNLabel><dc:Bounds x="1996" y="253" width="38" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_A_gwWerk_A_merk_di" bpmnElement="Flow_A_gwWerk_A_merk"><di:waypoint x="2500" y="270" /><di:waypoint x="2579" y="270" /><bpmndi:BPMNLabel><dc:Bounds x="2506" y="240" width="82" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_A_gwWerk_A_merk_di" bpmnElement="Flow_A_gwWerk_A_merk"><di:waypoint x="2500" y="270" /><di:waypoint x="2579" y="270" /><bpmndi:BPMNLabel><dc:Bounds x="2506" y="240" width="98" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_A_gwWerk_D_check_di" bpmnElement="Flow_A_gwWerk_D_check"><di:waypoint x="2475" y="295" /><di:waypoint x="2475" y="930" /><di:waypoint x="3429" y="930" /><bpmndi:BPMNLabel><dc:Bounds x="2483" y="900" width="76" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_A_merk_A_archSend_di" bpmnElement="Flow_A_merk_A_archSend"><di:waypoint x="2711" y="270" /><di:waypoint x="3259" y="270" /><bpmndi:BPMNLabel><dc:Bounds x="2717" y="240" width="73" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_A_archSend_D_check_di" bpmnElement="Flow_A_archSend_D_check"><di:waypoint x="3391" y="270" /><di:waypoint x="3410" y="270" /><di:waypoint x="3410" y="930" /><di:waypoint x="3429" y="930" /></bpmndi:BPMNEdge>
@@ -225,8 +225,8 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNEdge id="Assoc_N_arch_di" bpmnElement="Assoc_N_arch"><di:waypoint x="775" y="432" /><di:waypoint x="775" y="474" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_lief_di" bpmnElement="N_lief" bioc:stroke="#8A8F98" bioc:fill="#F1F1F3" color:background-color="#F1F1F3" color:border-color="#8A8F98"><dc:Bounds x="2230" y="468" width="220" height="84" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_N_lief_di" bpmnElement="Assoc_N_lief"><di:waypoint x="2305" y="432" /><di:waypoint x="2305" y="468" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNShape id="N_archSend_di" bpmnElement="N_archSend" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="3080" y="354" width="300" height="72" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Assoc_N_archSend_di" bpmnElement="Assoc_N_archSend"><di:waypoint x="3325" y="312" /><di:waypoint x="3325" y="354" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="N_archSend_di" bpmnElement="N_archSend" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="3080" y="342" width="300" height="96" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_N_archSend_di" bpmnElement="Assoc_N_archSend"><di:waypoint x="3325" y="312" /><di:waypoint x="3325" y="342" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_wgc_di" bpmnElement="N_wgc" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="2570" y="354" width="260" height="72" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_N_wgc_di" bpmnElement="Assoc_N_wgc"><di:waypoint x="2475" y="295" /><di:waypoint x="2582" y="354" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_check_di" bpmnElement="N_check" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="3250" y="1122" width="230" height="96" /></bpmndi:BPMNShape>

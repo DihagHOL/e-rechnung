@@ -241,7 +241,7 @@ unterschiedlich an die Buchhaltung:
 | Flow | `E-R-Rechnung_WGC (nur Monitoring)`, `E-R-Rechnung_SHB (nur Monitoring)` (seit 05.11.2026; davor `E-R-Rechnung_WGC` und `E-R-Rechnung_SHB` mit der alten Liste, ausgeschaltet) | `E-R-Rechnung_ZAI`, `_HOL`, `_LEG`, `_EWA` |
 | Postfach | Rechnungspostfach des Werks | je Werk ein eigenes Rechnungspostfach (Adressen nicht im Repo, siehe Flow) |
 | Schleifenschutz am Anfang | nicht nötig | Betreff enthält „[ARCHIV]“ = eigene Archiv-Mail: nur in den Ordner `ArchiviertUndGeprueft` (Posteingang) verschieben, nicht verarbeiten |
-| Übergabe | keine, die Rechnung liegt mit Prüfergebnis in `ERAR_<Werk>` und erscheint im Monitoring. Bis 05.11.2026: Eintrag in der Eingangsrechnungsliste auf `gruppe_wgc` bzw. `gruppe_shb` mit Anlagen | Archiv-Mail aus dem eigenen Postfach an sich selbst. HOL, LEG, EWA: **je E-Rechnung eine**, normale PDFs der Eingangsmail als Anlagen dabei, ohne E-Rechnung eine für die ganze Mail. Betreff „[ARCHIV] Rechnung <Nr> — <Lieferant> (N Dateien)“. ZAI: noch je Anhang, vom Admin-Konto |
+| Übergabe | keine, die Rechnung liegt mit Prüfergebnis in `ERAR_<Werk>` und erscheint im Monitoring. Bis 05.11.2026: Eintrag in der Eingangsrechnungsliste auf `gruppe_wgc` bzw. `gruppe_shb` mit Anlagen | Archiv-Mail aus dem eigenen Postfach an sich selbst, **je E-Rechnung eine** mit genau einer Datei: der lesbaren Rechnung bzw. dem ZUGFeRD-PDF. Weitere PDFs der Eingangsmail kommen seit 19.11.2026 nicht mit. Ohne E-Rechnung schicken HOL, LEG und EWA eine Archiv-Mail mit allen PDFs der Mail, ZAI je PDF eine (vom Admin-Konto). Betreff „[ARCHIV] Rechnung <Nr> — <Lieferant>“ |
 | Buchhaltung arbeitet in | dem Monitoring (Bearbeiten, Einschätzung, Genehmigung) | dem Postfachordner `ArchiviertUndGeprueft` (WebVerify: eine Archiv-Mail = ein Vorgang) |
 
 Aufbau in ZAI, HOL, LEG und EWA: oben `Archiv_pruefen` (bei ZAI `Bedingung_4`) mit dem
@@ -274,9 +274,9 @@ Mail.
    Datei als Base64-Text. Geht dieser Text ohne Umwandlung an Outlook, kodiert der Schritt ihn
    ein zweites Mal, und in der Archiv-Mail liegt statt des PDFs Text, den kein Programm
    öffnet (so vom 02.11. 16:05 bis 03.11. 11:05 UTC, 49 Archiv-Mails neu gesendet).
-6. `Archiv_je_Rechnung` (nacheinander): je Nummer eine `Archiv_Rechnung_Mail` mit den Dateien
-   dieser Nummer (PDF und XML derselben Rechnung zusammen). Die erste bekommt zusätzlich die
-   normalen PDFs.
+6. `Archiv_je_Rechnung` (nacheinander): je Nummer eine `Archiv_Rechnung_Mail` mit einer Datei
+   dieser Nummer (`Archiv_Rechnung_Anhaenge` = `take(body('Archiv_Rechnung_Dateien'), 1)`). Bis zum
+   19.11.2026 bekam die erste zusätzlich die normalen PDFs.
 7. `Archiv_Sonstige_pruefen`: Gibt es keine E-Rechnung, geht eine `Archiv_Mail_senden` mit
    allen normalen PDFs. Betreff mit der ersten gefundenen Nummer, ohne Nummer
    „ohne Nr — <Betreff der Eingangsmail>“. Bei mehreren Dateien steht „(N Dateien)“ dahinter.
@@ -285,6 +285,28 @@ Mail.
 9. `Anhang_gescheitert`: War ein Anhang nicht zu verarbeiten oder ist eine Archiv-Mail ganz
    gescheitert, endet der Lauf mit `Terminate` als Fehler, nachdem das Übrige archiviert
    ist. Der Fehler bleibt also im Verlauf sichtbar.
+
+**Keine Anlagen bei E-Rechnungen (alle Werke mit Archiv-Mail, seit 19.11.2026).** Maßgeblich ist
+die E-Rechnung, ins Archiv kommt nur ihre lesbare PDF aus der XML bzw. das ZUGFeRD-PDF. Bis dahin
+bekam die erste E-Rechnung einer Mail die normalen PDFs der Eingangsmail mit, bei ZAI ging jede PDF
+als eigene Archiv-Mail raus. Schickte ein Lieferant neben der XRechnung eine PDF-Kopie derselben
+Rechnung, lagen im Archiv zwei Fassungen, bei ZAI sogar zwei Vorgänge. Von September bis zum
+19.11.2026 betraf das 24 Mails in HOL, LEG, EWA und ZAI und drei bei DSO. Jetzt gilt:
+
+- Je E-Rechnung eine Archiv-Mail mit genau einer Datei. Liegt dieselbe Rechnung als ZUGFeRD-PDF
+  und als XML in der Mail, zählt die erste.
+- Weitere PDFs (Kopie der Rechnung, Leistungsnachweis, Brief) kommen nicht ins Archiv. Sie bleiben
+  in der Eingangsmail und stehen im Monitoring als Anlage an der Rechnung. Der Text der Archiv-Mail
+  nennt ihre Zahl.
+- Ohne E-Rechnung in der Mail bleibt es wie bisher.
+
+Dieselbe Änderung steckt in DSO und EIS, die den Aufbau von HOL übernommen haben
+([Postfach-ueber-Graph.md](Postfach-ueber-Graph.md)). **ZAI** schickt ohne E-Rechnung weiter je PDF
+eine Archiv-Mail, vom Admin-Konto. Damit der Flow weiß, ob die Mail eine E-Rechnung enthält, sendet
+er seit dem 19.11.2026 erst nach der Schleife: Variable `ArchivAnhaenge`, Schleife nacheinander,
+`Archiv_Anhang_merken` mit Betreff, Name, Inhalt, `eRechnung` und `nr`. Danach `Archiv_je_Rechnung`
+(eine Mail je E-Rechnung) bzw. `Archiv_je_Datei` (nur ohne E-Rechnung) und am Ende
+`Anhang_gescheitert` wie oben.
 
 Die Spalte `MailVorgang` muss in `ERAR_<Werk>` vorhanden sein, bevor der Flow sie
 schreibt (Provisioning legt sie an).
