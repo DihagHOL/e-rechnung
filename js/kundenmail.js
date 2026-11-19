@@ -7,24 +7,51 @@
  * beim nächsten Mal vor. Gespeichert wird in SharePoint (E-Rechnung/kunden-rechnungsmail.json,
  * js/sharepoint.js), nicht im Code, weil die Seite öffentlich ist.
  *
- * Eintrag: { werk, kundennummer, vat, name, mail, am, von }
+ * Eintrag: { werk, kundennummer, vat, name, mail, betreff, am, von }
  * Gesucht wird nach Kunden-Nr., dann USt-IdNr., dann Name, jeweils im selben Werk.
+ * betreff (optional) ist die Betreffvorgabe des Kunden für die Rechnungsmail, siehe kundenBetreff.
+ * Ein Eintrag darf auch nur den Betreff tragen, ohne Mail (die Adresse steht dann im Beleg).
  */
 
 function _kmNorm(s) {
   return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-/** Passenden Eintrag zu einer Rechnung finden, sonst null. */
-function kundenMailFinden(eintraege, d) {
+/** Eintrag zu einer Rechnung, der das Feld `feld` trägt (mail, betreff), sonst null. Ohne feld jeder Eintrag. */
+function _kmSuchen(eintraege, d, feld) {
   const werk = _kmNorm(d.gesellschaft || d.werk);
   const imWerk = e => !e.werk || !werk || _kmNorm(e.werk) === werk;
-  const liste = (eintraege || []).filter(e => e && e.mail && imWerk(e));
+  const liste = (eintraege || []).filter(e => e && (!feld || String(e[feld] || '').trim()) && imWerk(e));
   const gleich = (a, b) => a && b && _kmNorm(a) === _kmNorm(b);
   return liste.find(e => gleich(e.kundennummer, d.kundennummer))
     || liste.find(e => gleich(String(e.vat || '').replace(/\s+/g, ''), String(d.kaeufervat || '').replace(/\s+/g, '')))
     || liste.find(e => gleich(e.name, d.kaeufer))
     || null;
+}
+
+/** Passenden Eintrag mit Rechnungsadresse zu einer Rechnung finden, sonst null. */
+function kundenMailFinden(eintraege, d) {
+  return _kmSuchen(eintraege, d, 'mail');
+}
+
+/**
+ * Betreff der Rechnungsmail nach der Vorgabe des Kunden, sonst ''.
+ * Ein Wort wie „Invoice“ oder „Faktura“ ersetzt „Rechnung“ im üblichen Betreff
+ * („Invoice 92001234 – Eisenwerk Arnstadt GmbH“). Eine Vorgabe mit Platzhaltern wird ganz
+ * übernommen: eine Ziffernfolge mit xxx (z. B. 92xxxxxx) wird die Rechnungsnummer, „Datum“
+ * das Rechnungsdatum (TT.MM.JJJJ), etwa AR_92xxxxxx_1001680_Datum.
+ */
+function kundenBetreff(eintraege, d) {
+  const e = _kmSuchen(eintraege, d, 'betreff');
+  const vorgabe = e ? String(e.betreff).trim() : '';
+  if (!vorgabe) return '';
+  const nr = String(d.rechnungsnummer || '').trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d.rechnungsdatum || ''));
+  const datum = m ? `${m[3]}.${m[2]}.${m[1]}` : '';
+  if (/\d*x{3,}/i.test(vorgabe) || /Datum/.test(vorgabe)) {
+    return vorgabe.replace(/\d*x{3,}/i, () => nr).replace(/Datum/, () => datum);
+  }
+  return [vorgabe, nr].filter(Boolean).join(' ') + (d.verkaeufer ? ' – ' + d.verkaeufer : '');
 }
 
 /** Gehört die Adresse zur eigenen Firma (gleiche Domain wie die Verkäufer-Mail)? */
@@ -77,7 +104,8 @@ function kundenMailUebernehmen(eintraege, d, von, jetzt) {
   if (!mail || d.leitwegid || kundenMailIstEigen(mail, d.verkaeuferemail) || kundenMailImKonzern(mail, d.kaeufer)) return null;
   if (!d.kundennummer && !d.kaeufervat && !d.kaeufer) return null;
   const liste = (eintraege || []).slice();
-  const alt = kundenMailFinden(liste, d);
+  // Auch ein Eintrag nur mit Betreff zählt, sonst stünde der Kunde danach zweimal in der Liste
+  const alt = kundenMailFinden(liste, d) || _kmSuchen(liste, d, 'betreff');
   if (alt && _kmNorm(alt.mail) === _kmNorm(mail)) return null;
   const neu = {
     werk: String(d.gesellschaft || '').toUpperCase(),
@@ -88,13 +116,16 @@ function kundenMailUebernehmen(eintraege, d, von, jetzt) {
     am: jetzt || new Date().toISOString(),
     von: von || '',
   };
+  if (alt && alt.betreff) neu.betreff = alt.betreff;
   if (alt) liste[liste.indexOf(alt)] = neu; else liste.push(neu);
   return liste;
 }
 
 /**
- * Zeilen „Werk;Kunden-Nr.;Kunde;Mail“ (auch mit Tab oder Komma getrennt) einlesen.
- * Ungültige Zeilen werden gezählt, nicht übernommen.
+ * Zeilen „Werk;Kunden-Nr.;Kunde;Mail;Betreff“ einlesen (Betreff optional). Mit Tabulator
+ * getrennte Zeilen aus Excel gehen auch, dann darf das Mailfeld mehrere Adressen mit
+ * Semikolon tragen. Ohne Mail braucht die Zeile einen Betreff. Ungültige Zeilen werden
+ * gezählt, nicht übernommen.
  */
 function kundenMailZeilen(text) {
   const eintraege = [];
@@ -102,16 +133,21 @@ function kundenMailZeilen(text) {
   for (const roh of String(text || '').split(/\r?\n/)) {
     const z = roh.trim();
     if (!z || /^werk\s*[;\t,]/i.test(z)) continue;
-    const t = z.split(/\s*[;\t]\s*/).length >= 4 ? z.split(/\s*[;\t]\s*/) : z.split(/\s*,\s*/);
-    const [werk, kundennummer, name, mail] = t;
-    if (!mail || !/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(mail.trim())) { fehler++; continue; }
-    eintraege.push({ werk: String(werk || '').trim().toUpperCase(), kundennummer: String(kundennummer || '').trim(),
-      vat: '', name: String(name || '').trim(), mail: mail.trim() });
+    const t = z.includes('\t') ? z.split(/\s*\t\s*/)
+      : z.split(/\s*;\s*/).length >= 4 ? z.split(/\s*;\s*/) : z.split(/\s*,\s*/);
+    const [werk, kundennummer, name, mailRoh, betreffRoh] = t;
+    const mail = kundenMailListe(mailRoh).join('; ');
+    const betreff = String(betreffRoh || '').trim();
+    if (mail ? !kundenMailGueltig(mail) : !betreff) { fehler++; continue; }
+    const e = { werk: String(werk || '').trim().toUpperCase(), kundennummer: String(kundennummer || '').trim(),
+      vat: '', name: String(name || '').trim(), mail };
+    if (betreff) e.betreff = betreff;
+    eintraege.push(e);
   }
   return { eintraege, fehler };
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { kundenMailFinden, kundenMailIstEigen, kundenMailListe, kundenMailGueltig, kundenMailImKonzern,
+  module.exports = { kundenMailFinden, kundenBetreff, kundenMailIstEigen, kundenMailListe, kundenMailGueltig, kundenMailImKonzern,
     kundenMailAbweichung, kundenMailUebernehmen, kundenMailZeilen };
 }

@@ -1,6 +1,6 @@
 # Ausgangsrechnungen EWA (Eisenwerk Arnstadt) im Konverter
 
-Stand: 27.10.2026
+Stand: 19.11.2026
 
 Die Belege des Eisenwerks Arnstadt kommen aus SAP als Adobe-Formular, auf Deutsch, Englisch oder Französisch und in der Währung des Kunden (EUR, GBP, CZK). Der Konverter erkennt das Formular an seinem Aufbau (Nummer, Kundenauftrag, Positionen mit „Material") und das Werk am Fuß (ewa-guss.de, HRB 110887). Die Lintorfer Eisengießerei (LEG) nutzt dasselbe Formular, siehe [Ausgangsrechnungen-LEG.md](Ausgangsrechnungen-LEG.md). Grundlage waren elf Musterbelege: Rechnungen und Gutschriften, Inland, EU und Großbritannien, mit Skonto, Teuerungszuschlag, 100-%-Abschlag und Verpackungszuschlag.
 
@@ -47,7 +47,14 @@ Kontakt-Mail des Rechnungsstellers (BT-43) ist **invoicing@ewa-guss.de**, nicht 
 
 Telefon (BT-42): Die Belege drucken beim Sachbearbeiter nur den Namen. Deshalb steht im XML die Zentrale (+49 3628 596 101). Druckt das SAP-Formular unter dem Sachbearbeiter eine Zeile „Telefon +49 3628 596 1xx“, übernimmt der Konverter diese Durchwahl.
 
-Betreff: Der Entwurf heißt „Rechnung <Nummer> – Eisenwerk Arnstadt GmbH“. Vor dem Senden lässt er sich in Outlook ändern. Feste Betreffvorgaben je Kunde gibt es noch nicht.
+Betreff: Ohne Vorgabe heißt der Entwurf „Rechnung <Nummer> – Eisenwerk Arnstadt GmbH“. Gibt der Kunde einen Betreff vor (Kundenliste, siehe unten), nimmt der Entwurf diesen:
+
+| Vorgabe in der Kundenliste | Betreff der Mail |
+|---|---|
+| ein Wort, zum Beispiel Invoice, Faktura, Facture, Credit memo | „Invoice 92012345 – Eisenwerk Arnstadt GmbH“ |
+| Vorlage mit Platzhaltern, zum Beispiel AR_92xxxxxx_1001680_Datum | „AR_92012345_1001680_19.11.2026“: 92xxxxxx wird die Rechnungsnummer, Datum das Rechnungsdatum |
+
+Das Wort gilt für jeden Beleg des Kunden, auch für eine Gutschrift. Der Mailtext bleibt deutsch. Vor dem Senden lässt sich der Betreff in Outlook ändern.
 
 ## Proformarechnungen
 
@@ -56,6 +63,8 @@ Eine Proformarechnung ist keine Rechnung im Sinne von § 14 UStG, für sie gibt 
 ## Rechnungsadresse des Kunden
 
 Der Konverter übernimmt die Rechnungsmail des Kunden (BT-49) aus dem Beleg, wenn sie im Anschriftfeld steht oder in einer Zeile „Rechnungsempfänger: …“. Fehlt sie dort, greift die Liste „Rechnungsadressen der Kunden“ unter Einstellungen (je Werk und Kunden-Nr., auch als Sammelimport aus Excel). Außerdem merkt sich der Konverter jede Adresse, an die exportiert wurde. Die SAP-Stammdaten müssen dafür nicht geändert werden. Wer die Adresse auf dem Beleg haben will, kann sie trotzdem im Anschriftfeld drucken lassen.
+
+Kundenliste aus SAP (19.11.2026): Die Geschäftspartnerliste von EWA nennt je Kunde Rechnungsmail und Betreff. Eingespielt wurden die Kunden mit Mail oder Betreff, gefunden über die Kunden-Nr. aus der Klammer hinter dem Namen (251 Kunden, 246 mit Adresse, 250 mit Betreff). Bei einigen Kunden steht die Rechnungsmail nicht in der Spalte, sondern im Namen, weil SAP sie so ins Anschriftfeld druckt. Diese Adresse gilt dann auch als Rechnungsadresse. Fünf Kunden haben nur einen Betreff, ihre Adresse kommt aus dem Beleg. Die Liste selbst liegt nicht im Repo, nur in SharePoint (kunden-rechnungsmail.json). Ein neuer Stand der Excel lässt sich über „Mehrere auf einmal einfügen“ nachtragen (`Werk;Kunden-Nr.;Kunde;Mail;Betreff`), gleiche Kunden-Nr. ersetzt den Eintrag.
 
 ## Steuer, Modellkosten und Weiterberechnungen
 
@@ -89,5 +98,6 @@ Diese drei Teile gelten für alle Werke:
 ## Grenzen
 
 - Eine Rechnung in Fremdwährung mit deutscher Umsatzsteuer bekommt keine zusätzliche Steuerangabe in Euro (BT-6, BT-111). In den Mustern kam Fremdwährung nur steuerfrei vor.
-- Rechnungsadressen der Kunden lernt der Konverter beim Export (siehe [Ausgangsrechnungen-ZAI.md](Ausgangsrechnungen-ZAI.md)). Eine Liste wie bei Gienanth gab es für EWA nicht.
+- Rechnungsadressen der Kunden kommen aus der Kundenliste von SAP (Stand 19.11.2026). Kunden, die erst danach angelegt wurden, lernt der Konverter beim Export (siehe [Ausgangsrechnungen-ZAI.md](Ausgangsrechnungen-ZAI.md)).
+- Die Kunden-Nr. auf dem Beleg muss die aus der Liste sein. Druckt SAP beim Kunden eine andere Nummer (etwa den Auftraggeber statt des Rechnungsempfängers), greift die Suche über den Namen.
 - Proformarechnungen waren nicht unter den Musterbelegen. Erkannt werden sie an der Titelzeile, siehe oben.

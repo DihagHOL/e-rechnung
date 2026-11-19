@@ -143,6 +143,7 @@ gleich(x.calcTotals(pos, '').steuerLautOriginal, false, 'leere Vorgabe');
 {
   const app = fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8');
   const quelle = app.slice(app.indexOf('function _mailSubjectBody('), app.indexOf('/**', app.indexOf('function _mailSubjectBody(')));
+  ctx._kundenMails = null;   // Kundenliste nicht geladen: üblicher Betreff
   vm.runInContext(quelle + '\nthis.mail = _mailSubjectBody; this.versand = werkVersandPostfach;', ctx);
   const daten = { gesellschaft: 'ZAI', rechnungsnummer: '2026.009001', rechnungsdatum: '2026-10-30', waehrung: 'EUR',
     verkaeufer: 'Dihag Zaigler GmbH', verkaeufkontakt: 'Muster Erika', verkaeuftel: '+49 9221 944-111', verkaeuferemail: 'erika.muster@beispiel.de' };

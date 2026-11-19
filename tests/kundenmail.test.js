@@ -1,6 +1,6 @@
 // node tests/kundenmail.test.js
 const assert = require('assert');
-const { kundenMailFinden, kundenMailIstEigen, kundenMailListe, kundenMailGueltig, kundenMailImKonzern,
+const { kundenMailFinden, kundenBetreff, kundenMailIstEigen, kundenMailListe, kundenMailGueltig, kundenMailImKonzern,
   kundenMailAbweichung, kundenMailUebernehmen, kundenMailZeilen } = require('../js/kundenmail.js');
 
 let n = 0;
@@ -90,5 +90,39 @@ gleich(ab({ kundennummer: '900003', kaeufer: 'Neukunde AG', kaeufermail: 'neu@ne
 gleich(ab({ kundennummer: '900001', kaeufermail: 'x@y.de', leitwegid: '991-1' }), null, 'Leitweg-ID statt Mail');
 gleich(ab({ kundennummer: '900001', kaeufermail: '' }), null, 'leer');
 gleich(kundenMailAbweichung(liste, { gesellschaft: 'WGC', kundennummer: '900008', kaeufer: 'Neukunde AG', kaeufermail: 'rechnung@beispielguss.de' }), null, 'anderes Werk zählt nicht');
+
+// Betreff je Kunde (EWA-Kundenliste: Wort oder Vorlage mit Platzhaltern)
+const TAB = String.fromCharCode(9);
+const bl = [
+  { werk: 'EWA', kundennummer: '1099001', name: 'Muster Rail Ltd', mail: 'ap@muster-rail.example', betreff: 'Invoice' },
+  { werk: 'EWA', kundennummer: '1099002', name: 'Muster Stapler AG & Co. KG', mail: '', betreff: 'AR_92xxxxxx_1099002_Datum' },
+  { werk: 'EWA', kundennummer: '1099003', name: 'Ohne Vorgabe GmbH', mail: 'rechnung@ohne.example' },
+];
+const rg = (d) => Object.assign({ gesellschaft: 'EWA', rechnungsnummer: '92012345', rechnungsdatum: '2026-11-19', verkaeufer: 'Eisenwerk Arnstadt GmbH' }, d);
+gleich(kundenBetreff(bl, rg({ kundennummer: '1099001' })), 'Invoice 92012345 – Eisenwerk Arnstadt GmbH', 'Wort ersetzt Rechnung');
+gleich(kundenBetreff(bl, rg({ kundennummer: '1099002' })), 'AR_92012345_1099002_19.11.2026', 'Vorlage mit Nummer und Datum');
+gleich(kundenBetreff(bl, rg({ kundennummer: '1099003' })), '', 'ohne Vorgabe der übliche Betreff');
+gleich(kundenBetreff(bl, rg({ kundennummer: '1099001', gesellschaft: 'LEG' })), '', 'anderes Werk');
+gleich(kundenBetreff(bl, rg({ kundennummer: '', kaeufer: 'muster rail ltd' })), 'Invoice 92012345 – Eisenwerk Arnstadt GmbH', 'über den Namen');
+gleich(kundenMailFinden(bl, { gesellschaft: 'EWA', kundennummer: '1099002' }), null, 'Eintrag nur mit Betreff liefert keine Adresse');
+
+// Export merkt die Adresse aus dem Beleg am Eintrag mit Betreff, der Betreff bleibt
+const gemerkt = kundenMailUebernehmen(bl, { gesellschaft: 'EWA', kundennummer: '1099002', kaeufer: 'Muster Stapler AG & Co. KG',
+  kaeufermail: 'e-rechnung@muster-stapler.example' }, 'x', '2026-11-19T10:00:00Z');
+gleich(gemerkt.length, 3, 'kein zweiter Eintrag');
+gleich([gemerkt[1].mail, gemerkt[1].betreff], ['e-rechnung@muster-stapler.example', 'AR_92xxxxxx_1099002_Datum'], 'Betreff bleibt');
+const ersetzt = kundenMailUebernehmen(bl, { gesellschaft: 'EWA', kundennummer: '1099001', kaeufermail: 'neu@muster-rail.example' }, 'x', '2026-11-19T10:00:00Z');
+gleich(ersetzt[0].betreff, 'Invoice', 'Betreff bleibt beim Adresswechsel');
+
+// Import mit Betreff, Excel-Zeilen mit Tabulator und mehreren Adressen
+const zb = kundenMailZeilen([
+  'EWA;1099001;Muster Rail Ltd;ap@muster-rail.example;Invoice',
+  ['EWA', '1099004', 'Zwei Adressen SA', 'a@zwei.example; b@zwei.example', 'Facture'].join(TAB),
+  'EWA;1099002;Muster Stapler AG & Co. KG;;AR_92xxxxxx_1099002_Datum',
+  'EWA;1099005;Weder noch GmbH;;',
+].join(NL));
+gleich(zb.fehler, 1, 'Zeile ohne Mail und Betreff');
+gleich(zb.eintraege.map(e => [e.mail, e.betreff]), [['ap@muster-rail.example', 'Invoice'],
+  ['a@zwei.example; b@zwei.example', 'Facture'], ['', 'AR_92xxxxxx_1099002_Datum']], 'Mail und Betreff');
 
 console.log(`kundenmail: ${n} Prüfungen grün`);

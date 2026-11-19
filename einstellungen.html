@@ -15,8 +15,8 @@
   <link rel="preload" as="script" href="js/auth.js?v=1bbbff5340">
   <link rel="preload" as="script" href="js/access.js?v=a2d4117664">
   <link rel="preload" as="script" href="js/sharepoint.js?v=a622b8f687">
-  <link rel="preload" as="script" href="js/kundenmail.js?v=310eebf2d8">
-  <link rel="preload" as="script" href="js/seite-einstellungen.js?v=ae45155c90">
+  <link rel="preload" as="script" href="js/kundenmail.js?v=a279c1b777">
+  <link rel="preload" as="script" href="js/seite-einstellungen.js?v=1b9a256d0a">
   <link rel="stylesheet" href="css/style.css?v=ff2be28ffb">
   <style>
     .werk-add-row { margin-top:14px; max-width:520px; }
@@ -95,7 +95,7 @@
         die Adresse vor, sobald eine Rechnung dieses Kunden geladen wird (gesucht nach Kunden-Nr.,
         dann USt-IdNr., dann Name, jeweils im selben Werk). Neue Adressen merkt sich die App beim
         Export von selbst. Einzutragen ist das Rechnungspostfach des Kunden, nicht die Adresse
-        der Sachbearbeitung im eigenen Haus.
+        der Sachbearbeitung im eigenen Haus. Gibt der Kunde einen Betreff vor, nimmt ihn die Rechnungsmail.
       </span>
     </div>
     <div class="card km-card">
@@ -106,13 +106,14 @@
         </div>
         <div class="km-tabelle-wrap">
           <table class="km-tabelle">
-            <thead><tr><th>Werk</th><th>Kunden-Nr.</th><th>Kunde</th><th>Rechnungsadresse</th><th>Gemerkt</th><th></th></tr></thead>
+            <thead><tr><th>Werk</th><th>Kunden-Nr.</th><th>Kunde</th><th>Rechnungsadresse</th><th>Betreff</th><th>Gemerkt</th><th></th></tr></thead>
             <tbody id="km-body"></tbody>
             <tfoot><tr>
               <td><select id="km-neu-werk" class="upn-input" aria-label="Werk"></select></td>
               <td><input type="text" id="km-neu-nr" class="upn-input" placeholder="z. B. 100123"></td>
               <td><input type="text" id="km-neu-name" class="upn-input" placeholder="Name des Kunden"></td>
               <td><input type="email" id="km-neu-mail" class="upn-input" placeholder="rechnung@kunde.de"></td>
+              <td><input type="text" id="km-neu-betreff" class="upn-input" placeholder="z. B. Invoice"></td>
               <td></td>
               <td><button class="btn btn-primary btn-sm" id="km-neu-btn">+ Hinzufügen</button></td>
             </tr></tfoot>
@@ -120,8 +121,10 @@
         </div>
         <details class="km-import">
           <summary>Mehrere auf einmal einfügen</summary>
-          <p class="km-hinweis">Eine Zeile je Kunde: <code>Werk;Kunden-Nr.;Kunde;Mail</code>. Tabulator geht auch,
-            so lässt sich direkt aus Excel kopieren. Bestehende Einträge mit gleicher Kunden-Nr. im selben Werk werden ersetzt.</p>
+          <p class="km-hinweis">Eine Zeile je Kunde: <code>Werk;Kunden-Nr.;Kunde;Mail;Betreff</code>, der Betreff ist freiwillig.
+            Tabulator geht auch, so lässt sich direkt aus Excel kopieren. Bestehende Einträge mit gleicher Kunden-Nr. im selben Werk werden ersetzt.
+            Betreff: Ein Wort wie <code>Invoice</code> ersetzt „Rechnung“ im Betreff der Rechnungsmail. Eine Vorlage wie
+            <code>AR_92xxxxxx_1001680_Datum</code> wird ganz übernommen, mit Rechnungsnummer statt 92xxxxxx und Rechnungsdatum statt Datum.</p>
           <textarea id="km-import-text" rows="5" class="upn-input" placeholder="ZAI;100123;Musterkunde GmbH;rechnung@musterkunde.de"></textarea>
           <button class="btn btn-primary btn-sm" id="km-import-btn">Übernehmen</button>
         </details>
@@ -158,7 +161,7 @@
 <script src="js/auth.js?v=1bbbff5340"></script>
 <script src="js/access.js?v=a2d4117664"></script>
 <script src="js/sharepoint.js?v=a622b8f687"></script>
-<script src="js/kundenmail.js?v=310eebf2d8"></script>
+<script src="js/kundenmail.js?v=a279c1b777"></script>
 
 <style>
   .km-card { margin-top: 12px; }
@@ -182,7 +185,7 @@
   .upn-rolle.vertrieb { border-color: #F08300; color: #8a4b00; background: #fff7ed; }
 </style>
 
-<script src="js/seite-einstellungen.js?v=ae45155c90"></script>
+<script src="js/seite-einstellungen.js?v=1b9a256d0a"></script>
 
 
 </body>

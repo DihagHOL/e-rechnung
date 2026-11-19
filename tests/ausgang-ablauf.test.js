@@ -65,7 +65,7 @@ function weiter() {
     _buildZugferdPdf: async (data, totals, xml, ust) => { protokoll.push('pdf:' + (ust ? ust.quelle : 'ohne')); return new Uint8Array([1, 2, 3]); },
     bytesToBase64: b => Buffer.from(b).toString('base64'),
     vorlagenNummerVerbraucht: async () => {}, _renderReadablePdf: async () => null, _buildAudit: async () => ({}),
-    saveToHistory() {}, showLoading() {}, uploadedFileName: 'RE-1.pdf', _kundenMailMerken() {},
+    saveToHistory() {}, showLoading() {}, uploadedFileName: 'RE-1.pdf', _kundenMailMerken() {}, _kundenMailsLaden: async () => ({ eintraege: [] }),
     spSaveToMonitoring: async a => { protokoll.push('ablage:' + Buffer.from(a.pdfBytes || []).toString('base64')); if (ablageFehler) throw ablageFehler; },
     _mailSubjectBody: () => ({ subject: 'Rechnung', body: 'Text' }),
     _createOutlookDraft: async (token, data, subject, body, anh) => { protokoll.push('mail:' + anh[0].base64); return { webLink: 'https://outlook.office365.com/x' }; },

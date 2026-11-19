@@ -66,7 +66,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:association id="Assoc_N_vorl" associationDirection="None" sourceRef="K_vorl" targetRef="N_vorl" />
       <bpmn:textAnnotation id="N_abl"><bpmn:text>Ablegen darf, wer im Werk FIBU oder Vertrieb ist (Mitwirken auf AR_&lt;Werk&gt;).</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_abl" associationDirection="None" sourceRef="S_abl" targetRef="N_abl" />
-      <bpmn:textAnnotation id="N_mail"><bpmn:text>Die Mail trägt genau die abgelegte Datei. Die Rechnungsadresse des Kunden ist gemerkt. Alternativ Datei herunterladen und im Kundenportal hochladen.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="N_mail"><bpmn:text>Die Mail trägt genau die abgelegte Datei. Rechnungsadresse und Betreff kommen aus der Kundenliste des Werks, sofern dort hinterlegt. Alternativ Datei herunterladen und im Kundenportal hochladen.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_mail" associationDirection="None" sourceRef="K_mail" targetRef="N_mail" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="Diagram_ausgang">
@@ -124,8 +124,8 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNEdge id="Assoc_N_vorl_di" bpmnElement="Assoc_N_vorl"><di:waypoint x="775" y="1072" /><di:waypoint x="775" y="1108" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="N_abl_di" bpmnElement="N_abl" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="1550" y="1382" width="300" height="56" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_N_abl_di" bpmnElement="Assoc_N_abl"><di:waypoint x="1625" y="1332" /><di:waypoint x="1625" y="1382" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNShape id="N_mail_di" bpmnElement="N_mail" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="2060" y="862" width="260" height="96" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Assoc_N_mail_di" bpmnElement="Assoc_N_mail"><di:waypoint x="2135" y="832" /><di:waypoint x="2135" y="862" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="N_mail_di" bpmnElement="N_mail" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="2060" y="855" width="260" height="110" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_N_mail_di" bpmnElement="Assoc_N_mail"><di:waypoint x="2135" y="832" /><di:waypoint x="2135" y="855" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Msg_F_send_P_Kunde_di" bpmnElement="Msg_F_send_P_Kunde"><di:waypoint x="2305" y="368" /><di:waypoint x="2305" y="130" /><bpmndi:BPMNLabel><dc:Bounds x="2313" y="151" width="170" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>

@@ -45,7 +45,7 @@ Export und Mail gleichen die Adresse auch dann mit den gemerkten Adressen ab, we
 
 Die Rechnungsmail („Mail erstellen“) geht als Outlook-Entwurf aus dem Vertriebspostfach von ZAI (Registry `_versandPostfach`). Senden klappt nur mit „Senden als“ oder „Senden im Auftrag von“ auf dieses Postfach. Gegrüßt wird vom Team statt vom Ansprechpartner (`_mailGruss`: „Ihr Team von der“, Firma, Zentrale), darunter steht das Vertriebspostfach. Die Kontakt-Mail aus der Rechnung kommt in der Mail nicht vor. Die .eml-Datei, die ohne Outlook-Zugriff entsteht, hat keinen festen Absender.
 
-Admins pflegen die Liste unter Einstellungen, Abschnitt „Rechnungsadressen der Kunden". Dort lassen sich Einträge suchen, anlegen und löschen. Mehrere Kunden auf einmal gehen über „Mehrere auf einmal einfügen", eine Zeile je Kunde im Format `Werk;Kunden-Nr.;Kunde;Mail`. Mit Tabulator getrennte Zeilen aus Excel gehen auch.
+Admins pflegen die Liste unter Einstellungen, Abschnitt „Rechnungsadressen der Kunden". Dort lassen sich Einträge suchen, anlegen und löschen. Mehrere Kunden auf einmal gehen über „Mehrere auf einmal einfügen", eine Zeile je Kunde im Format `Werk;Kunden-Nr.;Kunde;Mail;Betreff`. Der Betreff ist freiwillig und gibt den Betreff der Rechnungsmail vor (siehe [Ausgangsrechnungen-EWA.md](Ausgangsrechnungen-EWA.md), Abschnitt Kontakt und Versand). Mit Tabulator getrennte Zeilen aus Excel gehen auch.
 
 ## Prüfung
 

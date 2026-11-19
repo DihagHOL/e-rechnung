@@ -1352,6 +1352,7 @@ async function createInvoiceMail() {
       return;
     }
     showLoading(true, 'Mail wird erstellt …');
+    await _kundenMailsLaden();   // für die Betreffvorgabe des Kunden
 
     const { subject, body } = _mailSubjectBody(data, grossTotal, true);
 
@@ -1464,7 +1465,9 @@ function _mailSubjectBody(data, grossTotal, useZugferd) {
   const betrag = (grossTotal || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const formatLabel = useZugferd ? 'ZUGFeRD (PDF mit eingebettetem XML)' : 'XRechnung (XML)';
 
-  const subject = `Rechnung ${data.rechnungsnummer} – ${data.verkaeufer}`;
+  // Betreffvorgabe des Kunden aus der Kundenliste (js/kundenmail.js), sonst der übliche Betreff
+  const vorgabe = _kundenMails && typeof kundenBetreff === 'function' ? kundenBetreff(_kundenMails.eintraege, data) : '';
+  const subject = vorgabe || `Rechnung ${data.rechnungsnummer} – ${data.verkaeufer}`;
   // Werke mit eigenem Gruß (Registry _mailGruss, z. B. ZAI): Team statt Ansprechpartner,
   // darunter das Versandpostfach des Werks, ohne eines die Kontakt-Mail aus der Rechnung.
   const gruss = typeof werkMailGruss === 'function' ? werkMailGruss(data.gesellschaft) : [];

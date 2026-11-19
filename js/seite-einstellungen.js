@@ -47,17 +47,18 @@ function renderKundenMails() {
   const q = (document.getElementById('km-suche').value || '').trim().toLowerCase();
   const alle = _editKm.eintraege.map((e, i) => ({ e, i }))
     .sort((a, b) => (a.e.werk || '').localeCompare(b.e.werk || '') || (a.e.name || '').localeCompare(b.e.name || ''));
-  const zeilen = q ? alle.filter(({ e }) => [e.werk, e.kundennummer, e.name, e.mail, e.vat].join(' ').toLowerCase().includes(q)) : alle;
+  const zeilen = q ? alle.filter(({ e }) => [e.werk, e.kundennummer, e.name, e.mail, e.vat, e.betreff].join(' ').toLowerCase().includes(q)) : alle;
   body.innerHTML = zeilen.length ? zeilen.map(({ e, i }) => `
     <tr>
       <td><span class="format-tag ${e.werk === 'WGC' || e.werk === 'SHB' ? e.werk.toLowerCase() : ''}" style="font-size:11px;">${esc(e.werk || 'alle')}</span></td>
       <td>${esc(e.kundennummer || '')}</td>
       <td>${esc(e.name || '')}${e.vat ? `<br><small>${esc(e.vat)}</small>` : ''}</td>
-      <td>${esc(e.mail)}</td>
+      <td>${esc(e.mail || '')}${e.mail ? '' : '<small>aus dem Beleg</small>'}</td>
+      <td>${esc(e.betreff || '')}</td>
       <td class="km-am" title="${esc(e.von || '')}">${esc(_kmDatum(e.am))}${e.von ? '<br>' + esc(e.von.split('@')[0]) : ''}</td>
       <td><button class="btn btn-danger btn-sm" title="Entfernen" data-km-entfernen="${i}">✕</button></td>
     </tr>`).join('')
-    : `<tr><td colspan="6" class="upn-empty">${q ? 'Kein Treffer.' : 'Noch keine Rechnungsadresse gemerkt.'}</td></tr>`;
+    : `<tr><td colspan="7" class="upn-empty">${q ? 'Kein Treffer.' : 'Noch keine Rechnungsadresse gemerkt.'}</td></tr>`;
   document.getElementById('km-anzahl').textContent = `${_editKm.eintraege.length} Kunden`;
   const sel = document.getElementById('km-neu-werk');
   if (sel && !sel.options.length) sel.innerHTML = WERKE_ALL.map(([c]) => `<option value="${c}">${c}</option>`).join('');
@@ -69,8 +70,11 @@ function _kmEinfuegen(neu) {
     && (neu.kundennummer ? gleich(e.kundennummer, neu.kundennummer) : gleich(e.name, neu.name)));
   const user = (typeof getAuthUser === 'function' && getAuthUser()) || {};
   const eintrag = { vat: '', ...neu, am: new Date().toISOString(), von: user.username || '' };
-  if (idx >= 0) _editKm.eintraege[idx] = { ..._editKm.eintraege[idx], ...eintrag };
-  else _editKm.eintraege.push(eintrag);
+  if (idx >= 0) {
+    // Leere Felder (etwa eine Zeile nur mit Betreff) lassen die vorhandenen Werte stehen
+    for (const k of ['vat', 'name', 'mail', 'betreff']) if (!eintrag[k]) delete eintrag[k];
+    _editKm.eintraege[idx] = { ..._editKm.eintraege[idx], ...eintrag };
+  } else _editKm.eintraege.push(eintrag);
 }
 
 function kmHinzufuegen() {
@@ -78,10 +82,12 @@ function kmHinzufuegen() {
   const kundennummer = document.getElementById('km-neu-nr').value.trim();
   const name = document.getElementById('km-neu-name').value.trim();
   const mail = document.getElementById('km-neu-mail').value.trim();
+  const betreff = document.getElementById('km-neu-betreff').value.trim();
   if (!kundennummer && !name) { showToast('Bitte Kunden-Nr. oder Namen angeben.', 'error'); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(mail)) { showToast('Ungültige E-Mail-Adresse.', 'error'); return; }
-  _kmEinfuegen({ werk, kundennummer, name, mail });
-  ['km-neu-nr', 'km-neu-name', 'km-neu-mail'].forEach(id => { document.getElementById(id).value = ''; });
+  if (!mail && !betreff) { showToast('Bitte Rechnungsadresse oder Betreff angeben.', 'error'); return; }
+  if (mail && !kundenMailGueltig(mail)) { showToast('Ungültige E-Mail-Adresse.', 'error'); return; }
+  _kmEinfuegen(Object.assign({ werk, kundennummer, name, mail }, betreff ? { betreff } : {}));
+  ['km-neu-nr', 'km-neu-name', 'km-neu-mail', 'km-neu-betreff'].forEach(id => { document.getElementById(id).value = ''; });
   _kmGeaendert = true;
   renderKundenMails();
   updateHint('ungespeicherte Änderungen');
@@ -101,7 +107,7 @@ function kmImportieren() {
 
 function kmEntfernen(i) {
   const e = _editKm.eintraege[i];
-  if (!e || !confirm(`Rechnungsadresse von ${e.name || e.kundennummer} (${e.mail}) entfernen?`)) return;
+  if (!e || !confirm(`Eintrag von ${e.name || e.kundennummer} (${e.mail || e.betreff}) entfernen?`)) return;
   _editKm.eintraege.splice(i, 1);
   _kmGeaendert = true;
   renderKundenMails();
