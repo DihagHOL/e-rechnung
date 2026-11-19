@@ -52,7 +52,7 @@ Betreff: Ohne Vorgabe heißt der Entwurf „Rechnung <Nummer> – Eisenwerk Arns
 | Vorgabe in der Kundenliste | Betreff der Mail |
 |---|---|
 | ein Wort, zum Beispiel Invoice, Faktura, Facture, Credit memo | „Invoice 92012345 – Eisenwerk Arnstadt GmbH“ |
-| Vorlage mit Platzhaltern, zum Beispiel AR_92xxxxxx_1001680_Datum | „AR_92012345_1001680_19.11.2026“: 92xxxxxx wird die Rechnungsnummer, Datum das Rechnungsdatum |
+| Vorlage mit Platzhaltern, zum Beispiel AR_92xxxxxx_1099002_Datum | „AR_92012345_1099002_19.11.2026“: 92xxxxxx wird die Rechnungsnummer, Datum das Rechnungsdatum |
 
 Das Wort gilt für jeden Beleg des Kunden, auch für eine Gutschrift. Der Mailtext bleibt deutsch. Vor dem Senden lässt sich der Betreff in Outlook ändern.
 

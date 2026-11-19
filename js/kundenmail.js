@@ -39,7 +39,7 @@ function kundenMailFinden(eintraege, d) {
  * Ein Wort wie „Invoice“ oder „Faktura“ ersetzt „Rechnung“ im üblichen Betreff
  * („Invoice 92001234 – Eisenwerk Arnstadt GmbH“). Eine Vorgabe mit Platzhaltern wird ganz
  * übernommen: eine Ziffernfolge mit xxx (z. B. 92xxxxxx) wird die Rechnungsnummer, „Datum“
- * das Rechnungsdatum (TT.MM.JJJJ), etwa AR_92xxxxxx_1001680_Datum.
+ * das Rechnungsdatum (TT.MM.JJJJ), etwa AR_92xxxxxx_1099002_Datum.
  */
 function kundenBetreff(eintraege, d) {
   const e = _kmSuchen(eintraege, d, 'betreff');
