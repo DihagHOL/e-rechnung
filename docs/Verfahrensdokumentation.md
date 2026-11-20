@@ -42,10 +42,14 @@ i. S. d. GoBD Rz. 151 (Inhalt, Aufbau, Ablauf, Ergebnisse).
    Werkszuordnung steht bereits durch das Postfach fest.
 2. Ein Power‑Automate‑Flow übergibt jede Anlage an **`POST /api/intake?werk=<Werk>`**.
    Das Tool: klassifiziert (`zugferd` | `xrechnung-xml` | `pdf-ohne-xml`), validiert
-   (KoSIT + veraPDF), erzeugt bei reiner XML ein lesbares PDF/A, prüft den Empfänger
+   (KoSIT + veraPDF), erzeugt aus der XML ein lesbares PDF/A (bei reiner XML, bei ZUGFeRD
+   mit PDF/A-3-Mangel und bei ZUGFeRD mit Warnungen), prüft den Empfänger
    gegen das Postfach‑Werk (`werkMismatch`) und liefert die Kopfdaten.
 3. Ablage in **`ERAR_<Werk>`**: Original + XML + lesbares PDF + KoSIT‑Bericht mit
    gesetzten Metadaten. Dateiname = **`<Nummer>_<StellerVat>`** (dublettensicher).
+   Werke mit Archiv-Mail (ZAI, HOL, LEG, EWA, DSO) schicken je E-Rechnung genau eine Datei
+   ins Archiv: das lesbare PDF aus der XML, sofern erzeugt, sonst das ZUGFeRD-PDF. Maßgeblich
+   ist die XML (UStAE 14.4 Abs. 3). Das Original bleibt unverändert in `ERAR_<Werk>`.
 4. **Buchung:** Sachbearbeiter prüft die lesbare Darstellung per Sicht, gleicht mit
    Referenzunterlagen ab (Bestellung/Lieferschein) und erfasst **manuell** im ERP.
    Zum Buchungszeitpunkt wird die archivierte XML über die **Belegnummer**

@@ -632,7 +632,8 @@ function _monGroup(recs) {
    (Leistungsnachweis, Lieferschein, Belege) kommen als Anlagen an die erste Rechnung der
    Mail. Gibt es keine, ist die ganze Mail eine Zeile, vorne das erste PDF mit
    Rechnungsnummer, sonst das erste. Die Archiv-Mail der Flows nimmt seit 19.11.2026 je
-   E-Rechnung nur deren lesbare PDF bzw. das ZUGFeRD-PDF, ohne die Anlagen. */
+   E-Rechnung genau eine Datei ohne die Anlagen: die lesbare PDF aus der XML (XRechnung,
+   ZUGFeRD mit Formatmangel oder gelb), sonst das ZUGFeRD-PDF. */
 
 // Auch mit gelesener Nummer keine Rechnung: Lieferscheine und Co. tragen eigene Nummern
 const MON_KEINE_RECHNUNG = /pro-?forma|mahnung|zahlungserinnerung|lieferschein|lieferavis|bestellung|auftrag|angebot|kontoauszug|schreiben|bericht|nachweis|anlage|anhang|kopie|duplikat|statement|(?:^|[^a-z])(?:agb|cmr)(?:[^a-z]|$)/i;

@@ -241,7 +241,7 @@ unterschiedlich an die Buchhaltung:
 | Flow | `E-R-Rechnung_WGC (nur Monitoring)`, `E-R-Rechnung_SHB (nur Monitoring)` (seit 05.11.2026; davor `E-R-Rechnung_WGC` und `E-R-Rechnung_SHB` mit der alten Liste, ausgeschaltet) | `E-R-Rechnung_ZAI`, `_HOL`, `_LEG`, `_EWA` |
 | Postfach | Rechnungspostfach des Werks | je Werk ein eigenes Rechnungspostfach (Adressen nicht im Repo, siehe Flow) |
 | Schleifenschutz am Anfang | nicht nötig | Betreff enthält „[ARCHIV]“ = eigene Archiv-Mail: nur in den Ordner `ArchiviertUndGeprueft` (Posteingang) verschieben, nicht verarbeiten |
-| Übergabe | keine, die Rechnung liegt mit Prüfergebnis in `ERAR_<Werk>` und erscheint im Monitoring. Bis 05.11.2026: Eintrag in der Eingangsrechnungsliste auf `gruppe_wgc` bzw. `gruppe_shb` mit Anlagen | Archiv-Mail aus dem eigenen Postfach an sich selbst, **je E-Rechnung eine** mit genau einer Datei: der lesbaren Rechnung bzw. dem ZUGFeRD-PDF. Weitere PDFs der Eingangsmail kommen seit 19.11.2026 nicht mit. Ohne E-Rechnung schicken HOL, LEG und EWA eine Archiv-Mail mit allen PDFs der Mail, ZAI je PDF eine (vom Admin-Konto). Betreff „[ARCHIV] Rechnung <Nr> — <Lieferant>“ |
+| Übergabe | keine, die Rechnung liegt mit Prüfergebnis in `ERAR_<Werk>` und erscheint im Monitoring. Bis 05.11.2026: Eintrag in der Eingangsrechnungsliste auf `gruppe_wgc` bzw. `gruppe_shb` mit Anlagen | Archiv-Mail aus dem eigenen Postfach an sich selbst, **je E-Rechnung eine** mit genau einer Datei: der lesbaren PDF aus der XML, sofern der Prüfdienst eine erzeugt (XRechnung, ZUGFeRD mit Formatmangel oder gelb), sonst dem ZUGFeRD-PDF. Weitere PDFs der Eingangsmail kommen seit 19.11.2026 nicht mit. Ohne E-Rechnung schicken HOL, LEG und EWA eine Archiv-Mail mit allen PDFs der Mail, ZAI je PDF eine (vom Admin-Konto). Betreff „[ARCHIV] Rechnung <Nr> — <Lieferant>“ |
 | Buchhaltung arbeitet in | dem Monitoring (Bearbeiten, Einschätzung, Genehmigung) | dem Postfachordner `ArchiviertUndGeprueft` (WebVerify: eine Archiv-Mail = ein Vorgang) |
 
 Aufbau in ZAI, HOL, LEG und EWA: oben `Archiv_pruefen` (bei ZAI `Bedingung_4`) mit dem
@@ -261,7 +261,8 @@ Mail.
    `Vorhandene_Datei` nicht in die Quere.
 3. In der Schleife, nach `Bedingung_1`: `Archiv_Anhang_merken` merkt die Datei (`Name`,
    `ContentBytes`: lesbares PDF als `<basis>_lesbar.pdf`, sonst das Original als
-   `<basis>.<endung>`), dazu `eRechnung` (Klassifizierung zugferd oder xrechnung-xml),
+   `<basis>.<endung>`; ein lesbares PDF liefert der Prüfdienst bei XRechnung, bei ZUGFeRD mit
+   Formatmangel und bei ZUGFeRD gelb, siehe „Lesbare PDF oder Original im Archiv“ unten), dazu `eRechnung` (Klassifizierung zugferd oder xrechnung-xml),
    `nr` (Rechnungsnummer, sonst `basis`), `mitNr` und `titel` „<Nr> — <Lieferant>“.
 4. `Dateieigenschaften_aktualisieren` schreibt zusätzlich `MailVorgang` =
    `workflow()?['run']?['name']`. Damit fasst das Monitoring nach derselben Regel zusammen
@@ -287,7 +288,7 @@ Mail.
    ist. Der Fehler bleibt also im Verlauf sichtbar.
 
 **Keine Anlagen bei E-Rechnungen (alle Werke mit Archiv-Mail, seit 19.11.2026).** Maßgeblich ist
-die E-Rechnung, ins Archiv kommt nur ihre lesbare PDF aus der XML bzw. das ZUGFeRD-PDF. Bis dahin
+die E-Rechnung, ins Archiv kommt je E-Rechnung genau eine Datei (welche, steht im nächsten Absatz). Bis dahin
 bekam die erste E-Rechnung einer Mail die normalen PDFs der Eingangsmail mit, bei ZAI ging jede PDF
 als eigene Archiv-Mail raus. Schickte ein Lieferant neben der XRechnung eine PDF-Kopie derselben
 Rechnung, lagen im Archiv zwei Fassungen, bei ZAI sogar zwei Vorgänge. Von September bis zum
@@ -299,6 +300,22 @@ Rechnung, lagen im Archiv zwei Fassungen, bei ZAI sogar zwei Vorgänge. Von Sept
   in der Eingangsmail und stehen im Monitoring als Anlage an der Rechnung. Der Text der Archiv-Mail
   nennt ihre Zahl.
 - Ohne E-Rechnung in der Mail bleibt es wie bisher.
+
+**Lesbare PDF oder Original im Archiv (Denis, 20.11.2026).** Bei einer E-Rechnung gilt die XML
+(UStAE 14.4 Abs. 3), nicht das Bild der PDF. Ins Archiv kommt deshalb die aus der XML erzeugte
+lesbare PDF, sobald etwas nicht ganz sauber ist:
+
+| E-Rechnung | Datei in der Archiv-Mail |
+|---|---|
+| XRechnung (nur XML) | lesbare PDF aus der XML |
+| ZUGFeRD mit Formatmangel (kein gültiges PDF/A-3) | lesbare PDF aus der XML, als technisch konvertiert gekennzeichnet |
+| ZUGFeRD gelb (gültig, mit Warnungen), seit 12.11.2026 | lesbare PDF aus der XML |
+| ZUGFeRD grün ohne Mangel | das Original-PDF des Lieferanten |
+
+Das Original liegt in jedem Fall unverändert in `ERAR_<Werk>`, die lesbare PDF ersetzt es nur in
+der Archiv-Mail. Gelbe ZUGFeRD-Rechnungen vor dem 12.11.2026 gingen noch als Original ins Archiv
+(etwa 4EBIT R211100 vom 03.11.2026), seitdem als lesbare PDF (bis 19.11.2026 rund 30 in HOL, LEG,
+EWA, ZAI und DSO).
 
 Dieselbe Änderung steckt in DSO und EIS, die den Aufbau von HOL übernommen haben
 ([Postfach-ueber-Graph.md](Postfach-ueber-Graph.md)). **ZAI** schickt ohne E-Rechnung weiter je PDF
