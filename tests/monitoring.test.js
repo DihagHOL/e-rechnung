@@ -435,6 +435,65 @@ gleich(M._monVorMonaten('2026-11-05T12:00:00Z', 6), '2026-05-05', 'sechs Monate 
   gleich(M._monDateienTauschen(alt, [d('E2', 's3'), d('I', 'i2')], new Set(['E2', 'A2', 'I']), new Set(['A2']), libsAlle).map(x => x.file),
     ['w1', 's3', 'sa1', 'i2'], 'Bibliothek mit Fehler behält die alten Dateien');
 
+  // Große Bibliothek: Rest des Zeitraums in Zeitfenstern gleichzeitig, jede Datei genau einmal,
+  // höchstens MON.gleichzeitig Abrufe auf einmal, danach „Ältere laden“ ab dem Stichtag
+  {
+    const vorher = { seite: M.MON.seite, gleichzeitig: M.MON.gleichzeitig };
+    M.MON.seite = 2; M.MON.gleichzeitig = 2;
+    const alle = [['f1', '2026-11-01'], ['f2', '2026-10-01'], ['f3', '2026-09-01'], ['f4', '2026-08-01'],
+      ['f5', '2026-07-01'], ['f6', '2026-06-01'], ['f7', '2026-04-01'], ['f8', '2026-03-01']].map(([id, tag]) => eintrag(id, tag));
+    const zwischen = (s, a, b) => { const i = s.indexOf(a); if (i < 0) return null; const j = s.indexOf(b, i + a.length); return s.slice(i + a.length, j); };
+    let aktiv = 0, hoechstens = 0;
+    const urls = [];
+    global.fetch = async url => {
+      urls.push(url);
+      aktiv++; hoechstens = Math.max(hoechstens, aktiv);
+      await new Promise(r => setTimeout(r, 5));
+      aktiv--;
+      const ab = zwischen(url, "Created ge '", "'");
+      const bis = zwischen(url, "Created lt '", "'");
+      let treffer = alle.filter(e => (!ab || e.createdDateTime >= ab) && (!bis || e.createdDateTime < bis));
+      if (url.includes('orderby')) treffer = treffer.slice().sort((a, b) => (a.createdDateTime < b.createdDateTime ? 1 : -1));
+      const ab0 = Number(zwischen(url + '&', '&skip=', '&') || 0);
+      const top = url.includes('$select=id&') ? 1 : M.MON.seite;
+      const teil = treffer.slice(ab0, ab0 + top);
+      const weiter = ab0 + top < treffer.length && top > 1 ? { '@odata.nextLink': url.split('&skip=')[0] + '&skip=' + (ab0 + top) } : {};
+      return { ok: true, json: async () => Object.assign({ value: teil }, weiter) };
+    };
+    const libF = { id: 'F', werk: 'EWA', richtung: 'Eingang' };
+    const geladen = [];
+    const merken = s => { geladen.push(...s.map(r => r.file)); return true; };
+    await M._monFetchLib('s', libF, 't', merken, '2026-05-05');
+    gleich(geladen.slice().sort(), ['f1.pdf', 'f2.pdf', 'f3.pdf', 'f4.pdf', 'f5.pdf', 'f6.pdf'], 'Zeitfenster: alles bis zum Stichtag, jede Datei einmal');
+    gleich(urls.filter(u => u.includes('Created ge')).length > 1, true, 'mehrere Fenster');
+    gleich(hoechstens <= 2, true, 'nie mehr Abrufe gleichzeitig als erlaubt');
+    const weiterUrl = M._monWeiter.get('F') || '';
+    gleich([weiterUrl.includes('orderby'), weiterUrl.includes("Created lt '2026-05-05T00:00:00Z'")], [true, true], '„Ältere laden“ beginnt am Stichtag');
+    await M._monFetchLib('s', libF, 't', merken, '2025-11-05');
+    gleich(geladen.slice(6), ['f7.pdf', 'f8.pdf'], 'Ältere: der Rest');
+    gleich(M._monWeiter.has('F'), false, 'dann nichts mehr offen');
+
+    // Feldauswahl abgelehnt: dieselbe Abfrage ohne Auswahl, die Bibliothek merkt sich das
+    const libS = { id: 'S', werk: 'EWA', richtung: 'Eingang' };
+    gleich(M._monFelderAuswahl(libS).startsWith('fields($select=FileLeafRef,'), true, 'Feldauswahl');
+    const echt = global.fetch;
+    global.fetch = async url => (url.includes('fields($select=FileLeafRef')
+      ? { ok: false, status: 400, text: async () => 'Spalte unbekannt', headers: { get: () => null } } : echt(url));
+    geladen.length = 0; M._monWeiter.clear();
+    await M._monFetchLib('s', libS, 't', merken, '2026-05-05');
+    gleich([geladen.length, M._monOhneAuswahl.has('S'), M._monFelderAuswahl(libS)], [6, true, 'fields'], 'ohne Auswahl weiter');
+    Object.assign(M.MON, vorher);
+    M._monWeiter.clear();
+  }
+
+  // Reihenfolge nach dem gleichzeitigen Laden: die neuesten zuerst, bei gleicher Zeit die höhere Id
+  gleich(M._monSortiert([{ itemId: '1', erstellt: '2026-10-01T10:00:00Z' }, { itemId: '3', erstellt: '2026-11-01T10:00:00Z' },
+    { itemId: '2', erstellt: '2026-11-01T10:00:00Z' }]).map(x => x.itemId), ['3', '2', '1'], 'Reihenfolge wie früher');
+
+  // Kalendertag in Deutschland (Winter- und Sommerzeit), auch beim zweiten Mal aus dem Gemerkten
+  gleich(['2026-11-19T23:30:00Z', '2026-07-01T22:30:00Z', '2026-07-01T21:30:00Z', '2026-07-01', '', '2026-11-19T23:30:00Z'].map(M._monTag),
+    ['2026-11-20', '2026-07-02', '2026-07-01', '2026-07-01', '', '2026-11-20'], 'Kalendertag');
+
   // Rechnungsart: Code aus dem Eingang mit Bezeichnung, Ausgang und Unbekanntes unverändert
 gleich(['380', '381', ' 325 ', '380 - Rechnung', '999', '', null].map(M._monRechnungsart),
   ['380 - Rechnung', '381 - Gutschrift', '325 - Proformarechnung', '380 - Rechnung', '999', '', ''], 'Rechnungsart mit Bezeichnung');

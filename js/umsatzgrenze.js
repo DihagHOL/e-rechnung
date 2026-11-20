@@ -349,22 +349,48 @@ function ugLieferantFuer(r) {
   if (zu && zu.lieferant && d.lieferanten[zu.lieferant]) return treffer(zu.lieferant, 'rechnung');
   // Die Nummer des empfangenden Werks blendet schon das Monitoring aus (_monMap). Eine Konzernnummer
   // im Register zählt nur bei einem Konzernnamen, sonst ist sie eine falsch gelesene Kunden-Nummer.
+  const ix = _ugIndex(d.lieferanten);
   const vat = ugVat(r.ustid);
-  const regVat = k => ugVat(d.lieferanten[k].vat, d.lieferanten[k].name);
-  if (vat) {
-    const k = Object.keys(d.lieferanten).find(x => regVat(x) === vat);
-    if (k) return treffer(k, 'vat');
-  }
+  const regVat = k => ix.regVat.get(k);
+  if (vat && ix.vat.has(vat)) return treffer(ix.vat.get(vat), 'vat');
   const name = ugKey(r.steller);
   const passt = k => !(vat && regVat(k) && regVat(k) !== vat);
   if (name && d.lieferanten[name] && passt(name)) return treffer(name, 'name');
-  const k = name.length >= 5 && Object.keys(d.lieferanten).find(x => passt(x)
-    && (d.lieferanten[x].aliase || []).some(a => ugKey(a) === name));
+  const k = name.length >= 5 && (ix.alias.get(name) || []).find(passt);
   if (k) return treffer(k, 'alias');
   const absender = String(r.absenderMail || '').trim().toLowerCase();
-  const perMail = absender && _ugAbsenderOk(absender)
-    && Object.keys(d.lieferanten).find(x => passt(x) && String(d.lieferanten[x].mail || '').trim().toLowerCase() === absender);
+  const perMail = absender && _ugAbsenderOk(absender) && (ix.mail.get(absender) || []).find(passt);
   return perMail ? treffer(perMail, 'absender') : null;
+}
+
+/*
+ * Suchindex über das Register: USt-IdNr., frühere Schreibweisen und Absender je Lieferant, jeweils
+ * in der Reihenfolge des Registers (wie die frühere Suche mit find). Das Monitoring fragt je
+ * Rechnung mehrmals nach dem Lieferanten. Ohne Index lief jede Frage über alle Lieferanten,
+ * gemessen 211 ms für die Dubletten-Prüfung von 2.562 Rechnungen. Das Register wird bei jeder
+ * Änderung als neues Objekt ersetzt (_ugSchreiben, ugLaden), deshalb gilt der Index je Objekt.
+ */
+const _ugIndexe = new WeakMap();
+function _ugIndex(lieferanten) {
+  let ix = _ugIndexe.get(lieferanten);
+  if (ix) return ix;
+  ix = { regVat: new Map(), vat: new Map(), alias: new Map(), mail: new Map() };
+  const dazu = (map, schluessel, k) => {
+    if (!map.has(schluessel)) map.set(schluessel, []);
+    const liste = map.get(schluessel);
+    if (liste[liste.length - 1] !== k) liste.push(k);
+  };
+  for (const k of Object.keys(lieferanten)) {
+    const e = lieferanten[k] || {};
+    const v = ugVat(e.vat, e.name);
+    ix.regVat.set(k, v);
+    if (v && !ix.vat.has(v)) ix.vat.set(v, k);
+    for (const a of e.aliase || []) dazu(ix.alias, ugKey(a), k);
+    const m = String(e.mail || '').trim().toLowerCase();
+    if (m) dazu(ix.mail, m, k);
+  }
+  _ugIndexe.set(lieferanten, ix);
+  return ix;
 }
 
 /** Einschätzung zur 800k-Grenze: der Lieferant aus dem Register, sofern er eingeschätzt ist. */

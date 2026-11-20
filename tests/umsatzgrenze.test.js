@@ -288,7 +288,8 @@ delete global._esc; delete global._monDate;
   ok(ug.ugLieferantFuer(r({ absenderMail: 'rechnung@muster-leipzig.de' })).name === 'Muster GmbH', 'auch ohne gelesenen Namen');
   ok(!ug.ugLieferantFuer(r({ absenderMail: 'noreply@portal.test' })), 'noreply zählt nicht');
   ok(!ug.ugLieferantFuer(r({ absenderMail: 'andere@muster-leipzig.de' })), 'nur die gemerkte Adresse');
-  d.lieferanten['muster gmbh'].vat = 'DE111111111';
+  // Wie im Betrieb (_ugSchreiben): das Register wird ersetzt, nicht an Ort und Stelle geändert
+  d.lieferanten = Object.assign({}, d.lieferanten, { 'muster gmbh': Object.assign({}, d.lieferanten['muster gmbh'], { vat: 'DE111111111' }) });
   ok(!ug.ugLieferantFuer(r({ ustid: 'DE222222222', absenderMail: 'rechnung@muster-leipzig.de' })), 'andere USt-IdNr. geht vor');
   const { gruppen } = ug.ugOffeneLieferanten([r({ steller: 'Falsch Gelesen GmbH', absenderMail: 'rechnung@muster-leipzig.de' }), r({ baseKey: 'B', steller: 'Muster GmbH' })]);
   ok(gruppen.length === 1 && gruppen[0].name === 'Muster GmbH' && gruppen[0].rechnungen.length === 2 && gruppen[0].mails[0] === 'muster-leipzig.de', 'im Dialog eine Gruppe mit dem Namen aus dem Register');

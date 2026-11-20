@@ -39,16 +39,30 @@ Bibliotheken, die noch die Site-Rechte erben, bekommen dafür eigene Rechte (Kop
 
 ## Laden
 
-- **Nacheinander und seitenweise**: immer nur ein Abruf gegen SharePoint, die Tabelle
-  füllt sich nach jeder Seite, Fortschritt im Untertitel. 429/503 werden wiederholt, eine
-  Bibliothek mit Fehler hält die anderen nicht auf.
+- **Gleichzeitig** (seit 20.11.2026): Die Bibliotheken laden gleichzeitig, höchstens sechs
+  Abrufe auf einmal (`MON.gleichzeitig`), das gewählte Werk zuerst. Bis dahin lief immer nur
+  ein Abruf. Lieferantenregister, Mailaufträge und Spalten-Einstellungen laden nebenher,
+  gezeichnet wird ab dem Moment, in dem sie da sind, danach höchstens alle 300 ms
+  (`MON.zeichnenMs`) statt nach jeder Seite. Fortschritt im Untertitel. 429/503 werden
+  wiederholt, eine Bibliothek mit Fehler hält die anderen nicht auf.
+- **Nur die gebrauchten Spalten** (`MON_FELDER`, im Eingang dazu die Spalten der Bearbeitung),
+  500 Einträge je Abruf. Ohne Auswahl liefert Graph alle Spalten samt Systemspalten. Lehnt
+  Graph die Auswahl für eine Bibliothek ab, lädt sie ohne. Wer `_monMap` um eine Spalte
+  erweitert, muss sie in `MON_FELDER` eintragen, sonst bleibt sie leer.
 - **Neueste zuerst** (`$orderby=fields/Created desc`). Jenseits von 5000 Items verlangt
   `$orderby` eine indizierte `Created`-Spalte (setzt das Provisioning), sonst lädt das
   Monitoring ungeordnet alles.
+- **Große Bibliotheken in Zeitfenstern**: Ist die erste Seite voll und reicht noch nicht bis
+  zum Stichtag, liest das Monitoring den Rest des Zeitraums in bis zu zwölf Zeitfenstern
+  gleichzeitig (Filter auf `Created`), wie im RMS (dort 42 s nacheinander gegen 7 s in
+  Fenstern). Geht das nicht, geht es Seite für Seite weiter. Jede Datei zählt einmal.
+- **Rechenzeit**: Das Lieferantenregister hat einen Suchindex (USt-IdNr., Schreibweisen,
+  Absender), der Kalendertag wird mit einem gemerkten Formatierer berechnet. Gemessen am
+  Abzug vom 19.11.2026 (3.994 Dateien): Zusammenfassen und Dubletten 65 ms statt 440 ms.
 - **Die letzten 6 Monate** (`MON.ladeMonate`): Je Bibliothek endet das Laden, sobald eine
   Seite vor diesen Tag reicht. Liegt danach noch etwas, steht „geladen ab …“ unter dem Titel
   und der Knopf **„Ältere laden“** über der Tabelle holt je weitere 6 Monate, dort weiter, wo
-  das Laden aufgehört hat. Ein festes Limit gibt es nicht mehr. Kacheln, Suche und Dubletten
+  das Laden aufgehört hat (nächste Seite oder, nach Zeitfenstern, eine Abfrage ab dem Stichtag). Ein festes Limit gibt es nicht mehr. Kacheln, Suche und Dubletten
   gelten für das, was geladen ist. Eine Dublette zu einer Rechnung vor diesem Tag zeigt sich
   also erst nach „Ältere laden“.
 
@@ -392,7 +406,7 @@ Im Monitoring aus den geladenen Datensätzen (`_monMarkDupes`), ohne Extra-Spalt
   Lieferantenregister oder derselbe Name. Zwei verschiedene USt-IdNr. sind immer
   verschiedene Lieferanten.
 - **Gleiche Nummer, verschiedene Lieferanten** ist **keine** Dublette.
-- **Inhalt:** Nach dem Laden holt das Monitoring für die Dubletten die Prüfsumme der
+- **Inhalt:** Nach dem Laden holt das Monitoring für die Dubletten (gleichzeitig) die Prüfsumme der
   Originaldateien, die SharePoint ohnehin je Datei führt (`quickXorHash`). Das Abzeichen
   sagt dann **gleiche Datei** (dieselbe Rechnung ist mehrfach eingegangen) oder **anderer
   Inhalt** (bitte prüfen: Kopie, Korrektur oder neue Rechnung). Ohne Prüfsumme bleibt es

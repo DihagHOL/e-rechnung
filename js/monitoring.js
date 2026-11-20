@@ -2,8 +2,8 @@
  * Rechnungsmonitoring
  * ===================
  * Liest ALLE Rechnungsbibliotheken (ERAR_<Werk> = Eingang, AR_<Werk> = Ausgang)
- * einer eigenen SharePoint-Site aus, nacheinander und seitenweise (die letzten Monate,
- * Älteres auf Klick), aggregiert die
+ * einer eigenen SharePoint-Site aus, gleichzeitig und nur mit den gebrauchten Spalten (die
+ * letzten Monate, Älteres auf Klick), aggregiert die
  * Positionen und zeigt KPI-Kacheln + filterbare Tabelle (200 Zeilen je Seite).
  * Nutzt die vorhandene Auth/Graph-Infrastruktur
  * (auth.js, sharepoint.js: acquireToken, SP, _get).
@@ -18,7 +18,31 @@ const MON = {
   intakeRe: /^Rechnungseingang$/i, // zentrale Eingangsstufe (werkuebergreifend)
   ladeMonate: 6,                 // so weit zurück lädt die Seite beim Öffnen, „Ältere laden“ holt je so viel mehr
   tabelleSeite: 200,             // so viele Zeilen zeichnet die Tabelle auf einmal
+  seite: 500,                    // Einträge je Abruf bei Graph
+  gleichzeitig: 6,               // so viele Graph-Abrufe laufen höchstens auf einmal (_monGet)
+  fensterMax: 12,                // eine große Bibliothek wird in höchstens so vielen Zeitfenstern gleichzeitig gelesen
+  zeichnenMs: 300,               // während des Ladens höchstens so oft neu zeichnen
 };
+
+/*
+ * Spalten, die _monMap und die Bearbeitung (BH_FELDER, nur Eingang) lesen. Nur diese holt das
+ * Monitoring. Ohne Auswahl liefert Graph alle Spalten samt Systemspalten, ein Vielfaches an
+ * Daten. Lehnt Graph die Auswahl für eine Bibliothek ab, geht es dort ohne weiter (_monOhneAuswahl).
+ * Wer _monMap um eine Spalte erweitert, muss sie hier eintragen.
+ */
+const MON_FELDER = ['FileLeafRef', 'Title', 'Created', 'Richtung', 'Gesellschaft', 'Rechnungssteller', 'RechnungsstellerUStID',
+  'Rechnungsempfaenger', 'OriginalPdfName', 'Rechnungsdatum', 'Eingangszeitpunkt', 'Faelligkeitsdatum', 'AbsenderMail',
+  'MailVorgang', 'Rechnungsart', 'Bruttobetrag', 'Nettobetrag', 'Bestellnummer', 'Waehrung', 'Format', 'Verarbeitungsstatus',
+  'Konformitaet', 'Fehlermeldung', 'ValidierungsMeldung', '_ComplianceTag', 'GoBDArchiviert', 'Buchung', 'Formatmangel',
+  'ManuellePruefung', 'ManuellePruefungGrund', 'Rueckfrage', 'KonvertiertesPdf', 'KreditorAktion'];
+const _monOhneAuswahl = new Set();   // Bibliotheken, bei denen Graph die Feldauswahl abgelehnt hat
+
+/** Feldauswahl für Graph ($expand), je nach Richtung der Bibliothek. */
+function _monFelderAuswahl(lib) {
+  if (_monOhneAuswahl.has(lib.id)) return 'fields';
+  const bh = lib.richtung !== 'Ausgang' && typeof BH_FELDER === 'object' ? Object.values(BH_FELDER) : [];
+  return `fields($select=${Array.from(new Set(MON_FELDER.concat(bh))).join(',')})`;
+}
 
 let _monRecords = [];
 let _monRows = [];     // aktuell angezeigte Zeilen (Index fuer Buttons in der Tabelle)
@@ -99,28 +123,27 @@ async function loadMonitoring(accessList, optionen) {
         + '(bzw. keine, auf die Sie Zugriff haben). Provisionierungsskript ausführen.');
     }
 
-    // Einschaetzungen zur 800k-Umsatzgrenze (js/umsatzgrenze.js) und Mailaufträge
-    // (Liste KreditorMails) zuerst: beide sind klein, und die Zeilen zeigen Badges und
-    // Lieferantennamen dann schon beim ersten Zeichnen. Fehler sind nicht fatal.
-    // Beides gehört zum Eingang: Wer nur den Ausgang sieht (Vertrieb), lädt es nicht und
-    // bekommt auch keinen Hinweis, dass das Register fehlt.
+    // Einschätzungen zur 800k-Umsatzgrenze (js/umsatzgrenze.js), Mailaufträge (Liste KreditorMails)
+    // und die Vorgaben der Bearbeitung (js/bearbeitung.js) sind klein. Sie laden gleichzeitig mit den
+    // Bibliotheken, gezeichnet wird aber erst, wenn sie da sind: Die Zeilen zeigen dann gleich Badges
+    // und Lieferantennamen. Fehler sind nicht fatal. Register und Mailaufträge gehören zum Eingang:
+    // Wer nur den Ausgang sieht (Vertrieb), lädt sie nicht und bekommt auch keinen Hinweis, dass das
+    // Register fehlt.
     const nurAusgang = !!richtungen && !Object.values(richtungen).some(r => r.includes('Eingang'));
-    if (nurAusgang) {
-      if (typeof _ug !== 'undefined') { _ug.fehler = ''; _ug.mails = {}; _ug.mailListId = null; }
-    } else {
-      if (typeof ugLaden === 'function') await ugLaden(siteId, token);
-      if (typeof ugMailsLaden === 'function') await ugMailsLaden(siteId, token, listsRes.value || []);
-    }
-    // Vorgaben für die Bearbeitung (abas-Info je Werk, js/bearbeitung.js)
-    if (typeof bhLaden === 'function') await bhLaden(siteId, token);
+    if (nurAusgang && typeof _ug !== 'undefined') { _ug.fehler = ''; _ug.mails = {}; _ug.mailListId = null; }
+    const vorab = Promise.all([
+      !nurAusgang && typeof ugLaden === 'function' ? ugLaden(siteId, token) : null,
+      !nurAusgang && typeof ugMailsLaden === 'function' ? ugMailsLaden(siteId, token, listsRes.value || []) : null,
+      typeof bhLaden === 'function' ? bhLaden(siteId, token) : null,
+    ].map(p => Promise.resolve(p).catch(e => console.warn('Monitoring: Vorab-Daten nicht geladen:', e))));
     _monLibs = libs;
     // Zugewiesenes Werk vorwählen (Einstellungen), sonst „Alle Werke“
     const standardWerk = String((optionen && optionen.standardWerk) || '').toUpperCase();
     if (standardWerk && libs.some(l => l.werk === standardWerk)) _monFilter.werk = standardWerk;
 
-    // Bibliotheken NACHEINANDER und seitenweise laden, nicht alle parallel. So läuft
-    // immer nur ein Abruf, SharePoint drosselt nicht, und die Tabelle füllt sich
-    // schon während des Ladens. Eine Bibliothek mit Fehler hält die anderen nicht auf.
+    // Bibliotheken gleichzeitig laden (höchstens MON.gleichzeitig Abrufe auf einmal), das gewählte
+    // Werk zuerst. Die Tabelle füllt sich schon während des Ladens. Eine Bibliothek mit Fehler hält
+    // die anderen nicht auf.
     const lauf = ++_monLadeLauf;
     const recs = [];
     _monDateien = recs;
@@ -128,14 +151,23 @@ async function loadMonitoring(accessList, optionen) {
     _monWeiter.clear();
     _monRecords = [];
     _monLaedt = true;
+    _monVorabFertig = false;
     _monBuildFilterOptions(libs);
     const setup = document.getElementById('mon-setup');
     if (setup) setup.style.display = 'none';
     document.getElementById('mon-body').style.display = '';
     _monApply();
+    vorab.then(() => {
+      if (lauf !== _monLadeLauf) return;
+      _monVorabFertig = true;
+      _monUpdateBald(recs, lauf);
+    });
 
     const fehlerLibs = await _monLibsLaden(libs, token, lauf);
+    await vorab;
     if (lauf !== _monLadeLauf) return;
+    _monVorabFertig = true;
+    _monZeichnenAbbrechen();
     _monLaedt = false;
     if (fehlerLibs.length === libs.length) {
       return _monShowSetup('Fehler beim Laden',
@@ -153,22 +185,29 @@ async function loadMonitoring(accessList, optionen) {
 }
 
 /**
- * Bibliotheken nacheinander laden, liefert die Namen derer mit Fehler. Die Dateien kommen
- * nach recs und werden je Seite gezeichnet. Mit sofort = false (Aktualisieren eines Werks)
- * bleiben die alten Zeilen stehen, bis alles da ist.
+ * Bibliotheken gleichzeitig laden, liefert die Namen derer mit Fehler (in der Reihenfolge von
+ * libs). Das gewählte Werk kommt zuerst dran, wie viele Abrufe gleichzeitig laufen, regelt
+ * _monGet. Die Dateien kommen nach recs. Mit sofort = true wird höchstens alle MON.zeichnenMs
+ * gezeichnet, mit sofort = false (Aktualisieren eines Werks) bleiben die alten Zeilen stehen,
+ * bis alles da ist. Am Ende stehen die Dateien geordnet wie früher (_monSortiert).
  */
 async function _monLibsLaden(libs, token, lauf, recs = _monDateien, sofort = true) {
   const sub = document.getElementById('mon-subtitle');
   const fehlerLibs = [];
-  for (let i = 0; i < libs.length; i++) {
-    const lib = libs[i];
-    const zeile = () => { if (sub) sub.textContent = `Lade ${lib.name} (${i + 1} von ${libs.length}) · ${recs.length} Datei(en) bisher…`; };
-    zeile();
+  let fertig = 0;
+  const zeile = () => {
+    if (sub && lauf === _monLadeLauf) sub.textContent = `Lade ${libs.length} Bibliothek(en), ${fertig} fertig · ${recs.length} Datei(en) bisher…`;
+  };
+  zeile();
+  const werk = _monFilter.werk;
+  const zuerst = l => !!werk && l.werk === werk;
+  const reihe = libs.filter(zuerst).concat(libs.filter(l => !zuerst(l)));
+  await Promise.all(reihe.map(async lib => {
     try {
       await _monFetchLib(_monSiteId, lib, token, seite => {
         if (lauf !== _monLadeLauf) return false;   // neuer Ladevorgang -> diesen abbrechen
         recs.push(...seite);
-        if (sofort) _monUpdate(recs);
+        if (sofort) _monUpdateBald(recs, lauf);
         zeile();
         return true;
       }, _monAb);
@@ -176,12 +215,46 @@ async function _monLibsLaden(libs, token, lauf, recs = _monDateien, sofort = tru
       fehlerLibs.push(lib.name);
       console.warn('Monitoring: Bibliothek nicht geladen:', lib.name, e);
     }
-    if (lauf !== _monLadeLauf) return fehlerLibs;
-    // Typ, Buchung und Status kommen erst mit den Daten, Auswahl bleibt erhalten.
+    fertig++;
+    zeile();
+  }));
+  if (lauf !== _monLadeLauf) return fehlerLibs;
+  const geordnet = _monSortiert(recs);
+  recs.length = 0;
+  for (const d of geordnet) recs.push(d);
+  // Typ, Buchung und Status kommen erst mit den Daten, Auswahl bleibt erhalten.
+  _monBuildFilterOptions(_monLibs);
+  _monSyncControls();
+  return libs.filter(l => fehlerLibs.includes(l.name)).map(l => l.name);
+}
+
+/** Dateien in der Reihenfolge wie früher beim Laden nacheinander: nach Bibliothek, darin die neuesten zuerst. */
+function _monSortiert(recs) {
+  const pos = new Map(_monLibs.map((l, i) => [l.id, i]));
+  const rang = d => (pos.has(d.listId) ? pos.get(d.listId) : _monLibs.length);
+  return recs.slice().sort((a, b) => rang(a) - rang(b)
+    || (a.erstellt < b.erstellt ? 1 : a.erstellt > b.erstellt ? -1 : 0)
+    || (Number(b.itemId) || 0) - (Number(a.itemId) || 0));
+}
+
+// Während des Ladens nicht nach jeder Seite neu zeichnen (das fasst jedes Mal alle Dateien neu
+// zusammen), sondern höchstens alle MON.zeichnenMs. Vor den Vorab-Daten wird nicht gezeichnet.
+let _monZeichnenTimer = null;
+let _monVorabFertig = true;
+function _monUpdateBald(recs, lauf) {
+  if (_monZeichnenTimer) return;
+  _monZeichnenTimer = setTimeout(() => {
+    _monZeichnenTimer = null;
+    if (lauf !== _monLadeLauf || !_monVorabFertig) return;
+    _monUpdate(_monSortiert(recs));
     _monBuildFilterOptions(_monLibs);
     _monSyncControls();
-  }
-  return fehlerLibs;
+  }, MON.zeichnenMs);
+}
+
+function _monZeichnenAbbrechen() {
+  if (_monZeichnenTimer) clearTimeout(_monZeichnenTimer);
+  _monZeichnenTimer = null;
 }
 
 /** Tag „monate“ Monate vor dem Datum als JJJJ-MM-TT. */
@@ -226,6 +299,7 @@ async function _monAeltereLaden() {
   _monStandZeigen();
   const fehlerLibs = await _monLibsLaden(_monLibs.filter(l => _monWeiter.has(l.id)), token, lauf);
   if (lauf !== _monLadeLauf) return;
+  _monZeichnenAbbrechen();
   _monLaedt = false;
   _monUpdate(_monDateien);
   if (_monStand) _monStand.fehlerLibs = fehlerLibs;
@@ -284,15 +358,17 @@ async function _monAktualisieren() {
   _monStandZeigen();
   try {
     // Lieferantenregister und Mailaufträge sind klein und ändern sich durch andere Benutzer
-    // und den Versand-Flow. Sie gehören zum Eingang.
-    if (libs.some(l => l.richtung === 'Eingang') && !_monStand.nurAusgang) {
-      if (typeof ugLaden === 'function') await ugLaden(_monSiteId, token);
-      if (typeof ugMailsLaden === 'function' && typeof _ug !== 'undefined') {
-        await ugMailsLaden(_monSiteId, token, _ug.mailListId ? [{ id: _ug.mailListId, name: UG.mailListe }] : []);
-      }
-    }
+    // und den Versand-Flow. Sie gehören zum Eingang und laden gleichzeitig mit den Bibliotheken.
+    const mitEingang = libs.some(l => l.richtung === 'Eingang') && !_monStand.nurAusgang;
+    const vorab = Promise.all([
+      mitEingang && typeof ugLaden === 'function' ? ugLaden(_monSiteId, token) : null,
+      mitEingang && typeof ugMailsLaden === 'function' && typeof _ug !== 'undefined'
+        ? ugMailsLaden(_monSiteId, token, _ug.mailListId ? [{ id: _ug.mailListId, name: UG.mailListe }] : []) : null,
+    ]);
+    vorab.catch(() => {});   // ein Fehler kommt unten beim await an
     const neu = [];
     const fehlerLibs = await _monLibsLaden(libs, token, lauf, neu, false);
+    await vorab;
     if (lauf !== _monLadeLauf) return;
     const fehlerIds = new Set(libs.filter(l => fehlerLibs.includes(l.name)).map(l => l.id));
     for (const [id, url] of weiterVorher) if (fehlerIds.has(id)) _monWeiter.set(id, url);
@@ -338,63 +414,176 @@ function _monUpdate(recs) {
   _monApply();
 }
 
+// Höchstens MON.gleichzeitig Graph-Abrufe auf einmal. Wer warten muss, bekommt den Platz direkt
+// vom fertigen Abruf übergeben (so läuft nie einer zu viel).
+let _monAktiv = 0;
+const _monWartend = [];
+async function _monPlatz() {
+  if (_monAktiv < MON.gleichzeitig) { _monAktiv++; return; }
+  await new Promise(res => _monWartend.push(res));
+}
+function _monPlatzFrei() {
+  const naechster = _monWartend.shift();
+  if (naechster) naechster(); else _monAktiv--;
+}
+
 // Graph-GET mit Wiederholung bei Drosselung (429) oder kurzzeitig nicht verfügbar
-// (503): wartet Retry-After ab, sonst 2, 4, 8, 16 Sekunden.
+// (503): wartet Retry-After ab, sonst 2, 4, 8, 16 Sekunden. Der Prefer-Kopf erlaubt
+// Filter auf Created auch, wo die Spalte (noch) keinen Index hat.
 async function _monGet(url, token) {
-  for (let versuch = 0; ; versuch++) {
-    const resp = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
-    });
-    if (resp.ok) return resp.json();
-    if ((resp.status === 429 || resp.status === 503) && versuch < 4) {
-      const s = Number(resp.headers.get('Retry-After'));
-      const warten = (s > 0 ? Math.min(s, 60) : 2 ** (versuch + 1)) * 1000;
-      await new Promise(res => setTimeout(res, warten));
-      continue;
+  await _monPlatz();
+  try {
+    for (let versuch = 0; ; versuch++) {
+      const resp = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json',
+          'Prefer': 'HonorNonIndexedQueriesWarningMayFailRandomly' },
+      });
+      if (resp.ok) return resp.json();
+      if ((resp.status === 429 || resp.status === 503) && versuch < 4) {
+        const s = Number(resp.headers.get('Retry-After'));
+        const warten = (s > 0 ? Math.min(s, 60) : 2 ** (versuch + 1)) * 1000;
+        await new Promise(res => setTimeout(res, warten));
+        continue;
+      }
+      const msg = await resp.text();
+      throw new Error(`Graph GET (${resp.status}): ${msg.slice(0, 300)}`);
     }
-    const msg = await resp.text();
-    throw new Error(`Graph GET (${resp.status}): ${msg.slice(0, 300)}`);
+  } finally {
+    _monPlatzFrei();
   }
 }
 
-// Eine Bibliothek seitenweise abrufen. Sortiert NEUESTE ZUERST (fields/Created
-// desc): so stehen die aktuellen Rechnungen vorn, statt in der Graph-Default-Reihenfolge
-// (ID aufsteigend = älteste zuerst). $orderby verlangt jenseits von 5000 Items eine
-// indizierte Created-Spalte (Provisioning: provision-rechnungsmonitoring.ps1).
-// Wird die Sortierung abgelehnt (noch nicht indiziert), wird ungeordnet alles geladen.
-// Reicht eine Seite vor den Tag „ab“, endet der Abruf und die nächste Seite bleibt in
-// _monWeiter für „Ältere laden“. Ein zweiter Aufruf macht dort weiter. Jede Seite geht
-// sofort an onSeite(datensaetze). Gibt onSeite false zurück, endet der Abruf (neuer
-// Ladevorgang gestartet).
+// Eine Bibliothek abrufen, NEUESTE ZUERST (fields/Created desc): so stehen die aktuellen
+// Rechnungen vorn, statt in der Graph-Default-Reihenfolge (ID aufsteigend = älteste zuerst).
+// $orderby verlangt jenseits von 5000 Items eine indizierte Created-Spalte (Provisioning:
+// provision-rechnungsmonitoring.ps1). Wird die Sortierung abgelehnt (noch nicht indiziert),
+// wird ungeordnet alles geladen. Lehnt Graph die Feldauswahl ab, geht es ohne weiter.
+//
+// Ist die erste Seite voll und reicht noch nicht bis zum Tag „ab“, liest der Abruf den Rest des
+// Zeitraums in Zeitfenstern gleichzeitig (_monFenster) statt Seite für Seite nacheinander. Geht
+// das nicht, geht es Seite für Seite weiter. Reicht eine Seite vor den Tag „ab“, endet der Abruf,
+// und _monWeiter merkt sich, wo „Ältere laden“ weitermacht: die nächste Seite oder eine Abfrage
+// ab dem Tag „ab“ abwärts. Ein zweiter Aufruf macht dort weiter. Jede Seite geht sofort an
+// onSeite(datensaetze). Gibt onSeite false zurück, endet der Abruf (neuer Ladevorgang gestartet).
 async function _monFetchLib(siteId, lib, token, onSeite, ab) {
-  const base = `${SP.graphBase}/sites/${siteId}/lists/${lib.id}/items?$expand=fields&$top=200`;
+  const basis = () => `${SP.graphBase}/sites/${siteId}/lists/${lib.id}/items?$select=id,webUrl,createdDateTime`
+    + `&$expand=${_monFelderAuswahl(lib)}&$top=${MON.seite}`;
+  const sortiert = () => `${basis()}&$orderby=fields/Created desc`;
   const fortsetzung = _monWeiter.get(lib.id) || '';
-  let url = fortsetzung || `${base}&$orderby=fields/Created desc`;
   _monWeiter.delete(lib.id);
-  let ordered = true;
-  let pages = 0;
-  while (url) {
-    let page;
-    try {
-      page = await _monGet(url, token);
-    } catch (e) {
-      // Sortierung nicht möglich (unindiziert) -> einmalig ungeordnet neu starten.
-      if (ordered && pages === 0 && !fortsetzung) { ordered = false; url = base; continue; }
-      if (ordered && (pages || fortsetzung)) _monWeiter.set(lib.id, url);   // beim nächsten Klick dort weiter
-      throw e;
-    }
+  const gesehen = new Set();
+  // Einträge einer Antwort als Datensätze, jeder Eintrag nur einmal (Fenster und Seiten können sich überlappen)
+  const datensaetze = page => {
     const seite = [];
     for (const it of (page.value || [])) {
+      if (gesehen.has(it.id)) continue;
+      gesehen.add(it.id);
       const f = it.fields || {};
       if (!f.FileLeafRef && !f.Title) continue;             // Ordner / Leerzeilen überspringen
       seite.push(_monMap(it, f, lib));
     }
-    if (onSeite(seite) === false) return;
-    const weiter = page['@odata.nextLink'] || null;
-    pages++;
-    const aelteste = seite.length ? seite[seite.length - 1].erstellt : '';
-    if (weiter && ordered && ab && aelteste && aelteste < ab) { _monWeiter.set(lib.id, weiter); return; }
-    url = weiter;
+    return seite;
+  };
+  const aeltester = page => {
+    const v = page.value || [];
+    return v.length ? String(v[v.length - 1].createdDateTime || (v[v.length - 1].fields || {}).Created || '') : '';
+  };
+
+  let ordered = true;
+  let page;
+  if (fortsetzung) {
+    try {
+      page = await _monGet(fortsetzung, token);
+    } catch (e) {
+      _monWeiter.set(lib.id, fortsetzung);   // beim nächsten Klick dort weiter
+      throw e;
+    }
+  } else {
+    try {
+      page = await _monGet(sortiert(), token);
+    } catch (e) {
+      page = null;
+    }
+    if (!page && !_monOhneAuswahl.has(lib.id)) {
+      _monOhneAuswahl.add(lib.id);   // vielleicht nur die Feldauswahl: ohne sie noch einmal sortiert
+      try { page = await _monGet(sortiert(), token); } catch (e) { page = null; }
+    }
+    if (!page) {
+      ordered = false;               // Sortierung nicht möglich (unindiziert): ungeordnet alles
+      page = await _monGet(basis(), token);
+    }
+  }
+
+  let url = page['@odata.nextLink'] || null;
+  if (onSeite(datensaetze(page)) === false) return;
+  let alt = aeltester(page);
+  const voll = (page.value || []).length >= MON.seite * 0.9;
+  if (url && ordered && ab && alt && alt >= ab && voll) {
+    const ergebnis = await _monFenster(lib, token, basis, ab, alt, page, datensaetze, onSeite);
+    if (ergebnis === 'abbruch') return;
+    if (ergebnis === 'fertig') {
+      await _monAelteresMerken(siteId, lib, token, sortiert, ab);
+      return;
+    }
+    // Fenster gingen nicht: Seite für Seite weiter, schon Gelesenes zählt nicht doppelt
+  }
+  while (url) {
+    if (ordered && ab && alt && alt < ab) { _monWeiter.set(lib.id, url); return; }
+    try {
+      page = await _monGet(url, token);
+    } catch (e) {
+      if (ordered) _monWeiter.set(lib.id, url);   // beim nächsten Klick dort weiter
+      throw e;
+    }
+    if (onSeite(datensaetze(page)) === false) return;
+    alt = aeltester(page) || alt;
+    url = page['@odata.nextLink'] || null;
+  }
+}
+
+/**
+ * Den Rest des Zeitraums (vom Tag „ab“ bis zum ältesten Eintrag der ersten Seite) in Zeitfenstern
+ * gleichzeitig lesen. Die Zahl der Fenster schätzt sich aus der ersten Seite: So viele Einträge,
+ * wie sie in ihrer Zeitspanne hatte, erwartet der Abruf im Rest je gleich langer Spanne, höchstens
+ * MON.fensterMax Fenster. Liefert 'fertig', 'abbruch' (neuer Ladevorgang) oder 'fehler'.
+ * Gemessen im RMS (16.11.2026): 8.161 Einträge nacheinander 42 s, in acht Fenstern 7 s.
+ */
+async function _monFenster(lib, token, basis, ab, bis, erste, datensaetze, onSeite) {
+  const von = Date.parse(ab + 'T00:00:00Z');
+  const ende = Date.parse(bis) + 1000;   // die Sekunde des ältesten Eintrags gehört noch dazu
+  const v = erste.value || [];
+  const spanne = Date.parse(v[0].createdDateTime) - Date.parse(v[v.length - 1].createdDateTime);
+  if (!(ende > von) || isNaN(spanne)) return 'fehler';
+  const erwartet = v.length * (ende - von) / Math.max(spanne, 3600000);
+  const n = Math.max(1, Math.min(MON.fensterMax, Math.ceil(erwartet / MON.seite)));
+  const grenze = i => new Date(von + (ende - von) * i / n).toISOString();
+  const ABBRUCH = {};
+  try {
+    await Promise.all(Array.from({ length: n }, async (_, i) => {
+      let url = `${basis()}&$filter=fields/Created ge '${grenze(i)}' and fields/Created lt '${grenze(i + 1)}'`;
+      while (url) {
+        const page = await _monGet(url, token);
+        if (onSeite(datensaetze(page)) === false) throw ABBRUCH;
+        url = page['@odata.nextLink'] || null;
+      }
+    }));
+  } catch (e) {
+    if (e === ABBRUCH) return 'abbruch';
+    console.warn('Monitoring: Zeitfenster nicht lesbar, weiter Seite für Seite:', lib.name, e);
+    return 'fehler';
+  }
+  return 'fertig';
+}
+
+/** Gibt es in der Bibliothek Älteres als den Tag „ab“? Dann merkt sich „Ältere laden“ die Abfrage dafür. */
+async function _monAelteresMerken(siteId, lib, token, sortiert, ab) {
+  const aelter = `${sortiert()}&$filter=fields/Created lt '${ab}T00:00:00Z'`;
+  try {
+    const probe = await _monGet(`${SP.graphBase}/sites/${siteId}/lists/${lib.id}/items?$select=id`
+      + `&$expand=fields($select=Created)&$filter=fields/Created lt '${ab}T00:00:00Z'&$top=1`, token);
+    if ((probe.value || []).length) _monWeiter.set(lib.id, aelter);
+  } catch (e) {
+    _monWeiter.set(lib.id, aelter);   // unklar: Knopf lieber zeigen
   }
 }
 
@@ -870,11 +1059,13 @@ function _monMarkDupes(records) {
  */
 async function _monDublettenInhalt(lauf, token) {
   const offen = _monRecords.filter(r => r.dublette && !r.hash && r.listId && r.itemId).slice(0, 120);
+  const dateien = new Map(_monDateien.map(d => [d.listId + '|' + d.itemId, d]));
   let neu = 0;
-  for (const r of offen) {
+  // Gleichzeitig, _monGet begrenzt die Zahl der Abrufe
+  await Promise.all(offen.map(async r => {
     if (lauf !== _monLadeLauf) return;
-    const datei = _monDateien.find(d => d.listId === r.listId && d.itemId === r.itemId);
-    if (!datei || datei.hash) continue;
+    const datei = dateien.get(r.listId + '|' + r.itemId);
+    if (!datei || datei.hash) return;
     try {
       const di = await _monGet(`${SP.graphBase}/sites/${_monSiteId}/lists/${r.listId}/items/${r.itemId}/driveItem?$select=id,size,file`, token);
       const h = di && di.file && di.file.hashes;
@@ -883,7 +1074,7 @@ async function _monDublettenInhalt(lauf, token) {
     } catch (e) {
       console.warn('Monitoring: Prüfsumme nicht lesbar:', r.file, e);
     }
-  }
+  }));
   if (neu && lauf === _monLadeLauf) _monUpdate(_monDateien);
 }
 
@@ -2310,12 +2501,25 @@ function _monAlterText(s) {
  * Kalendertag (JJJJ-MM-TT) in Deutschland. Zeitpunkte mit Uhrzeit und Zeitzone
  * (SharePoint: UTC) werden umgerechnet, reine Tage bleiben, wie sie sind.
  */
+// Ein Intl.DateTimeFormat anzulegen kostet rund 0,2 ms. Je Aufruf neu waren das bei 4.000 Dateien
+// 0,8 Sekunden beim Laden und dasselbe bei jedem Filtern nach „Erstellt am“. Deshalb einmal anlegen
+// und gelesene Zeitpunkte merken.
+let _monTagFormat = null;
+const _monTagGemerkt = new Map();
 function _monTag(s) {
   const t = String(s || '').trim();
+  const gemerkt = _monTagGemerkt.get(t);
+  if (gemerkt !== undefined) return gemerkt;
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}.*(Z|[+-]\d{2}:?\d{2})$/.test(t)) return t;
   const d = new Date(t);
   if (isNaN(d)) return t;
-  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  if (!_monTagFormat) {
+    _monTagFormat = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit' });
+  }
+  const tag = _monTagFormat.format(d);
+  if (_monTagGemerkt.size > 200000) _monTagGemerkt.clear();
+  _monTagGemerkt.set(t, tag);
+  return tag;
 }
 
 function _monDate(s) {
@@ -2633,7 +2837,7 @@ function _esc(s) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { _monRechnungsart, _monFetchLib, _monVorMonaten, _monWeiter, _monHinweis, _monFormatmangel, _monGeprueftMoeglich, _monSichtbareSpalten, _monFilter, _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monDublettenNummer, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
+  module.exports = { MON, _monSortiert, _monFelderAuswahl, _monOhneAuswahl, _monTag, _monRechnungsart, _monFetchLib, _monVorMonaten, _monWeiter, _monHinweis, _monFormatmangel, _monGeprueftMoeglich, _monSichtbareSpalten, _monFilter, _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monDublettenNummer, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
     _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMatchFlag, _monMitNeuenSpalten, _monLibErlaubt, _monIstMahnung,
     _monLibsZumAktualisieren, _monDateienTauschen, _monBuchungText, _monPruefungOffen, _monBankKlaeren, _monVierAugen, _monPruefStand,
     _monErledigt, _monErledigtZelle, _monAlterText, _monZelle, _monGelesen, _monDatenKnopf };
