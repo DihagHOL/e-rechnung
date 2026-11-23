@@ -52,6 +52,31 @@ const BH_STATUS = ['Offen', 'In Genehmigung', 'Vorkasse&BE-Obligo', 'Vorkasse er
   'Gebucht (m. Prüfg rechn & Stammd)', 'Mahnung', 'In Klärung', 'KOPIE'];
 const BH_GENEHMIGT = ['Ja', 'Nein', 'Abgelehnt', 'In Prüfung', 'Keine Rechnung', 'Vertrag', 'bezahlt', 'Verkauf', 'XML'];
 
+// SCH, SHB und WGC arbeiten mit der Statusliste der alten Eingangsrechnungsliste. In allen
+// anderen Werken markieren die Kolleginnen und Kollegen Mahnungen und Informationen (keine
+// Rechnung). Ohne Bearbeiten im Monitoring geht das über den Knopf „Status“, mit Bearbeiten im
+// Dialog. Gespeichert wird beides in Bearbeitungsstatus (seit 23.11.2026).
+const BH_STATUS_KLASSISCH = ['SCH', 'SHB', 'WGC'];
+const BH_MARKIERUNG = ['Mahnung', 'Information'];
+
+/** Darf man im Werk Mahnungen und Informationen markieren (alle außer SCH, SHB, WGC)? */
+function bhMarkierenAn(werk) {
+  const w = String(werk || '').toUpperCase();
+  return !!w && !BH_STATUS_KLASSISCH.includes(w);
+}
+
+/** Statuswerte im Bearbeiten-Dialog: die alte Liste, außerhalb von SCH, SHB und WGC mit „Information“. */
+function bhStatusWerte(werk) {
+  if (!bhMarkierenAn(werk)) return BH_STATUS;
+  const i = BH_STATUS.indexOf('Mahnung');
+  return BH_STATUS.slice(0, i + 1).concat('Information', BH_STATUS.slice(i + 1));
+}
+
+/** Mahnung oder Information aus dem Bearbeitungsstatus, sonst ''. */
+function bhMarkierung(bstatus) {
+  return BH_MARKIERUNG.includes(bstatus) ? bstatus : '';
+}
+
 const BH_EINSTELLUNGEN = 'Monitoring/monitoring-einstellungen.json';
 
 const _bh = { siteId: null, einst: { version: 1, werke: {} }, einstItemId: null, einstETag: null, einstFehler: '' };
@@ -268,6 +293,7 @@ function bhWarnungen(r) {
   const punkt = (text, vorher) => w.push({ text, vorher });
   if (r.dublette) punkt('Dublette: ' + (r.dubletteInfo || 'gleiche Rechnungsnummer beim selben Lieferanten') + '. Nicht doppelt buchen.', true);
   if (r.mahnung) punkt('Mahnung oder Zahlungserinnerung, keine Rechnung. Nicht buchen.', true);
+  if (r.info) punkt('Als Information markiert, keine Rechnung. Nicht buchen.', true);
   if (typeof _monPruefungOffen === 'function' && _monPruefungOffen(r)) {
     punkt('Prüfung nicht gelaufen (Prüfdienst nicht erreichbar). Die IT muss die Prüfung neu anstoßen.', true);
   }
@@ -404,6 +430,63 @@ function _bhUebernehmen(r, felder) {
   }
 }
 
+/* ── Status in Werken ohne Bearbeiten: Mahnung oder Information ───────── */
+
+/**
+ * Kleiner Dialog für Werke ohne Bearbeiten im Monitoring (bhMarkierenAn, heute DSO, EIS, EWA,
+ * HOL, LEG, ZAI): Die Datei ist keine Rechnung, sondern eine Mahnung oder eine Information
+ * (Zahlungsavis, Limitbestätigung, Preisinfo). Geschrieben wird Bearbeitungsstatus an der
+ * Datei der Rechnung (r.markQuelle, wie bhZiel).
+ */
+function bhMarkierenOeffnen(r, onGespeichert) {
+  const dlg = document.getElementById('bh-dialog');
+  if (!dlg || !r || !r.markQuelle) return;
+  const jetzt = r.markierung || '';
+  const betrag = r.brutto == null ? '' : r.brutto.toLocaleString('de-DE', { style: 'currency', currency: r.waehrung || 'EUR' });
+  const partner = typeof _monPartner === 'function' ? _monPartner(r) : (r.steller || '');
+  const wahl = [
+    ['', 'Kein Status', r.mahnungAuto ? 'Der Name sieht nach Mahnung aus, sie bleibt deshalb als Mahnung markiert.' : 'Normale Rechnung.'],
+    ['Mahnung', 'Mahnung', 'Mahnung oder Zahlungserinnerung zu einer Rechnung.'],
+    ['Information', 'Information', 'Zahlungsavis, Limitbestätigung, Preis- oder Lieferinfo.'],
+  ];
+  dlg.innerHTML = `
+    <form method="dialog" class="ug-form">
+      <div class="ug-kopf">
+        <h3>Status ${_esc(r.nummer || '')}</h3>
+        <button type="button" class="ug-x" data-bh-zu aria-label="Schließen">✕</button>
+      </div>
+      <p class="ug-regel">${_esc([partner, betrag, r.werk, typeof _monDate === 'function' ? _monDate(r.datum) : ''].filter(Boolean).join(' · '))}</p>
+      ${wahl.map(([wert, text, tipp]) => `<label class="bh-check"><input type="radio" name="bh-mark" value="${_esc(wert)}"${wert === jetzt ? ' checked' : ''}> <strong>${_esc(text)}</strong> <small>${_esc(tipp)}</small></label>`).join('')}
+      <p class="ug-hinweis">Mahnungen und Informationen sind keine Rechnung: keine 800k-Einschätzung, keine Dublette, und sie zählen bei „Eingang nicht geprüft“ nicht mehr mit.</p>
+      <p class="ug-meldung" id="bh-meldung" role="status"></p>
+      <div class="ug-aktionen">
+        <button type="button" class="ug-sek" data-bh-zu>Abbrechen</button>
+        <button type="button" class="ug-prim" data-bh-mark-speichern>Speichern</button>
+      </div>
+    </form>`;
+  dlg.querySelectorAll('[data-bh-zu]').forEach(x => x.addEventListener('click', () => dlg.close()));
+  dlg.querySelector('[data-bh-mark-speichern]').addEventListener('click', async () => {
+    const gewaehlt = dlg.querySelector('input[name="bh-mark"]:checked');
+    const wert = gewaehlt ? gewaehlt.value : '';
+    if (wert === jetzt) { dlg.close(); return; }
+    const knopf = dlg.querySelectorAll('.ug-aktionen button');
+    knopf.forEach(k => { k.disabled = true; });
+    _bhMeldung('Wird gespeichert…');
+    try {
+      const felder = { [BH_FELDER.bstatus]: wert || null };
+      await bhSchreiben({ werk: r.werk, bhQuelle: r.markQuelle }, felder);
+      _bhUebernehmen({ bhQuelle: r.markQuelle }, felder);
+      dlg.close();
+      if (typeof onGespeichert === 'function') onGespeichert();
+    } catch (e) {
+      _bhMeldung(e.message || String(e), 'nicht');
+      knopf.forEach(k => { k.disabled = false; });
+    }
+  });
+  if (dlg.open) return;
+  if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+}
+
 /* ── Anzeige in der Tabelle ────────────────────────────────────────────── */
 
 function bhZelle(r) {
@@ -519,7 +602,7 @@ function bhDialogOeffnen(r, onGespeichert, wechsel) {
       <div class="bh-raster">
         <label class="ug-lbl">Varialnummer<input id="bh-varial" value="${_esc(b.varial)}" autocomplete="off"></label>
         <label class="ug-lbl">Bestellnummer<input id="bh-bestellnr" value="${_esc(b.bestellnr)}" autocomplete="off"></label>
-        <label class="ug-lbl">Status<select id="bh-bstatus">${opt(BH_STATUS, b.bstatus || 'Offen')}</select></label>
+        <label class="ug-lbl">Status<select id="bh-bstatus">${opt(bhStatusWerte(r.werk), b.bstatus || 'Offen')}</select></label>
       </div>
       <label class="ug-lbl">Kontierung<textarea id="bh-kontierung" rows="3">${_esc(b.kontierung)}</textarea></label>
       <div class="bh-raster">
@@ -825,5 +908,5 @@ async function _bhSpeichern() {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { bhWarnungen, BH_FELDER, BH_STATUS, BH_GENEHMIGT, bhAusFeldern, bhZiel, bhZusammen, bhMails,
     bhAenderungen, bhAnforderung, bhKopfdaten, bhKopfAenderungen, bhKopfHinweis, bhGenehmigungsStand, bhInGenehmigung, bhOhneGenehmigung, bhZelle, bhMitEinschaetzung, bhStartReiter, bhReiter,
-    bhStatus, bhStatusZelle };
+    bhStatus, bhStatusZelle, bhMarkierenAn, bhStatusWerte, bhMarkierung, BH_STATUS_KLASSISCH };
 }

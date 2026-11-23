@@ -349,7 +349,8 @@ Tooltip nennt den gespeicherten Wert.
 
 Rechnungen gesamt · Eingang · Ausgang · **Fehler / rot** ·
 **Dubletten** · Vier-Augen offen · Rückfrage offen · Zurückweisung offen · 800k-Einschätzung
-offen · In Genehmigung (nur wenn ein Werk die Bearbeitung nutzt) · Typen. Die Kacheln
+offen · Mahnungen und Informationen (keine Rechnung, nur wenn es welche gibt) · In Genehmigung
+(nur wenn ein Werk die Bearbeitung nutzt) · Typen. Die Kacheln
 beziehen sich auf die gefilterte Auswahl, ein Klick filtert. Die drei Warteschlangen zählen
 seit 17.11.2026 nur, was noch offen ist: Vier-Augen ohne zweite Prüfung, Rückfragen ohne
 Markierung, Zurückweisungen, die noch nicht gesendet sind. „Fehler / rot“ zählt auch
@@ -377,6 +378,9 @@ den Eingang, der noch zu prüfen ist, **Eingang geprüft** den erledigten. Bei V
 (Reverse-Charge, innergemeinschaftlich, steuerfrei) gilt eine Rechnung erst mit der zweiten
 Prüfung als geprüft, „1 von 2“ steht also unter „nicht geprüft“. Wer eine Rechnung als geprüft
 markiert, sieht sie im Filter „nicht geprüft“ sofort verschwinden.
+Eine von Hand als Mahnung oder Information markierte Datei (Knopf „Status“, alle Werke außer
+SCH, SHB und WGC, siehe [Genehmigung-im-Monitoring.md](Genehmigung-im-Monitoring.md)) zählt
+als geprüft.
 
 ## Konformität + Klartext-Hinweis
 

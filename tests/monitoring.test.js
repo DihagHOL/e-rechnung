@@ -242,6 +242,52 @@ const paar = [Object.assign({}, rech, { ustid: 'DE811979246' }), Object.assign({
 M._monMarkDupes(paar);
 gleich([paar[0].dublette, paar[1].dublette], [false, false], 'Rechnung und Mahnung mit gleicher Nummer sind keine Dubletten');
 
+// Status von Hand: Mahnung oder Information, in allen Werken außer SCH, SHB und WGC
+{
+  const vorher = { an: global.bhBearbeitenAn, mark: global.bhMarkierenAn, wert: global.bhMarkierung, oeffnen: global.bhMarkierenOeffnen };
+  Object.assign(global, { bhBearbeitenAn: w => ['WGC', 'MEG'].includes(w), bhMarkierenAn: B.bhMarkierenAn, bhMarkierung: B.bhMarkierung,
+    bhMarkierenOeffnen: () => {} });
+  const im = werk => (name, f) => M._monMap({ id: werk + name, createdDateTime: '2026-11-20T09:00:00Z', webUrl: 'https://x/' + name },
+    Object.assign({ FileLeafRef: name }, f), { id: 'L-' + werk, werk, richtung: 'Eingang' });
+  const dso = im('DSO');
+  const [info] = M._monGroup([dso('Avis_77.pdf', { Format: 'PDF', Formatmangel: true, Title: '77', Bearbeitungsstatus: 'Information' })]);
+  gleich([info.bh, info.markierung, info.info, info.mahnung, !!info.markQuelle], [null, 'Information', true, false, true], 'DSO ohne Bearbeiten: Information');
+  gleich([M._monKeineRechnung(info), M._monMatchFlag(info, 'info'), M._monMatchFlag(info, 'fehler'), ug.ugSonstige(info)], [true, true, false, false],
+    'Information: keine Rechnung, kein Fehler, keine 800k-Einschätzung');
+  gleich([M._monPasstRichtung(info, 'Eingang nicht geprüft'), M._monPasstRichtung(info, 'Eingang geprüft')], [false, true], 'markiert zählt als erledigt');
+  gleich(/data-mark="3"[^>]*>Information ✎</.test(M._monMarkKnopf(info, 3)), true, 'Knopf zeigt den Status');
+  gleich(M._monZelle('geprueft', info, 3).includes('Keine Rechnung'), true, 'statt „Als geprüft markieren“');
+
+  const [mahnHand] = M._monGroup([dso('Schreiben_12.pdf', { Format: 'PDF', Title: '12', Bearbeitungsstatus: 'Mahnung' })]);
+  gleich([mahnHand.markierung, mahnHand.mahnung, mahnHand.info], ['Mahnung', true, false], 'Mahnung von Hand');
+  const [mahnName] = M._monGroup([dso('Mahnung_13.pdf', { Format: 'PDF', Title: '13' })]);
+  gleich([mahnName.markierung, mahnName.mahnung, M._monPasstRichtung(mahnName, 'Eingang nicht geprüft'), /Status</.test(M._monMarkKnopf(mahnName, 1))],
+    ['', true, true, true], 'am Namen erkannt: Mahnung, aber noch nicht erledigt');
+  const [umgestellt] = M._monGroup([dso('Erinnerung_14.pdf', { Format: 'PDF', Title: '14', Bearbeitungsstatus: 'Information' })]);
+  gleich([umgestellt.mahnung, umgestellt.info], [false, true], 'Information geht vor dem Namen');
+  const [normal] = M._monGroup([dso('4711_DE811979246.pdf', { Format: 'PDF', Title: '4711', Bearbeitungsstatus: 'Keine RG' })]);
+  gleich([normal.markierung, M._monKeineRechnung(normal), /Status</.test(M._monMarkKnopf(normal, 1))], ['', false, true], 'andere Werte zählen nicht');
+
+  // Gleiche Nummer wie die Rechnung: keine Dublette
+  const paarInfo = [Object.assign({}, rech, { ustid: 'DE811979246' }), Object.assign({}, info, { nummer: '4711', ustid: 'DE811979246', steller: 'Muster GmbH' })];
+  M._monMarkDupes(paarInfo);
+  gleich(paarInfo.map(x => x.dublette), [false, false], 'Rechnung und Information sind keine Dubletten');
+
+  // WGC (alte Statusliste) bleibt, wie es war. MEG hat Bearbeiten: Status im Dialog, kein eigener Knopf
+  const [wgc] = M._monGroup([im('WGC')('Schreiben_15.pdf', { Format: 'PDF', Title: '15', Bearbeitungsstatus: 'Mahnung' })]);
+  gleich([wgc.markierung, wgc.mahnung, !!wgc.bh, M._monMarkKnopf(wgc, 1)], ['', false, true, ''], 'WGC unverändert');
+  const [meg] = M._monGroup([im('MEG')('Avis_16.pdf', { Format: 'PDF', Title: '16', Bearbeitungsstatus: 'Information' })]);
+  gleich([meg.markierung, meg.info, !!meg.bh, M._monMarkKnopf(meg, 1)], ['Information', true, true, ''], 'MEG: Information aus dem Bearbeiten-Dialog');
+
+  // Von Hand markiert bleibt eine eigene Zeile, auch neben einer Rechnung in derselben Mail
+  const vg2 = M._monGroup([
+    dso('RE-900_DE811979246.pdf', { Format: 'PDF', Title: 'RE-900', OriginalPdfName: 'Rechnung RE-900.pdf', Bruttobetrag: 50, MailVorgang: 'L9' }),
+    dso('Mahnung_900.pdf', { Format: 'PDF', Title: 'RE-900', Bearbeitungsstatus: 'Mahnung', MailVorgang: 'L9' })]);
+  gleich(vg2.length, 2, 'markierte Mahnung nicht als Anlage versteckt');
+
+  Object.assign(global, { bhBearbeitenAn: vorher.an, bhMarkierenAn: vorher.mark, bhMarkierung: vorher.wert, bhMarkierenOeffnen: vorher.oeffnen });
+}
+
 // Rückfrage: Der Grund steht auch bei grünem Ergebnis in den Details
 gleich(M._monHinweis({ konform: 'Gelb - Warnungen', meldung: 'Materielle Abweichung Sichtbild ↔ XML: Bruttobetrag 119,00 € steht nicht im Sichtbild. Gebucht wird aus der XML. | Warnungen: [BR-DE-21] x', rueckfrage: true }),
   'Materielle Abweichung Sichtbild ↔ XML: Bruttobetrag 119,00 € steht nicht im Sichtbild. Gebucht wird aus der XML.', 'Rückfrage: Grund aus dem Abgleich vor den Regelcodes');

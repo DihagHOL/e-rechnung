@@ -121,8 +121,8 @@ function ugMitXml(r) {
  * fehlerhafter PDF/A-Hülle bringt die XML mit und braucht keine Einschätzung.
  */
 function ugSonstige(r) {
-  // Mahnungen sind keine Rechnung: keine Einschätzung, kein Kleinbetrag, keine Lieferanten-Info
-  return (r.richtung || '') === 'Eingang' && !!r.formatmangel && !r.mahnung && !ugMitXml(r);
+  // Mahnungen und Informationen sind keine Rechnung: keine Einschätzung, kein Kleinbetrag, keine Lieferanten-Info
+  return (r.richtung || '') === 'Eingang' && !!r.formatmangel && !r.mahnung && !r.info && !ugMitXml(r);
 }
 
 /** Passen die gelesenen Beträge zum üblichen Steuersatz? Dann bestätigen sie sich gegenseitig. */

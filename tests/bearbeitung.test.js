@@ -140,4 +140,14 @@ delete global._esc;
 gleich(B.BH_GENEHMIGT.length, 9, 'Genehmigt: 9 alte Werte');
 gleich(B.BH_STATUS.includes('Gebucht (m. Prüfg rechn & Stammd)'), true, 'Status Gebucht wie alt');
 
+// 9) Mahnung und Information: alle Werke außer SCH, SHB und WGC
+gleich(['DSO', 'eis', 'EWA', 'HOL', 'LEG', 'ZAI', 'MEG', 'SCH', 'SHB', 'WGC', ''].map(B.bhMarkierenAn),
+  [true, true, true, true, true, true, true, false, false, false, false], 'welche Werke');
+gleich(B.bhStatusWerte('WGC'), B.BH_STATUS, 'WGC: alte Liste');
+const megWerte = B.bhStatusWerte('MEG');
+gleich([megWerte.length, megWerte[megWerte.indexOf('Mahnung') + 1]], [B.BH_STATUS.length + 1, 'Information'], 'MEG: Information hinter Mahnung');
+gleich(B.BH_STATUS.includes('Information'), false, 'alte Liste selbst unverändert');
+gleich(['Mahnung', 'Information', 'Keine RG', '', null].map(B.bhMarkierung), ['Mahnung', 'Information', '', '', ''], 'Markierung aus dem Status');
+gleich(B.bhWarnungen({ richtung: 'Eingang', info: true }).map(x => x.text), ['Als Information markiert, keine Rechnung. Nicht buchen.'], 'Warnung im Dialog');
+
 console.log(`bearbeitung: ${n} Prüfungen grün`);

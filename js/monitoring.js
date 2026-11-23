@@ -699,6 +699,21 @@ function _monIstMahnung(...texte) {
   return texte.some(t => MON_MAHNUNG.test(String(t || '')));
 }
 
+/**
+ * Markierung von Hand anwenden: „Mahnung“ macht die Zeile zur Mahnung, „Information“ zur
+ * Information (auch wenn der Name nach Mahnung aussah), ohne Markierung gilt die Erkennung am Namen.
+ */
+function _monMarkierungAnwenden(r) {
+  const m = r.markierung || '';
+  r.mahnung = m === 'Mahnung' || (m !== 'Information' && !!r.mahnungAuto);
+  r.info = m === 'Information';
+}
+
+/** Keine Rechnung (Mahnung oder Information): kein Buchen, keine Einschätzung, keine Dublette. */
+function _monKeineRechnung(r) {
+  return !!r && (!!r.mahnung || !!r.info);
+}
+
 function _monTitelEcht(titel, stem, baseKey) {
   const t = String(titel || '').trim();
   if (!t || /\.(pdf|xml)$/i.test(t) || /_kosit-?bericht$|_lesbar$/i.test(t)) return false;
@@ -801,6 +816,17 @@ function _monGroup(recs) {
     } else {
       primary.bh = null;
     }
+    // Mahnung oder Information von Hand (alle Werke außer SCH, SHB, WGC): steht im
+    // Bearbeitungsstatus. Ohne Bearbeiten setzt ihn der Knopf „Status“ an derselben Datei.
+    primary.mahnungAuto = !!primary.mahnung;
+    primary.markierung = '';
+    if (typeof bhMarkierenAn === 'function' && typeof bhZiel === 'function' && !primary.intake
+        && primary.richtung === 'Eingang' && bhMarkierenAn(primary.werk)) {
+      if (!primary.bh) primary.markQuelle = bhZiel(arr);
+      const st = primary.bh ? primary.bh.bstatus : bhZusammen(arr, primary.markQuelle).bstatus;
+      primary.markierung = bhMarkierung(st);
+    }
+    _monMarkierungAnwenden(primary);
     // Rechnungsnummer: Title der Zieldatei (dort speichert „Bearbeiten“ eine Korrektur),
     // sonst der Original-Datei oder einer anderen Datei, sonst aus dem Dateinamen
     const mitTitel = [primary.bhQuelle, best].concat(arr).find(r => r && !r.nummerAusDatei && r.nummer);
@@ -858,6 +884,8 @@ function _monNummerKern(g) {
  */
 function _monEigeneRechnung(g) {
   const name = _monDateiname(g);
+  // Von Hand markiert (Mahnung, Information): bleibt eine eigene Zeile, damit man es sieht und zurücknehmen kann
+  if (g.markierung) return true;
   if (g.mahnung || MON_KEINE_RECHNUNG.test(name)) return false;
   const kern = _monNummerKern(g);
   if ((MON_RECHNUNG_IM_NAMEN.test(name) || MON_RECHNUNG_KURZ.test(name)) && (kern || g.brutto != null)) return true;
@@ -1013,7 +1041,7 @@ function _monMarkDupes(records) {
   const groups = new Map();
   for (const r of records) {
     r.dublette = false; r.dubletteArt = ''; r.dubletteInfo = '';
-    if (r.mahnung) continue;   // Mahnung trägt meist die Nummer der Rechnung, ist aber keine zweite
+    if (_monKeineRechnung(r)) continue;   // Mahnung trägt meist die Nummer der Rechnung, ist aber keine zweite
     const nr = _monDublettenNummer(r.nummer);
     if (!nr) continue;
     const kennung = _monLieferantKennung(r);
@@ -1154,13 +1182,14 @@ function _monGemeinsam(r) {
 
 function _monMatchFlag(r, flag) {
   switch (flag) {
-    case 'fehler':     return !r.mahnung && (r.status === 'Fehler' || /^rot/i.test(r.konform || '') || !!r.fehler || _monPruefungOffen(r));
+    case 'fehler':     return !_monKeineRechnung(r) && (r.status === 'Fehler' || /^rot/i.test(r.konform || '') || !!r.fehler || _monPruefungOffen(r));
     case 'dublette':   return !!r.dublette;
     // Warteschlangen der Buchhaltung (BPMN Rechnungseingang): nur, was noch offen ist
     case 'manuell':    return _monVierAugen(r) && !_monPruefStand(r).fertig;
-    case 'rueckfrage': return !r.mahnung && !!r.rueckfrage && !_monErledigt(r, 'rueckfrage');
+    case 'rueckfrage': return !_monKeineRechnung(r) && !!r.rueckfrage && !_monErledigt(r, 'rueckfrage');
     case 'mahnung':    return !!r.mahnung;
-    case 'zurueck':    return !r.mahnung && /zur(?:ü|ue)ckgew/i.test(r.buchung || '') && !_monErledigt(r, 'zurueckweisung');
+    case 'info':       return !!r.info;
+    case 'zurueck':    return !_monKeineRechnung(r) && /zur(?:ü|ue)ckgew/i.test(r.buchung || '') && !_monErledigt(r, 'zurueckweisung');
     case 'umsatz':     return typeof ugBraucht === 'function' && ugBraucht(r) && !ugFuer(r)
                               && ugPhase(r.datum) !== 'pflicht';
     case 'genehmigung': return typeof bhInGenehmigung === 'function' && bhInGenehmigung(r.bh)
@@ -1213,6 +1242,7 @@ function _monRenderKpis(rows) {
   const manuell    = rows.filter(r => _monMatchFlag(r, 'manuell')).length;
   const rueckfrage = rows.filter(r => _monMatchFlag(r, 'rueckfrage')).length;
   const mahnungen  = rows.filter(r => r.mahnung).length;
+  const infos      = rows.filter(r => r.info).length;
   const zurueck    = rows.filter(r => _monMatchFlag(r, 'zurueck')).length;
   // Sonstige Rechnungen ohne Einschaetzung zur 800k-Umsatzgrenze (js/umsatzgrenze.js).
   const umsatz     = rows.filter(r => _monMatchFlag(r, 'umsatz')).length;
@@ -1242,6 +1272,7 @@ function _monRenderKpis(rows) {
     { id: 'flag:zurueck',    label: 'Zurückweisung offen',   val: zurueck,    cls: zurueck ? 'bad' : '' },
     { id: 'flag:umsatz',     label: '800k-Einschätzung offen', val: umsatz,   cls: umsatz ? 'warn' : '' },
     ...(_monRecords.some(r => r.mahnung) ? [{ id: 'flag:mahnung', label: 'Mahnungen (keine Rechnung)', val: mahnungen, cls: '' }] : []),
+    ...(_monRecords.some(r => r.info) ? [{ id: 'flag:info', label: 'Informationen (keine Rechnung)', val: infos, cls: '' }] : []),
     ...(_monRecords.some(r => r.bh) ? [{ id: 'flag:genehmigung', label: 'In Genehmigung', val: genehmigung, cls: genehmigung ? 'warn' : '' }] : []),
     ...klassKeys.map(k => ({ id: 'k:' + k, label: k, val: klassCounts[k], cls: 'klass' })),
   ];
@@ -1579,12 +1610,13 @@ function _monPasstRichtung(r, wert) {
   if (!wert) return true;
   if (r.richtung !== _monRichtungBasis(wert)) return false;
   if (!Object.prototype.hasOwnProperty.call(MON_RICHTUNG_PRUEF, wert)) return true;
-  return _monPruefStand(r).fertig === MON_RICHTUNG_PRUEF[wert];
+  // Von Hand als Mahnung oder Information markiert = angesehen und erledigt
+  return (!!r.markierung || _monPruefStand(r).fertig) === MON_RICHTUNG_PRUEF[wert];
 }
 
 /** Vier-Augen-Prüfung nötig (Reverse-Charge, innergemeinschaftlich, steuerfrei)? */
 function _monVierAugen(r) {
-  return !!r && r.richtung !== 'Ausgang' && !r.mahnung && (!!r.manuellePruefung || /manuell/i.test(r.buchung || ''));
+  return !!r && r.richtung !== 'Ausgang' && !_monKeineRechnung(r) && (!!r.manuellePruefung || /manuell/i.test(r.buchung || ''));
 }
 
 /** Stand der Prüfung aus dem Lieferantenregister: { erste, zweite, fertig }. */
@@ -1627,7 +1659,7 @@ function _monErledigtText(r, art) {
 
 /** Knöpfe „Rückfrage gestellt“ / „IBAN bestätigt“ / „Zurückweisung gesendet“ in der Spalte Buchung. */
 function _monErledigtZelle(r, idx) {
-  if (!r || r.richtung === 'Ausgang' || r.mahnung || typeof ugRechnungSetzen !== 'function') return '';
+  if (!r || r.richtung === 'Ausgang' || _monKeineRechnung(r) || typeof ugRechnungSetzen !== 'function') return '';
   const arten = [];
   if (r.rueckfrage) arten.push('rueckfrage');
   if (/zur(?:ü|ue)ckgew/i.test(r.buchung || '')) arten.push('zurueckweisung');
@@ -1683,6 +1715,7 @@ function _monZelle(id, r, idx) {
     case 'geprueft': {
       // Markierung im Lieferantenregister (js/umsatzgrenze.js): ein Klick setzt sie, ein Klick auf ✓ nimmt sie zurück.
       // Reverse-Charge, innergemeinschaftlich, steuerfrei: zwei Prüfungen von verschiedenen Personen (Vier-Augen).
+      if (r.markierung && r.richtung !== 'Ausgang') return `<td><span class="mon-geprueft-wer" title="Von Hand als ${_esc(r.markierung)} markiert, keine Rechnung">Keine Rechnung</span></td>`;
       if (!_monGeprueftMoeglich(r)) return '<td></td>';
       const { erste: g, zweite: g2 } = _monPruefStand(r);
       const vier = _monVierAugen(r);
@@ -1713,9 +1746,11 @@ function _monZelle(id, r, idx) {
       return `<td>${r.status ? `<span class="pill pill-status">${_esc(r.status)}</span>` : ''}</td>`;
     }
     case 'buchung': {
-      if (r.mahnung) {
+      if (_monKeineRechnung(r)) {
+        const tipp = (r.info ? 'Information, keine Rechnung.' : 'Mahnung oder Zahlungserinnerung, keine Rechnung.')
+          + ' Nicht buchen, keine 800k-Einschätzung.' + (r.markierung ? ' Von Hand markiert.' : ' Am Namen erkannt.');
         return `<td>${r.buchung ? `<span class="pill pill-status">${_esc(r.buchung)}</span>` : ''}`
-          + `<div><span class="bh-pill bh-wartet" title="Mahnung oder Zahlungserinnerung, keine Rechnung. Nicht buchen, keine 800k-Einschätzung.">Mahnung</span></div></td>`;
+          + `<div><span class="bh-pill ${r.info ? 'bh-neutral' : 'bh-wartet'}" title="${_esc(tipp)}">${r.info ? 'Information' : 'Mahnung'}</span></div></td>`;
       }
       // Buchungssteuerung + Prüfschritt-Flags (UStAE/GoBD) + 800k-Einschätzung
       const flags = [];
@@ -1766,7 +1801,7 @@ function _monZelle(id, r, idx) {
         .concat(anlChip).join('');
       const bhTipp = (_monGemeinsam(r) ? '800k-Einschätzung, ' : '')
         + (typeof bhOhneGenehmigung === 'function' && bhOhneGenehmigung(r) ? 'Varialnummer, Kontierung, Notiz' : 'Varialnummer, Kontierung, Genehmigung');
-      return `<td>${bh ? `<button type="button" class="bh-btn" data-bh="${idx}" title="${bhTipp}">Bearbeiten</button>` : ''}${_monDatenKnopf(r, idx)}${dateien}</td>`;
+      return `<td>${bh ? `<button type="button" class="bh-btn" data-bh="${idx}" title="${bhTipp}">Bearbeiten</button>` : _monMarkKnopf(r, idx)}${_monDatenKnopf(r, idx)}${dateien}</td>`;
     }
     default: return '<td></td>';
   }
@@ -1879,7 +1914,7 @@ function _monDetail(r, idx) {
   const dateien = [r.url ? `<a href="${_esc(r.url)}" target="_blank" rel="noopener">${r.ext ? 'Original (' + _esc(r.ext.toUpperCase()) + ')' : 'Original'} ↗</a>` : '']
     .concat((r.dateien || []).map(d => `<a href="${_esc(d.url)}" target="_blank" rel="noopener">${_esc(d.label)} ↗</a>`))
     .filter(Boolean).join('<br>');
-  const aktionen = (b ? `<button type="button" class="bh-btn" data-bh="${idx}">Bearbeiten</button>` : '')
+  const aktionen = (b ? `<button type="button" class="bh-btn" data-bh="${idx}">Bearbeiten</button>` : _monMarkKnopf(r, idx))
     + _monDatenKnopf(r, idx)
     + (sonstige && typeof ugZelle === 'function' ? ugZelle(r, idx, _monGemeinsam(r)) : '')
     + _monErledigtZelle(r, idx);
@@ -1890,7 +1925,7 @@ function _monDetail(r, idx) {
   return `<div class="mon-det">`
     + block('Rechnung', [['Nummer', t(r.nummer) + (r.nummerAusDatei && r.nummer ? ' (aus dem Dateinamen)' : '')], ['Datum', t(_monDate(r.datum))],
         ['Erstellt am', t(_monZeit(r.erstellt))], ['Fällig am', t(_monDate(r.faelligkeit))],
-        ['Werk', t(r.werk)], ['Richtung', t(r.richtung)], ['Typ', t(_monKlass(r))], ['Rechnungsart', r.mahnung ? 'Mahnung (keine Rechnung)' : t(_monRechnungsart(r.art))],
+        ['Werk', t(r.werk)], ['Richtung', t(r.richtung)], ['Typ', t(_monKlass(r))], ['Rechnungsart', r.info ? 'Information (keine Rechnung)' : r.mahnung ? 'Mahnung (keine Rechnung)' : t(_monRechnungsart(r.art))],
         ['In derselben Mail', r.mailRechnungen ? t('Rechnung ' + r.mailRechnungen.join(', ')) : ''],
         ['Rechnungsdaten', t(datenText)]])
     + block(r.richtung === 'Eingang' ? 'Lieferant' : 'Kunde', [
@@ -2411,6 +2446,14 @@ function _monDatenKnopf(r, idx) {
     : `<button type="button" class="bh-btn" data-rd="${idx}" title="Aus der PDF gelesene Rechnungsdaten prüfen und korrigieren">Daten prüfen</button>`;
 }
 
+/** Knopf „Status“ (Mahnung, Information) in Werken ohne „Bearbeiten“, außer SCH, SHB und WGC. */
+function _monMarkKnopf(r, idx) {
+  if (!r || !r.markQuelle || typeof bhMarkierenOeffnen !== 'function') return '';
+  return r.markierung
+    ? `<button type="button" class="bh-btn" data-mark="${idx}" title="${_esc(`Von Hand als ${r.markierung} markiert. Klicken zum Ändern.`)}">${_esc(r.markierung)} ✎</button>`
+    : `<button type="button" class="bh-btn" data-mark="${idx}" title="Als Mahnung oder Information markieren (keine Rechnung)">Status</button>`;
+}
+
 /** Woher der Name stammt und ob er bestätigt ist, als Zusatz in Klammern ('' bei XML ohne Siegel). */
 function _monPartnerQuelle(r, p) {
   if (p.quelle === 'gelesen') return ' (aus der Rechnung gelesen, nicht bestätigt)';
@@ -2635,7 +2678,7 @@ function _monRenderChips() {
   const KONF = { gr: 'grün', gel: 'gelb', rot: 'rot', sonst: 'keine E-Rechnung' };
   const FLAG = { offen: 'Offen', fehler: 'Fehler / rot', dublette: 'Dubletten',
                  manuell: 'Vier-Augen offen', rueckfrage: 'Rückfrage offen', zurueck: 'Zurückweisung offen',
-                 umsatz: '800k-Einschätzung offen', genehmigung: 'In Genehmigung', mahnung: 'Mahnungen' };
+                 umsatz: '800k-Einschätzung offen', genehmigung: 'In Genehmigung', mahnung: 'Mahnungen', info: 'Informationen' };
   const deDate = s => s.split('-').reverse().join('.');
   const chips = [];
   if (f.werk)     chips.push(['werk', 'Werk: ' + f.werk]);
@@ -2768,6 +2811,13 @@ function monInitFilterEvents() {
       else if (r) bhDialogOeffnen(r, nachBh);
       return;
     }
+    const mark = e.target.closest('[data-mark]');
+    if (mark && typeof bhMarkierenOeffnen === 'function') {
+      const r = _monRows[Number(mark.getAttribute('data-mark'))];
+      // Danach neu zusammenfassen: Mahnung und Information zählen nicht als Dublette und nicht als offen
+      if (r) bhMarkierenOeffnen(r, () => { _monRecords = _monGroup(_monDateien); _monMarkDupes(_monRecords); _monBuildFilterOptions(_monLibs); _monSyncControls(); _monApply(); });
+      return;
+    }
     const rd = e.target.closest('[data-rd]');
     if (rd && typeof rdDialogOeffnen === 'function') {
       const r = _monRows[Number(rd.getAttribute('data-rd'))];
@@ -2839,6 +2889,7 @@ function _esc(s) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { MON, _monSortiert, _monFelderAuswahl, _monOhneAuswahl, _monTag, _monRechnungsart, _monFetchLib, _monVorMonaten, _monWeiter, _monHinweis, _monFormatmangel, _monGeprueftMoeglich, _monSichtbareSpalten, _monFilter, _monMap, _monGroup, _monMailVorgaenge, _monMarkDupes, _monDublettenNummer, _monTitelEcht, _monNummerAusDatei, _monGleicherLieferant,
     _monPartnerSicher, _monZeit, _monSortVal, _monMatchBase, _monMatchFlag, _monMitNeuenSpalten, _monLibErlaubt, _monIstMahnung,
+    _monMarkierungAnwenden, _monKeineRechnung, _monPasstRichtung, _monMarkKnopf,
     _monLibsZumAktualisieren, _monDateienTauschen, _monBuchungText, _monPruefungOffen, _monBankKlaeren, _monVierAugen, _monPruefStand,
     _monErledigt, _monErledigtZelle, _monAlterText, _monZelle, _monGelesen, _monDatenKnopf };
 }

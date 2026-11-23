@@ -252,6 +252,24 @@ sind keine Rechnung: keine 800k-Einschätzung, kein Formatmangel-Hinweis, keine 
 Rechnung mit derselben Nummer, und sie zählen nicht unter „Offen“, „Fehler“, „Vier-Augen offen“
 oder „Rückfrage offen“. Die Kachel „Mahnungen (keine Rechnung)“ zeigt sie gesammelt.
 
+**Mahnung und Information von Hand (seit 23.11.2026, alle Werke außer SCH, SHB und WGC).**
+Nicht jede Mahnung verrät sich am Namen, und Zahlungsavise, Limitbestätigungen oder Preisinfos
+sind auch keine Rechnung. In Werken ohne „Bearbeiten“ (heute DSO, EIS, EWA, HOL, LEG, ZAI) steht
+dafür vorne in der Zeile der Knopf **„Status“** mit „Kein Status“, „Mahnung“ und „Information“.
+Gesetzt zeigt der Knopf den Wert („Information ✎“). In Werken mit „Bearbeiten“ (MEG) steht
+„Information“ in der Statusliste des Dialogs hinter „Mahnung“. SCH, SHB und WGC behalten die
+Liste der alten Eingangsrechnungsliste, dort ändert sich nichts.
+
+Gespeichert wird in `Bearbeitungsstatus` an der Datei der Rechnung (wie `bhZiel`). Eine von Hand
+markierte Mahnung oder Information gilt wie eine am Namen erkannte Mahnung als keine Rechnung.
+„Information“ geht dabei vor dem Namen. Zusätzlich zählt die Markierung als erledigt: Die Zeile
+fällt aus „Eingang nicht geprüft“ heraus, steht unter „Eingang geprüft“, und die Spalte „Geprüft“
+zeigt „Keine Rechnung“. Die Spalte „Buchung“ zeigt „Information“ grau bzw. „Mahnung“ gelb, die
+Kachel „Informationen (keine Rechnung)“ sammelt die Informationen. Eine markierte Datei bleibt
+eine eigene Zeile, auch neben einer Rechnung aus derselben Mail. Im Prozessmodell steht die
+Markierung noch nicht. In ERAR_EWA, _HOL, _LEG und _ZAI fehlte die Spalte `Bearbeitungsstatus`,
+sie ist dort am 23.11.2026 angelegt worden (Auswahl mit eigenen Werten, nicht in der Standardansicht).
+
 Die Rechnungsnummer lässt sich in beiden Reitern korrigieren. Auch die Nummer aus dem Reiter
 „800k-Einschätzung“ (oft aus dem PDF-Text gelesen) kommt beim Speichern an die Rechnung.
 

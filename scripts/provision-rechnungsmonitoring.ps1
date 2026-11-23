@@ -155,7 +155,7 @@ $Felder = @(
 $EingangFelder = @(
   @{ Name='Varialnummer';          Titel='Varialnummer';                   Typ='Text' }
   @{ Name='Kontierung';            Titel='Kontierung';                     Typ='Note' }
-  @{ Name='Bearbeitungsstatus';    Titel='Bearbeitungsstatus';             Typ='Choice'; FillIn=$true; Choices=@('Offen','In Genehmigung','Vorkasse&BE-Obligo','Vorkasse erfaßt','Keine RG','Gebucht (m. Prüfg rechn & Stammd)','Mahnung','In Klärung','KOPIE') }
+  @{ Name='Bearbeitungsstatus';    Titel='Bearbeitungsstatus';             Typ='Choice'; FillIn=$true; Choices=@('Offen','In Genehmigung','Vorkasse&BE-Obligo','Vorkasse erfaßt','Keine RG','Gebucht (m. Prüfg rechn & Stammd)','Mahnung','Information','In Klärung','KOPIE') }
   @{ Name='Genehmigt';             Titel='Genehmigt';                      Typ='Choice'; Choices=@('Ja','Nein','Abgelehnt','In Prüfung','Keine Rechnung','Vertrag','bezahlt','Verkauf','XML') }
   @{ Name='GenehmigungAn';         Titel='Genehmigung an';                 Typ='Text' }
   @{ Name='GenehmigtVon';          Titel='Genehmigt von';                  Typ='Text' }
