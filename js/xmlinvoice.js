@@ -76,13 +76,21 @@ function _xmlDate(s) {
   return '';
 }
 
-/** UN/ECE-Einheitencode → App-Einheit */
+/**
+ * UN/ECE-Einheitencode (Recommendation 20) → Einheit zum Anzeigen. Ein Code, den die Tabelle nicht
+ * kennt, bleibt als Code stehen: Eine unverständliche Einheit fällt auf, eine falsche („Stk“ statt
+ * KWH, 11/2026 bei SachsenEnergie) nicht. Ohne Code gilt Stück.
+ */
 function _unitFromCode(code) {
   const map = {
-    C62: 'Stk', HUR: 'h', KGM: 'kg', MTR: 'm', MTK: 'm²', MTQ: 'm³',
-    LTR: 'l', DAY: 'Tag', MON: 'Monat', KMT: 'km', LS: 'Pausch.',
+    C62: 'Stk', H87: 'Stk', PCE: 'Stk', EA: 'Stk', NAR: 'Stk', SET: 'Satz', PR: 'Paar', LS: 'Pausch.',
+    HUR: 'h', MIN: 'min', DAY: 'Tag', WEE: 'Woche', MON: 'Monat', ANN: 'Jahr',
+    KGM: 'kg', GRM: 'g', TNE: 't',
+    MTR: 'm', CMT: 'cm', MMT: 'mm', KMT: 'km', MTK: 'm²', MTQ: 'm³', LTR: 'l',
+    KWH: 'kWh', MWH: 'MWh', KWT: 'kW', K1: 'kW',
   };
-  return map[code] || 'Stk';
+  const c = String(code || '').trim();
+  return c ? (map[c.toUpperCase()] || c) : 'Stk';
 }
 
 /* ══════════════════════════════════════════════════════
