@@ -94,6 +94,15 @@ recs = [z('Proformarechnung 9900012345 v. 11.11.2026', { ustid: 'DE111111111', s
   z('Proformarechnung 9900012345', { ustid: 'DE111111111', steller: 'Muster GmbH', ext: 'pdf', format: 'PDF' })];
 M._monMarkDupes(recs);
 gleich(recs.map(r => r.dublette), [true, true], 'weitergeleitete Kopie mit kürzerem Anhangnamen');
+// Ohne Ziffer ist der Name keine Rechnungsnummer: verschiedene Rechnungen sind keine Dublette
+recs = [z('Wolff&Müller Quarzsande Rechnung', { ustid: 'DE111111111', steller: 'Muster GmbH', ext: 'pdf', format: 'PDF', brutto: 1835.41 }),
+  z('Wolff&Müller Quarzsande Rechnung', { ustid: 'DE111111111', steller: 'Muster GmbH', ext: 'pdf', format: 'PDF', brutto: 1771.84 }),
+  z('TEXT', { ustid: 'DE111111111', steller: 'Muster GmbH', ext: 'pdf', format: 'PDF' }), z('TEXT', { ustid: 'DE111111111', steller: 'Muster GmbH', ext: 'pdf', format: 'PDF' })];
+M._monMarkDupes(recs);
+gleich(recs.map(r => r.dublette), [false, false, false, false], 'Dateiname ohne Ziffer ist keine Nummer');
+recs = [z('TEXT 4711', { ustid: 'DE111111111', steller: 'Muster GmbH', ext: 'pdf', format: 'PDF' }), z('TEXT 4711', { ustid: 'DE111111111', steller: 'Muster GmbH', ext: 'pdf', format: 'PDF' })];
+M._monMarkDupes(recs);
+gleich(recs.map(r => r.dublette), [true, true], 'mit Ziffer weiter eine Dublette');
 
 // 6) Lieferant aus dem Register: an der Rechnung bestätigt geht vor der XML
 ug._ug.daten = { version: 1, lieferanten: { 'muster gmbh': { name: 'Muster GmbH', vat: 'DE111111111' } },

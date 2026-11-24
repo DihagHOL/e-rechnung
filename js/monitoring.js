@@ -1044,6 +1044,10 @@ function _monMarkDupes(records) {
     if (_monKeineRechnung(r)) continue;   // Mahnung trägt meist die Nummer der Rechnung, ist aber keine zweite
     const nr = _monDublettenNummer(r.nummer);
     if (!nr) continue;
+    // Ohne Ziffer ist es keine Rechnungsnummer, sondern ein Dateiname wie „TEXT“ oder
+    // „Wolff&Müller Quarzsande Rechnung“. Verschiedene Rechnungen desselben Lieferanten
+    // wären sonst eine Dublette (EWA, MEG und LEG im November 2026, 15 Zeilen).
+    if (!/[0-9]/.test(nr)) continue;
     const kennung = _monLieferantKennung(r);
     if (!kennung.vat && !kennung.reg && !kennung.name) continue;   // ohne Lieferant nicht bewertbar
     const key = [r.werk, r.richtung, nr].join('|');

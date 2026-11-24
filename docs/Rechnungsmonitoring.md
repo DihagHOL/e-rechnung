@@ -405,7 +405,9 @@ Im Monitoring aus den geladenen Datensätzen (`_monMarkDupes`), ohne Extra-Spalt
   „Kopie“ und das Wort Rechnung zählen deshalb nicht mit, führende Nullen auch nicht.
   „Proformarechnung 9900012345 v. 11.11.2026“ und die weitergeleitete
   „Proformarechnung 9900012345“ sind dieselbe Nummer. Vorsilben wie Proforma, Storno oder
-  Abschlags bleiben, ebenso Monatsnamen. Bleibt keine Ziffer übrig, zählt der ganze Text.
+  Abschlags bleiben, ebenso Monatsnamen. Ein Name ohne Ziffer („TEXT“, „Wolff&Müller Quarzsande
+Rechnung“) ist keine Rechnungsnummer und wird nicht verglichen (seit 24.11.2026, vorher waren es
+verschiedene Rechnungen, die als Dublette galten).
 - **Derselbe Lieferant** heißt: gleiche USt-IdNr., sonst derselbe Eintrag im
   Lieferantenregister oder derselbe Name. Zwei verschiedene USt-IdNr. sind immer
   verschiedene Lieferanten.
