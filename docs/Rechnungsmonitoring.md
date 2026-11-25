@@ -417,6 +417,9 @@ verschiedene Rechnungen, die als Dublette galten).
   sagt dann **gleiche Datei** (dieselbe Rechnung ist mehrfach eingegangen) oder **anderer
   Inhalt** (bitte prüfen: Kopie, Korrektur oder neue Rechnung). Ohne Prüfsumme bleibt es
   bei „mögliche Doppelerfassung“.
+- **Nach der Prüfung (seit 25.11.2026):** Ist eine der Dateien als geprüft markiert (bei Vier-Augen von
+  zwei Personen), gilt sie als die richtige und trägt die Markierung nicht mehr. Die weiteren
+  Exemplare bleiben markiert, mit dem Hinweis, dass eine Datei schon geprüft ist.
 
 **Nicht überschreiben:** Erkannt wird nur, was als **getrennte Dateien** abgelegt ist.
 `/api/intake` liefert den Dateinamen **`dateibasis`** = `<Nummer>_<StellerVat>`, damit

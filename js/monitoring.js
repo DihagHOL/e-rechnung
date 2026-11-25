@@ -1069,16 +1069,21 @@ function _monMarkDupes(records) {
       if (gruppe.length < 2) continue;
       const hashes = gruppe.map(g => g.r.hash || '');
       const art = hashes.every(Boolean) ? (new Set(hashes).size === 1 ? 'gleich' : 'anders') : '';
+      // Eine geprüfte Datei hat die Buchhaltung als die richtige entschieden: bei ihr keine Markierung mehr.
+      // Die weiteren Exemplare bleiben markiert, damit sie nicht noch einmal gebucht werden.
+      const geprueft = gruppe.filter(g => typeof _monPruefStand === 'function' && _monPruefStand(g.r).fertig);
+      const hinweis = geprueft.length ? ' Eine Datei dieser Rechnung ist schon geprüft, diese hier ist ein weiteres Exemplar.' : '';
       for (const { r } of gruppe) {
+        if (geprueft.some(g => g.r === r)) continue;
         const name = _monPartner(r) || r.steller || r.empf || '';
         const von = name ? ` von „${name}“` : '';
         r.dublette = true;
         r.dubletteArt = art;
-        r.dubletteInfo = art === 'gleich'
+        r.dubletteInfo = (art === 'gleich'
           ? `${gruppe.length}× dieselbe Datei: Rechnung „${r.nummer}“${von} ist mehrfach eingegangen.`
           : art === 'anders'
             ? `${gruppe.length}× Rechnungsnummer „${r.nummer}“${von}, die Dateien unterscheiden sich. Bitte prüfen: Kopie, Korrektur oder neue Rechnung?`
-            : `${gruppe.length}× Rechnungsnummer „${r.nummer}“${von}. Mögliche Doppelerfassung, bitte prüfen.`;
+            : `${gruppe.length}× Rechnungsnummer „${r.nummer}“${von}. Mögliche Doppelerfassung, bitte prüfen.`) + hinweis;
       }
     }
   }
@@ -1552,6 +1557,7 @@ async function _monGeprueftUmschalten(r, knopf, zweite) {
   } catch (e) {
     window.alert(e.message || String(e));
   }
+  _monMarkDupes(_monRecords);   // die geprüfte Datei verliert die Dublette-Markierung
   _monApply();
 }
 

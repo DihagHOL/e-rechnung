@@ -103,6 +103,14 @@ gleich(recs.map(r => r.dublette), [false, false, false, false], 'Dateiname ohne 
 recs = [z('TEXT 4711', { ustid: 'DE111111111', steller: 'Muster GmbH', ext: 'pdf', format: 'PDF' }), z('TEXT 4711', { ustid: 'DE111111111', steller: 'Muster GmbH', ext: 'pdf', format: 'PDF' })];
 M._monMarkDupes(recs);
 gleich(recs.map(r => r.dublette), [true, true], 'mit Ziffer weiter eine Dublette');
+// Nach der Prüfung: die geprüfte Datei verliert die Markierung, das weitere Exemplar bleibt markiert
+global.ugGeprueft = r => (r.geprueftTest ? { am: '2026-11-03T08:00:00Z' } : null);
+recs = [z('4711', { ustid: 'DE111111111', steller: 'Muster GmbH', ext: 'pdf', format: 'PDF', geprueftTest: true }),
+  z('4711', { ustid: 'DE111111111', steller: 'Muster GmbH', ext: 'pdf', format: 'PDF' })];
+M._monMarkDupes(recs);
+gleich(recs.map(r => r.dublette), [false, true], 'geprüfte Datei ohne Markierung, das weitere Exemplar bleibt');
+gleich(/schon geprüft/.test(recs[1].dubletteInfo), true, 'Hinweis am weiteren Exemplar');
+delete global.ugGeprueft;
 
 // 6) Lieferant aus dem Register: an der Rechnung bestätigt geht vor der XML
 ug._ug.daten = { version: 1, lieferanten: { 'muster gmbh': { name: 'Muster GmbH', vat: 'DE111111111' } },
