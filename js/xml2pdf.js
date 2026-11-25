@@ -165,6 +165,11 @@ async function buildInvoicePdf(data) {
   text('RECHNUNGSEMPFÄNGER', colB, y, { size: 7.5, bold: true, color: gray });
   y -= 14;
 
+  // Viele kleine Lieferanten tragen ihre USt-IdNr. oder Steuernummer als Kennung des Verkäufers (BT-29) ein.
+  // Das ist keine Lieferantennummer beim Kunden und steht schon in den Zeilen darüber.
+  const kennung = x => String(x || '').replace(/[\s./-]/g, '').toUpperCase();
+  const echteLieferantennr = data.lieferantennummer && kennung(data.lieferantennummer) !== kennung(data.verkaeufervat)
+    && kennung(data.lieferantennummer) !== kennung(data.verkaeufersteuernr) ? data.lieferantennummer : '';
   const sellerLines = [
     [data.verkaeufer, true],
     [data.verkaeufstrasse],
@@ -174,7 +179,7 @@ async function buildInvoicePdf(data) {
     [data.verkaeufersteuernr ? `Steuernr.: ${data.verkaeufersteuernr}` : ''],
     [data.registernr         ? `Register: ${data.registernr}` : ''],
     [data.rechtsangaben || ''],
-    [data.lieferantennummer  ? `Lieferanten-Nr. beim Kunden: ${data.lieferantennummer}` : ''],
+    [echteLieferantennr      ? `Lieferanten-Nr. beim Kunden: ${echteLieferantennr}` : ''],
     [data.verkaeufkontakt    ? `Ansprechpartner: ${data.verkaeufkontakt}` : ''],
     [data.verkaeuftel        ? `Tel.: ${data.verkaeuftel}` : ''],
     [_eAdr(data.verkaeuferemail)],

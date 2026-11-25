@@ -25,5 +25,14 @@ const einheit = code => parseInvoiceData(mit(code)).positionen[0].einheit;
   const text = (await pdfText(Buffer.from((await convertXmlToPdf(mit('KWH'))).pdf), { maxSeiten: 5 })).text;
   gleich([/kWh/.test(text), /Stk/.test(text)], [true, false], 'PDF zeigt kWh, nicht Stk');
 
+  // Lieferanten-Nr. beim Kunden: nicht, wenn die Kennung nur die USt-IdNr. oder Steuernummer des Verkäufers ist
+  const mitKennung = (id, vat, steuernr) => probe.replace('<ram:SellerTradeParty>', `<ram:SellerTradeParty><ram:ID>${id}</ram:ID>`)
+    .replace('</ram:SellerTradeParty>', `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${vat}</ram:ID></ram:SpecifiedTaxRegistration>`
+      + `<ram:SpecifiedTaxRegistration><ram:ID schemeID="FC">${steuernr}</ram:ID></ram:SpecifiedTaxRegistration></ram:SellerTradeParty>`);
+  const pdfVon = async xml => (await pdfText(Buffer.from((await convertXmlToPdf(xml)).pdf), { maxSeiten: 5 })).text.replace(/\s+/g, ' ');
+  gleich(/Lieferanten-Nr/.test(await pdfVon(mitKennung('DE259329230', 'DE259329230', '2711872862'))), false, 'Kennung = USt-IdNr.: keine Lieferantennummer');
+  gleich(/Lieferanten-Nr/.test(await pdfVon(mitKennung('19/656/52594', 'DE352878871', '19/656/52594'))), false, 'Kennung = Steuernummer');
+  gleich(/Lieferanten-Nr\. beim Kunden: 1001946/.test(await pdfVon(mitKennung('1001946', 'DE352878871', '19/656/52594'))), true, 'echte Lieferantennummer bleibt');
+
   console.log(`einheiten: ${n} Prüfungen grün`);
 })().catch(e => { console.error(e); process.exit(1); });
