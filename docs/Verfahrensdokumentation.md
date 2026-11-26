@@ -65,6 +65,8 @@ i. S. d. GoBD Rz. 151 (Inhalt, Aufbau, Ablauf, Ergebnisse).
    (BZSt eVatR + EU‑VIES) qualifiziert bestätigt; der Bericht wird mitgeführt.
 4. Ablage in **`AR_<Werk>`**: XML (führend) und – zusätzlich – die PDF‑Darstellung;
    Dateiname `<Nummer>_<Datum>`. Die **Belegnummer** ist die ERP‑Nummer.
+   Im Konverter gibt es die Datei zum Herunterladen und den Mail-Entwurf erst, wenn die Ablage
+   gelungen ist. Scheitert sie, bietet die Meldung an, sie zu wiederholen.
 
 ---
 

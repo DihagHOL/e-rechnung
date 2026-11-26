@@ -1,7 +1,7 @@
 // node tests/ausgang-ablauf.test.js
 // Ausgang im Konverter (js/app.js) nach dem Prozess „Rechnungsausgang“ / „Prüfen und erzeugen“:
 // - Prüfungen in fester Reihenfolge, für Export und Mail gleich (_vorDemErstellen)
-// - erst die Ablage im Monitoring, dann die Mail; ohne Ablage keine Mail
+// - erst die Ablage im Monitoring, dann Download oder Mail; ohne Ablage keins von beidem
 // - die Mail verschickt die abgelegte Datei, mit USt-IdNr.-Bestätigung
 // - Meldungen: Fehler bleiben, sonst Dauer nach Länge
 const assert = require('assert');
@@ -46,10 +46,12 @@ function weiter() {
   const mail = stueck('async function createInvoiceMail(', '/**\n * Leeren Tab für Outlook öffnen');
   gleich([/_vorDemErstellen\(data\)/.test(exp), /_vorDemErstellen\(data\)/.test(mail), /_preflightChecks\(/.test(exp + mail)], [true, true, false], 'Export und Mail gleich');
   gleich(mail.indexOf('_vorDemErstellen(data)') < mail.indexOf('_outlookTabVorbereiten()'), true, 'Outlook-Tab erst nach den Prüfungen');
+  gleich(exp.indexOf('await _anmeldungAuffrischen()') >= 0 && exp.indexOf('await _anmeldungAuffrischen()') < exp.indexOf('_vorDemErstellen(data)'), true, 'Export: Anmeldung gleich nach dem Klick erneuern');
 
   // 2) Mail: Ablage zuerst, gleiche Datei, keine Mail ohne Ablage
   const protokoll = [];
   const meldungen = [];
+  const danach = [];   // erst nach gelungener Ablage: Nummernkreis, Verlauf, Rechnungsadresse
   let ablageFehler = null;
   const tab = { closed: false, opener: 'x', document: { title: '', body: { style: {}, textContent: '' } }, location: { replace: u => { tab.ziel = u; } }, close() { this.closed = true; } };
   const ctx = vm.createContext({
@@ -64,16 +66,19 @@ function weiter() {
     sanitizeFilename: s => s,
     _buildZugferdPdf: async (data, totals, xml, ust) => { protokoll.push('pdf:' + (ust ? ust.quelle : 'ohne')); return new Uint8Array([1, 2, 3]); },
     bytesToBase64: b => Buffer.from(b).toString('base64'),
-    vorlagenNummerVerbraucht: async () => {}, _renderReadablePdf: async () => null, _buildAudit: async () => ({}),
-    saveToHistory() {}, showLoading() {}, uploadedFileName: 'RE-1.pdf', _kundenMailMerken() {}, _kundenMailsLaden: async () => ({ eintraege: [] }),
+    vorlagenNummerVerbraucht: async () => { danach.push('nummer'); }, _renderReadablePdf: async () => null, _buildAudit: async () => ({}),
+    saveToHistory() { danach.push('verlauf'); }, showLoading() {}, uploadedFileName: 'RE-1.pdf', _kundenMailMerken() { danach.push('adresse'); }, _kundenMailsLaden: async () => ({ eintraege: [] }),
     spSaveToMonitoring: async a => { protokoll.push('ablage:' + Buffer.from(a.pdfBytes || []).toString('base64')); if (ablageFehler) throw ablageFehler; },
     _mailSubjectBody: () => ({ subject: 'Rechnung', body: 'Text' }),
     _createOutlookDraft: async (token, data, subject, body, anh) => { protokoll.push('mail:' + anh[0].base64); return { webLink: 'https://outlook.office365.com/x' }; },
-    _buildInvoiceEml: () => '', downloadBlob() { protokoll.push('eml'); },
-    showToast: (text, typ, aktion) => meldungen.push({ text, typ, knopf: aktion && aktion.text }),
+    _buildInvoiceEml: () => '',
+    downloadBlob: (bytes, name) => protokoll.push(name.endsWith('.eml') ? 'eml' : 'download:' + name + ':' + Buffer.from(bytes).toString('base64')),
+    downloadText: (text, name) => protokoll.push('download:' + name),
+    showToast: (text, typ, aktion) => meldungen.push({ text, typ, knopf: aktion && aktion.text, klick: aktion && aktion.klick }),
   });
-  vm.runInContext(stueck('// Zuletzt abgelegte Rechnung', '/** Empfänger der Rechnungsmail')
-    + '\nthis.mail = createInvoiceMail; this.ablegen = _imMonitoringAblegen; this.stand = () => _zuletztAbgelegt;', ctx);
+  vm.runInContext(stueck('async function _exportErstellen(', '// Zuletzt abgelegte Rechnung')
+    + stueck('// Zuletzt abgelegte Rechnung', '/** Empfänger der Rechnungsmail')
+    + '\nthis.exportieren = _exportErstellen; this.mail = createInvoiceMail; this.ablegen = _imMonitoringAblegen; this.stand = () => _zuletztAbgelegt;', ctx);
 
   (async () => {
     // Ablage scheitert: keine Mail, Tab zu, Fehler bleibt mit „Erneut versuchen“
@@ -97,6 +102,45 @@ function weiter() {
     await ctx.mail();
     gleich(protokoll.splice(0), ['mail:CQk='], 'Mail nach Export: abgelegte Datei, keine zweite Ablage');
     gleich(await ctx.ablegen({ rechnungsnummer: 'RE-1' }, { grossTotal: 119 }, '<xml>RE-1</xml>', null, 'zugferd', null), null, 'gleiche Fassung gilt als abgelegt');
+
+    // Export: erst ablegen, dann herunterladen. Ohne Ablage keine Datei, kein Verlauf, keine Nummer
+    const rechnung = { rechnungsnummer: 'RE-1' };
+    const summen = { grossTotal: 119 };
+    vm.runInContext('_zuletztAbgelegt = { fassung: "", pdfBytes: null };', ctx);
+    protokoll.length = 0; meldungen.length = 0; danach.length = 0;
+    ablageFehler = new Error('403 Keine Schreibrechte');
+    await ctx.exportieren(rechnung, 'zugferd', summen);
+    gleich(protokoll.splice(0), ['pdf:BZSt', 'ablage:AQID'], 'ohne Ablage kein Download');
+    gleich(danach.splice(0), [], 'ohne Ablage weder Verlauf noch Nummer');
+    gleich([meldungen.length, meldungen[0].typ, meldungen[0].knopf, /erst, wenn die Rechnung abgelegt ist/.test(meldungen[0].text)],
+      [1, 'error', 'Erneut ablegen', true], 'Meldung mit Knopf');
+
+    // „Erneut ablegen“: legt ab und lädt dann dieselbe Datei herunter
+    ablageFehler = null;
+    await meldungen.splice(0)[0].klick();
+    gleich(protokoll.splice(0), ['ablage:AQID', 'download:RE-1_zugferd.pdf:AQID'], 'nach dem Wiederholen: Ablage, dann Download');
+    gleich(danach.splice(0), ['nummer', 'verlauf', 'adresse'], 'Nummer, Verlauf und Adresse nach der Ablage');
+
+    // Noch einmal dieselbe Fassung: die abgelegte Datei, keine zweite Ablage
+    await ctx.exportieren(rechnung, 'zugferd', summen);
+    gleich(protokoll.splice(0), ['download:RE-1_zugferd.pdf:AQID'], 'zweiter Export liefert die abgelegte Datei');
+
+    // XRechnung: gleiche Reihenfolge
+    await ctx.exportieren(rechnung, 'xrechnung', summen);
+    gleich(protokoll.splice(0), ['ablage:', 'download:RE-1_xrechnung.xml'], 'XRechnung: erst ablegen, dann Download');
+
+    // Ohne Token wirft die Ablage, sie gilt nie still als gelungen
+    const sharepoint = fs.readFileSync(path.join(__dirname, '../js/sharepoint.js'), 'utf8');
+    const von = sharepoint.indexOf('async function spSaveToMonitoring('), bis = sharepoint.indexOf('async function _monUpload(');
+    assert.ok(von >= 0 && bis > von, 'spSaveToMonitoring gefunden');
+    const sctx = vm.createContext({ acquireToken: async () => null, SP: { scopes: [] } });
+    vm.runInContext(sharepoint.slice(von, bis) + '\nthis.ablegen = spSaveToMonitoring;', sctx);
+    await assert.rejects(sctx.ablegen({ invoiceData: {} }), /noch nicht abgelegt/); n++;
+
+    // Abgebrochene Anmeldung hält den Export nicht auf, die Ablage meldet den Fehler dann selbst
+    const actx = vm.createContext({ SP: { scopes: [] }, console: { warn() {} }, acquireTokenPopupSafe: async () => { throw new Error('user_cancelled'); } });
+    vm.runInContext(stueck('async function _anmeldungAuffrischen(', '/**\n * Prüfungen vor Export und Mail') + '\nthis.auf = _anmeldungAuffrischen;', actx);
+    await actx.auf(); n++;
 
     // 3) Meldungen: Dauer
     const dctx = vm.createContext({});

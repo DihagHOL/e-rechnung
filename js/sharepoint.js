@@ -389,7 +389,8 @@ async function _monCols(token, listId, key) {
  */
 async function spSaveToMonitoring({ invoiceData, xml, pdfBytes, format }) {
   const token = await acquireToken(SP.scopes);
-  if (!token) return null;
+  // Kein „return null“: Der Aufrufer hielte die Rechnung für abgelegt
+  if (!token) throw new Error('Anmeldung wird erneuert, die Rechnung ist noch nicht abgelegt');
   await _monInit(token);
 
   // Werk am Firmennamen des Rechnungsstellers erkennen (WGC=Coswig/Walzen,

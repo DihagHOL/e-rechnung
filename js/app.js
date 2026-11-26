@@ -1094,9 +1094,20 @@ async function exportInvoice(format) {
   // dann die Rückfragen, zuletzt der Nummernkreis. Export und Mail prüfen gleich (_vorDemErstellen).
   // (Punkt 7 der UStAE/GoBD-Einordnung: Auslandskreditor ohne Leitweg als XRechnung ist
   //  zulässig, konkludente Zustimmung, keine Rückfrage nötig. Daher kein Sonder-Check hier.)
+  await _anmeldungAuffrischen();   // gleich nach dem Klick, sonst blockt der Browser das Fenster
   const totals = await _vorDemErstellen(data);
   if (!totals) return;
   return _exportErstellen(data, format, totals);
+}
+
+/**
+ * Abgelaufene Anmeldung vor dem Erzeugen im Fenster erneuern. Sonst leitet erst die Ablage zur
+ * Anmeldung um, die Seite lädt neu und alle Eingaben sind weg. „Mail erstellen“ meldet sich über
+ * das Mail-Recht ohnehin so an.
+ */
+async function _anmeldungAuffrischen() {
+  try { await acquireTokenPopupSafe(SP.scopes); }
+  catch (e) { console.warn('Anmeldung nicht erneuert:', e); }
 }
 
 /**
@@ -1179,30 +1190,21 @@ async function _exportErstellen(data, format, totals) {
       return;
     }
 
-    const safeNr = sanitizeFilename(data.rechnungsnummer);
     let pdfBytes = null;
 
     if (format === 'zugferd') {
+      // Liegt genau diese Fassung schon im Monitoring, gibt es wieder die abgelegte Datei
+      const abgelegt = _zuletztAbgelegt.fassung === 'zugferd|' + xml && _zuletztAbgelegt.pdfBytes;
       try {
-        pdfBytes = await _buildZugferdPdf(data, totals, xml, ust);   // #6: eigenes PDF, im Notfall aus den Daten
+        pdfBytes = abgelegt || await _buildZugferdPdf(data, totals, xml, ust);   // #6: eigenes PDF, im Notfall aus den Daten
       } catch (e) {
         showLoading(false);
         showToast('ZUGFeRD-Erstellung fehlgeschlagen: ' + e.message, 'error');
         return;
       }
-      downloadBlob(pdfBytes, `${safeNr}_zugferd.pdf`, 'application/pdf');
-    } else {
-      downloadText(xml, `${safeNr}_xrechnung.xml`);
     }
 
-    const fehler = await _imMonitoringAblegen(data, totals, xml, pdfBytes, format, ust);
-    if (fehler) {
-      // Die Datei ist schon heruntergeladen. Ohne Ablage fehlt aber das Archiv (GoBD), deshalb
-      // bleibt die Meldung stehen und bietet das Speichern noch einmal an.
-      showToast(`Erstellt, aber nicht im Monitoring gespeichert (${fehler.message}). Bitte erst versenden, `
-        + 'wenn die Rechnung abgelegt ist.', 'error',
-        { text: 'Erneut ablegen', klick: () => _erneutAblegen(data, totals, xml, pdfBytes, format, ust) });
-    }
+    await _ablegenUndHerunterladen(data, totals, xml, pdfBytes, format, ust);
   } catch (err) {
     showLoading(false);
     console.error(err);
@@ -1210,13 +1212,21 @@ async function _exportErstellen(data, format, totals) {
   }
 }
 
-/** Ablage nach einem Fehler wiederholen (Knopf in der Meldung). */
-async function _erneutAblegen(data, totals, xml, pdfBytes, format, ust) {
+/**
+ * Erst ablegen (GoBD), dann herunterladen: Ohne Ablage gibt es keine Datei, so geht keine
+ * Rechnung ohne Archiv raus. Gilt für den Export und für „Erneut ablegen“ in der Meldung.
+ */
+async function _ablegenUndHerunterladen(data, totals, xml, pdfBytes, format, ust) {
   const fehler = await _imMonitoringAblegen(data, totals, xml, pdfBytes, format, ust);
   if (fehler) {
-    showToast(`Wieder nicht im Monitoring gespeichert (${fehler.message}).`, 'error',
-      { text: 'Erneut ablegen', klick: () => _erneutAblegen(data, totals, xml, pdfBytes, format, ust) });
+    showToast(`Nicht im Monitoring gespeichert (${fehler.message}). Die Datei gibt es erst, wenn die Rechnung `
+      + 'abgelegt ist.', 'error',
+      { text: 'Erneut ablegen', klick: () => _ablegenUndHerunterladen(data, totals, xml, pdfBytes, format, ust) });
+    return;
   }
+  const safeNr = sanitizeFilename(data.rechnungsnummer);
+  if (format === 'zugferd') downloadBlob(pdfBytes, `${safeNr}_zugferd.pdf`, 'application/pdf');
+  else downloadText(xml, `${safeNr}_xrechnung.xml`);
 }
 
 // Zuletzt abgelegte Rechnung: Mail nach Export legt dieselbe Fassung nicht noch einmal ab und
@@ -1224,8 +1234,9 @@ async function _erneutAblegen(data, totals, xml, pdfBytes, format, ust) {
 let _zuletztAbgelegt = { fassung: '', pdfBytes: null };
 
 /**
- * Rechnung im Monitoring ablegen (AR_<Werk>), dazu lesbares PDF, Prüfpfad, lokaler
- * Verlauf und gemerkte Rechnungsadresse. Läuft nach Export und nach „Mail erstellen“.
+ * Rechnung im Monitoring ablegen (AR_<Werk>), dazu lesbares PDF und Prüfpfad. Läuft vor dem
+ * Download und vor der Mail. Verlauf, Nummernkreis und gemerkte Rechnungsadresse folgen erst,
+ * wenn die Ablage gelungen ist.
  * @returns {Promise<Error|null>} null = abgelegt (oder schon abgelegt), sonst der Fehler.
  *          Die Meldung dazu macht der Aufrufer, weil Export und Mail verschieden weitergehen.
  */
@@ -1234,10 +1245,6 @@ async function _imMonitoringAblegen(data, totals, xml, pdfBytes, format, ust) {
   const safeNr = sanitizeFilename(data.rechnungsnummer);
   const fassung = format + '|' + xml;
   if (fassung === _zuletztAbgelegt.fassung) return null;
-  // Manuelle Rechnung: Nummernkreis fortschreiben (js/vorlagen.js), Fehler nur melden
-  if (typeof vorlagenNummerVerbraucht === 'function') {
-    vorlagenNummerVerbraucht(data).catch(e => console.warn('Nummernkreis nicht gespeichert:', e));
-  }
   // Für reine XRechnung zusätzlich ein lesbares PDF rendern → wird im Monitoring
   // als "_lesbar.pdf" mit abgelegt und verlinkt. Bei ZUGFeRD ist das PDF selbst
   // bereits lesbar (kein zusätzliches nötig).
@@ -1250,20 +1257,6 @@ async function _imMonitoringAblegen(data, totals, xml, pdfBytes, format, ust) {
   // #7: Prüfpfad (Hash, manuelle Änderungen, Prüfer)
   const audit = await _buildAudit(data);
 
-  // Lokaler Cache (localStorage)
-  saveToHistory({
-    rechnungsnummer: data.rechnungsnummer,
-    rechnungsdatum: data.rechnungsdatum,
-    verkaeufer: data.verkaeufer,
-    kaeufer: data.kaeufer,
-    netTotal, vatTotal, grossTotal,
-    formate: format === 'zugferd' ? ['ZUGFeRD'] : ['XRechnung'],
-    xml,
-    zugferdPdf: pdfBytes ? bytesToBase64(pdfBytes) : null,
-    originalPdfName: uploadedFileName,
-    audit,
-  });
-
   // Monitoring-Upload (Bibliothek AR_<Werk> auf der Rechnungsmonitoring-Site)
   showLoading(true, 'Wird ins Monitoring gespeichert...');
   try {
@@ -1274,8 +1267,25 @@ async function _imMonitoringAblegen(data, totals, xml, pdfBytes, format, ust) {
       format,
     });
     showLoading(false);
-    _kundenMailMerken(data);
     _zuletztAbgelegt = { fassung, pdfBytes };
+    // Manuelle Rechnung: Nummernkreis fortschreiben (js/vorlagen.js), Fehler nur melden
+    if (typeof vorlagenNummerVerbraucht === 'function') {
+      vorlagenNummerVerbraucht(data).catch(e => console.warn('Nummernkreis nicht gespeichert:', e));
+    }
+    // Lokaler Verlauf (localStorage): nur Abgelegtes, er bietet die Datei wieder zum Download an
+    saveToHistory({
+      rechnungsnummer: data.rechnungsnummer,
+      rechnungsdatum: data.rechnungsdatum,
+      verkaeufer: data.verkaeufer,
+      kaeufer: data.kaeufer,
+      netTotal, vatTotal, grossTotal,
+      formate: format === 'zugferd' ? ['ZUGFeRD'] : ['XRechnung'],
+      xml,
+      zugferdPdf: pdfBytes ? bytesToBase64(pdfBytes) : null,
+      originalPdfName: uploadedFileName,
+      audit,
+    });
+    _kundenMailMerken(data);
     showToast(
       format === 'zugferd'
         ? `ZUGFeRD PDF erstellt und im Monitoring gespeichert. (${safeNr})`
