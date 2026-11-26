@@ -301,6 +301,13 @@ Rechnung, lagen im Archiv zwei Fassungen, bei ZAI sogar zwei Vorgänge. Von Sept
   nennt ihre Zahl.
 - Ohne E-Rechnung in der Mail bleibt es wie bisher.
 
+**DSO nimmt die weiteren Belege mit (Denis, 26.11.2026).** Bei DSO hängen die übrigen PDFs der
+Eingangsmail an der Archiv-Mail der ersten E-Rechnung, mit `[Anhang]` vor dem ursprünglichen
+Dateinamen (`[Anhang]Lieferschein.pdf`). Das gilt für alle weiteren PDFs, auch für eine PDF-Kopie
+derselben Rechnung. Die E-Rechnung selbst behält ihren Namen. Mails ohne E-Rechnung bleiben ohne
+Kennzeichnung. Ist die Mail zu groß für Exchange, geht je Datei eine eigene Mail raus, auch für die
+Anhänge. Andere Dateiarten (Excel, Word) holt der Abholdienst bei DSO nicht.
+
 **Lesbare PDF oder Original im Archiv (Denis, 20.11.2026).** Bei einer E-Rechnung gilt die XML
 (UStAE 14.4 Abs. 3), nicht das Bild der PDF. Ins Archiv kommt deshalb die aus der XML erzeugte
 lesbare PDF, sobald etwas nicht ganz sauber ist:

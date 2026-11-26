@@ -130,7 +130,9 @@ abgelegte Mail weiter, etwa von IRISEingang nach Vorkassen, bleibt es bei der er
 Archiv-Mail.
 
 Wie bei HOL geht nach der Ablage je E-Rechnung eine Archiv-Mail raus, ohne E-Rechnung eine für die
-ganze Mail (Aufbau siehe [Eingangsrechnungen-Flow.md](Eingangsrechnungen-Flow.md)). Absender ist
+ganze Mail (Aufbau siehe [Eingangsrechnungen-Flow.md](Eingangsrechnungen-Flow.md)). Seit dem
+26.11.2026 hängen bei DSO die weiteren PDFs der Eingangsmail mit `[Anhang]` im Namen an der
+Archiv-Mail der ersten E-Rechnung. Absender ist
 das Konto der Outlook-Verbindung des Flows, Empfänger das Postfach selbst. Die Mail kommt im
 Posteingang an. Zu Beginn jedes Laufs verschiebt der Flow die Archiv-Mails dieses Absenders aus
 dem Posteingang: mit „[ARCHIV OHNE IRIS]“ nach `ArchiviertUndGeprueftOhneIRIS`, sonst nach

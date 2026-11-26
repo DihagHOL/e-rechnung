@@ -50,6 +50,7 @@ i. S. d. GoBD Rz. 151 (Inhalt, Aufbau, Ablauf, Ergebnisse).
    Werke mit Archiv-Mail (ZAI, HOL, LEG, EWA, DSO) schicken je E-Rechnung genau eine Datei
    ins Archiv: das lesbare PDF aus der XML, sofern erzeugt, sonst das ZUGFeRD-PDF. Maßgeblich
    ist die XML (UStAE 14.4 Abs. 3). Das Original bleibt unverändert in `ERAR_<Werk>`.
+   DSO schickt die weiteren PDFs der Eingangsmail als Belege mit, `[Anhang]` im Dateinamen.
 4. **Buchung:** Sachbearbeiter prüft die lesbare Darstellung per Sicht, gleicht mit
    Referenzunterlagen ab (Bestellung/Lieferschein) und erfasst **manuell** im ERP.
    Zum Buchungszeitpunkt wird die archivierte XML über die **Belegnummer**
