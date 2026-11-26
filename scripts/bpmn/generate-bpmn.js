@@ -91,7 +91,7 @@ const ANSICHT = 'https://e-rechnung.dihag-extern.com/prozess.html';
 const EINGANG = {
   key: 'eingang', file: '01-rechnungseingang.bpmn', tab: 'eingang', haupt: true,
   name: 'E-Rechnung Rechnungseingang', kennung: 'Process_ERechnung_Eingang',
-  doku: 'Eingangsrechnungen kommen per Mail ins Rechnungspostfach des Werks. Ein Flow je Werk packt signierte Mails aus, gibt jeden PDF- oder XML-Anhang an den Prüfdienst und legt Original und Prüfergebnis in ERAR_<Werk> ab. ZAI, HOL, LEG, EWA und DSO bekommen zusätzlich eine Archiv-Mail ins eigene Postfach, je E-Rechnung nur mit der lesbaren Rechnung. Die anderen Werke arbeiten nur im Monitoring. Die Kreditorenbuchhaltung prüft im Monitoring (Dubletten, Mahnungen, abweichende Bankverbindung, bei Reverse-Charge und steuerfreien Umsätzen zwei Personen) und schätzt sonstige Rechnungen ein. Wo genehmigt wird, steht je Werk in den Einstellungen: im Monitoring (WGC, SHB) oder im SAP (ZAI, HOL, LEG, EWA, EIS, DSO), dort geht die Rechnung nicht noch einmal durchs Monitoring.',
+  doku: 'Eingangsrechnungen kommen per Mail ins Rechnungspostfach des Werks. Ein Flow je Werk packt signierte Mails aus, gibt jeden PDF- oder XML-Anhang an den Prüfdienst und legt Original und Prüfergebnis in ERAR_<Werk> ab. ZAI, HOL, LEG, EWA und DSO bekommen zusätzlich eine Archiv-Mail ins eigene Postfach, je E-Rechnung mit der lesbaren Rechnung, bei DSO dazu die weiteren PDFs der Mail mit „[Anhang]“ im Namen. Die anderen Werke arbeiten nur im Monitoring. Die Kreditorenbuchhaltung prüft im Monitoring (Dubletten, Mahnungen, abweichende Bankverbindung, bei Reverse-Charge und steuerfreien Umsätzen zwei Personen) und schätzt sonstige Rechnungen ein. Wo genehmigt wird, steht je Werk in den Einstellungen: im Monitoring (WGC, SHB) oder im SAP (ZAI, HOL, LEG, EWA, EIS, DSO), dort geht die Rechnung nicht noch einmal durchs Monitoring.',
   pools: [
     { id: 'P_Lief', name: 'Lieferant', actor: 'extern', blackbox: true },
     {
@@ -194,8 +194,8 @@ const EINGANG = {
           text: 'ZAI, HOL, LEG, EWA, DSO. Schleifenschutz: Die eigene Archiv-Mail kommt hier wieder an und wird nur einsortiert. In diesem Ordner arbeitet die Buchhaltung.' },
         { id: 'N_lief', of: 'A_liefMail', lane: 'LA', c: 12, r: 2, w: 220, h: 84, tone: 'plan',
           text: 'Bei Zurückweisung oder Abweichung. Empfänger aus der E-Rechnung. Der Schalter „Lieferantenmails“ steht bis zum 1.1.2027 auf aus.' },
-        { id: 'N_archSend', of: 'A_archSend', lane: 'LA', c: 17, r: 1, w: 300, h: 124,
-          text: 'Je E-Rechnung eine Archiv-Mail mit einer Datei: lesbare PDF aus der XML bei XRechnung, Formatmangel oder gelb, sonst das ZUGFeRD-PDF. Weitere PDFs der Mail kommen nicht ins Archiv. Ohne E-Rechnung eine Mail mit allen PDFs, bei ZAI je PDF eine. Die Originalmail bleibt im Posteingang.' },
+        { id: 'N_archSend', of: 'A_archSend', lane: 'LA', c: 17, r: 1, w: 300, h: 150,
+          text: 'Je E-Rechnung eine Archiv-Mail mit der Rechnung: lesbare PDF aus der XML bei XRechnung, Formatmangel oder gelb, sonst das ZUGFeRD-PDF. Weitere PDFs der Mail kommen nicht ins Archiv, nur bei DSO hängen sie als „[Anhang]…“ an der Mail der ersten E-Rechnung. Ohne E-Rechnung eine Mail mit allen PDFs, bei ZAI je PDF eine. Die Originalmail bleibt im Posteingang.' },
         { id: 'N_wgc', of: 'A_gwWerk', lane: 'LA', c: 14, r: 1, w: 260, h: 72,
           text: 'Die anderen Werke (z. B. WGC, SHB, MEG) arbeiten nur im Monitoring, WGC und SHB seit 05.11.2026 ohne die alte Eingangsrechnungsliste.' },
         { id: 'N_check', of: 'D_check', lane: 'LD', c: 18, r: 2, w: 230, h: 96,

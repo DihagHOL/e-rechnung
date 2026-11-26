@@ -77,6 +77,7 @@ Kollaborations-Doku unverändert übernehmen).
 
 Letzte Übernahme: 26.11.2026 (RMS seit 20.11. unverändert, RMS-Angaben übernommen): Rechnungsausgang v0.13
 (ohne Ablage keine Datei und keine Mail, Herunterladen erst danach), Prüfen und erzeugen v0.9 (endet mit der erzeugten E-Rechnung).
+Am selben Tag Rechnungseingang v0.17 (DSO hängt die weiteren PDFs mit „[Anhang]“ an die Archiv-Mail).
 
 Davor: 20.11.2026 (RMS seit 17.11. unverändert, RMS-Angaben übernommen): Rechnungseingang v0.16 (keine Anlagen bei E-Rechnungen, DSO mit Archiv-Mail, welche Datei ins Archiv geht), Sonstige Rechnung einschätzen v0.3 (Lieferant und gelesene Daten prüfen, korrigieren), Rechnungsausgang v0.12 (Rechnungsadresse und Betreff aus der Kundenliste).
 
