@@ -5,13 +5,13 @@
     <bpmn:participant id="P_Erz" name="Prüfen und E-Rechnung erzeugen" processRef="Process_ERechnung_Erzeugen" />
   </bpmn:collaboration>
   <bpmn:process id="Process_ERechnung_Erzeugen" name="E-Rechnung Prüfen und erzeugen" isExecutable="false">
-    <bpmn:documentation>Vor dem Export und vor der Mail prüft der Konverter in derselben Reihenfolge: Pflichtfelder (auch Telefon und Mail des Ansprechpartners), Stammdaten des Rechnungsstellers gegen die Registry des Werks, IBAN, Summen und USt-IdNr. als harte Fehler, dann Abweichungen zum Original-PDF, dann die Rückfragen (Kunde im Ausland bei EIS, EWA und LEG, Rechnungsadresse der eigenen Firma, abweichende gemerkte Adresse) und zuletzt den Nummernkreis bei manuellen Rechnungen. Danach entsteht die XML nach EN 16931, wird zurückgelesen und als ZUGFeRD oder XRechnung mit Prüfpfad ausgegeben.
+    <bpmn:documentation>Vor dem Export und vor der Mail prüft der Konverter in derselben Reihenfolge: Pflichtfelder (auch Telefon und Mail des Ansprechpartners), Stammdaten des Rechnungsstellers gegen die Registry des Werks, IBAN, Summen und USt-IdNr. als harte Fehler, dann Abweichungen zum Original-PDF, dann die Rückfragen (Kunde im Ausland bei EIS, EWA und LEG, Rechnungsadresse der eigenen Firma, abweichende gemerkte Adresse) und zuletzt den Nummernkreis bei manuellen Rechnungen. Danach entsteht die XML nach EN 16931, wird zurückgelesen und als ZUGFeRD oder XRechnung mit Prüfpfad erzeugt. Heruntergeladen oder versendet wird die Datei erst nach der Ablage (Rechnungsausgang).
 Eingebunden in: E-Rechnung Rechnungsausgang.
 Anwender-Ansicht: https://e-rechnung.dihag-extern.com/prozess.html#ausgang
 Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflichten
 [[rms:policies=119]]</bpmn:documentation>
     <bpmn:laneSet id="LaneSet_P_Erz">
-      <bpmn:lane id="LXK" name="Konverter (Browser-App)"><bpmn:flowNodeRef>X_start</bpmn:flowNodeRef><bpmn:flowNodeRef>X_pflicht</bpmn:flowNodeRef><bpmn:flowNodeRef>X_pre</bpmn:flowNodeRef><bpmn:flowNodeRef>X_gwHard</bpmn:flowNodeRef><bpmn:flowNodeRef>X_err1</bpmn:flowNodeRef><bpmn:flowNodeRef>X_gwSoft</bpmn:flowNodeRef><bpmn:flowNodeRef>X_gwAusl</bpmn:flowNodeRef><bpmn:flowNodeRef>X_xml</bpmn:flowNodeRef><bpmn:flowNodeRef>X_self</bpmn:flowNodeRef><bpmn:flowNodeRef>X_gwSelf</bpmn:flowNodeRef><bpmn:flowNodeRef>X_err2</bpmn:flowNodeRef><bpmn:flowNodeRef>X_gwFmt</bpmn:flowNodeRef><bpmn:flowNodeRef>X_zf</bpmn:flowNodeRef><bpmn:flowNodeRef>X_xr</bpmn:flowNodeRef><bpmn:flowNodeRef>X_audit</bpmn:flowNodeRef><bpmn:flowNodeRef>X_dl</bpmn:flowNodeRef><bpmn:flowNodeRef>X_end</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="LXK" name="Konverter (Browser-App)"><bpmn:flowNodeRef>X_start</bpmn:flowNodeRef><bpmn:flowNodeRef>X_pflicht</bpmn:flowNodeRef><bpmn:flowNodeRef>X_pre</bpmn:flowNodeRef><bpmn:flowNodeRef>X_gwHard</bpmn:flowNodeRef><bpmn:flowNodeRef>X_err1</bpmn:flowNodeRef><bpmn:flowNodeRef>X_gwSoft</bpmn:flowNodeRef><bpmn:flowNodeRef>X_gwAusl</bpmn:flowNodeRef><bpmn:flowNodeRef>X_xml</bpmn:flowNodeRef><bpmn:flowNodeRef>X_self</bpmn:flowNodeRef><bpmn:flowNodeRef>X_gwSelf</bpmn:flowNodeRef><bpmn:flowNodeRef>X_err2</bpmn:flowNodeRef><bpmn:flowNodeRef>X_gwFmt</bpmn:flowNodeRef><bpmn:flowNodeRef>X_zf</bpmn:flowNodeRef><bpmn:flowNodeRef>X_xr</bpmn:flowNodeRef><bpmn:flowNodeRef>X_audit</bpmn:flowNodeRef><bpmn:flowNodeRef>X_end</bpmn:flowNodeRef></bpmn:lane>
       <bpmn:lane id="LXV" name="Vertrieb / Fakturierung"><bpmn:flowNodeRef>X_confirm</bpmn:flowNodeRef><bpmn:flowNodeRef>X_rueck</bpmn:flowNodeRef><bpmn:flowNodeRef>X_gwEr</bpmn:flowNodeRef><bpmn:flowNodeRef>X_endPdf</bpmn:flowNodeRef></bpmn:lane>
     </bpmn:laneSet>
       <bpmn:startEvent id="X_start" name="Export angestoßen"><bpmn:outgoing>Flow_X_start_X_pflicht</bpmn:outgoing></bpmn:startEvent>
@@ -32,9 +32,8 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:exclusiveGateway id="X_gwFmt" name="Format?"><bpmn:incoming>Flow_X_gwSelf_X_gwFmt</bpmn:incoming><bpmn:outgoing>Flow_X_gwFmt_X_zf</bpmn:outgoing><bpmn:outgoing>Flow_X_gwFmt_X_xr</bpmn:outgoing></bpmn:exclusiveGateway>
       <bpmn:serviceTask id="X_zf" name="ZUGFeRD-PDF/A-3b mit eingebetteter XML erzeugen"><bpmn:incoming>Flow_X_gwFmt_X_zf</bpmn:incoming><bpmn:outgoing>Flow_X_zf_X_audit</bpmn:outgoing></bpmn:serviceTask>
       <bpmn:serviceTask id="X_xr" name="XRechnung-XML und lesbares PDF erzeugen"><bpmn:incoming>Flow_X_gwFmt_X_xr</bpmn:incoming><bpmn:outgoing>Flow_X_xr_X_audit</bpmn:outgoing></bpmn:serviceTask>
-      <bpmn:serviceTask id="X_audit" name="Prüfpfad schreiben (Hash, manuelle Änderungen, Prüfer)"><bpmn:incoming>Flow_X_zf_X_audit</bpmn:incoming><bpmn:incoming>Flow_X_xr_X_audit</bpmn:incoming><bpmn:outgoing>Flow_X_audit_X_dl</bpmn:outgoing></bpmn:serviceTask>
-      <bpmn:serviceTask id="X_dl" name="Dateien zum Herunterladen bereitstellen"><bpmn:incoming>Flow_X_audit_X_dl</bpmn:incoming><bpmn:outgoing>Flow_X_dl_X_end</bpmn:outgoing></bpmn:serviceTask>
-      <bpmn:endEvent id="X_end" name="E-Rechnung erstellt"><bpmn:incoming>Flow_X_dl_X_end</bpmn:incoming></bpmn:endEvent>
+      <bpmn:serviceTask id="X_audit" name="Prüfpfad schreiben (Hash, manuelle Änderungen, Prüfer)"><bpmn:incoming>Flow_X_zf_X_audit</bpmn:incoming><bpmn:incoming>Flow_X_xr_X_audit</bpmn:incoming><bpmn:outgoing>Flow_X_audit_X_end</bpmn:outgoing></bpmn:serviceTask>
+      <bpmn:endEvent id="X_end" name="E-Rechnung erstellt"><bpmn:incoming>Flow_X_audit_X_end</bpmn:incoming></bpmn:endEvent>
       <bpmn:sequenceFlow id="Flow_X_start_X_pflicht" sourceRef="X_start" targetRef="X_pflicht" />
       <bpmn:sequenceFlow id="Flow_X_pflicht_X_pre" sourceRef="X_pflicht" targetRef="X_pre" />
       <bpmn:sequenceFlow id="Flow_X_pre_X_gwHard" sourceRef="X_pre" targetRef="X_gwHard" />
@@ -56,8 +55,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:sequenceFlow id="Flow_X_gwFmt_X_xr" sourceRef="X_gwFmt" targetRef="X_xr" name="XRechnung" />
       <bpmn:sequenceFlow id="Flow_X_zf_X_audit" sourceRef="X_zf" targetRef="X_audit" />
       <bpmn:sequenceFlow id="Flow_X_xr_X_audit" sourceRef="X_xr" targetRef="X_audit" />
-      <bpmn:sequenceFlow id="Flow_X_audit_X_dl" sourceRef="X_audit" targetRef="X_dl" />
-      <bpmn:sequenceFlow id="Flow_X_dl_X_end" sourceRef="X_dl" targetRef="X_end" />
+      <bpmn:sequenceFlow id="Flow_X_audit_X_end" sourceRef="X_audit" targetRef="X_end" />
       <bpmn:textAnnotation id="XN_pre"><bpmn:text>Harte Fehler: Stammdaten passen nicht zum Werk, IBAN-Prüfziffer falsch, Summe nicht plausibel, Netto + MwSt ≠ Brutto.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_XN_pre" associationDirection="None" sourceRef="X_pre" targetRef="XN_pre" />
       <bpmn:textAnnotation id="XN_confirm"><bpmn:text>„Abbrechen“ beendet den Export, es entsteht keine Datei.</bpmn:text></bpmn:textAnnotation>
@@ -69,9 +67,9 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
   </bpmn:process>
   <bpmndi:BPMNDiagram id="Diagram_erzeugen">
     <bpmndi:BPMNPlane id="Plane_erzeugen" bpmnElement="Collab_erzeugen">
-      <bpmndi:BPMNShape id="P_Erz_di" bpmnElement="P_Erz" isHorizontal="true" bioc:stroke="#1A2644" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1A2644"><dc:Bounds x="100" y="60" width="2830" height="640" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="LXK_di" bpmnElement="LXK" isHorizontal="true" bioc:stroke="#1A2644" bioc:fill="#F3F6FB" color:background-color="#F3F6FB" color:border-color="#1A2644"><dc:Bounds x="130" y="60" width="2800" height="380" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="LXV_di" bpmnElement="LXV" isHorizontal="true" bioc:stroke="#C2410C" bioc:fill="#FFF8F1" color:background-color="#FFF8F1" color:border-color="#C2410C"><dc:Bounds x="130" y="440" width="2800" height="260" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="P_Erz_di" bpmnElement="P_Erz" isHorizontal="true" bioc:stroke="#1A2644" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1A2644"><dc:Bounds x="100" y="60" width="2660" height="640" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="LXK_di" bpmnElement="LXK" isHorizontal="true" bioc:stroke="#1A2644" bioc:fill="#F3F6FB" color:background-color="#F3F6FB" color:border-color="#1A2644"><dc:Bounds x="130" y="60" width="2630" height="380" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="LXV_di" bpmnElement="LXV" isHorizontal="true" bioc:stroke="#C2410C" bioc:fill="#FFF8F1" color:background-color="#FFF8F1" color:border-color="#C2410C"><dc:Bounds x="130" y="440" width="2630" height="260" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="X_start_di" bpmnElement="X_start" bioc:stroke="#1E7B3A" bioc:fill="#DDF3E4" color:background-color="#DDF3E4" color:border-color="#1E7B3A"><dc:Bounds x="247" y="232" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="205" y="273" width="120" height="15" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="X_pflicht_di" bpmnElement="X_pflicht" bioc:stroke="#1A2644" bioc:fill="#DCE5F2" color:background-color="#DCE5F2" color:border-color="#1A2644"><dc:Bounds x="369" y="208" width="132" height="84" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="X_pre_di" bpmnElement="X_pre" bioc:stroke="#1A2644" bioc:fill="#DCE5F2" color:background-color="#DCE5F2" color:border-color="#1A2644"><dc:Bounds x="539" y="208" width="132" height="84" /></bpmndi:BPMNShape>
@@ -91,8 +89,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNShape id="X_zf_di" bpmnElement="X_zf" bioc:stroke="#1A2644" bioc:fill="#DCE5F2" color:background-color="#DCE5F2" color:border-color="#1A2644"><dc:Bounds x="2239" y="208" width="132" height="84" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="X_xr_di" bpmnElement="X_xr" bioc:stroke="#1A2644" bioc:fill="#DCE5F2" color:background-color="#DCE5F2" color:border-color="#1A2644"><dc:Bounds x="2239" y="328" width="132" height="84" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="X_audit_di" bpmnElement="X_audit" bioc:stroke="#1A2644" bioc:fill="#DCE5F2" color:background-color="#DCE5F2" color:border-color="#1A2644"><dc:Bounds x="2409" y="208" width="132" height="84" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="X_dl_di" bpmnElement="X_dl" bioc:stroke="#1A2644" bioc:fill="#DCE5F2" color:background-color="#DCE5F2" color:border-color="#1A2644"><dc:Bounds x="2579" y="208" width="132" height="84" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="X_end_di" bpmnElement="X_end" bioc:stroke="#1E7B3A" bioc:fill="#DDF3E4" color:background-color="#DDF3E4" color:border-color="#1E7B3A"><dc:Bounds x="2797" y="232" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2755" y="273" width="120" height="15" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="X_end_di" bpmnElement="X_end" bioc:stroke="#1E7B3A" bioc:fill="#DDF3E4" color:background-color="#DDF3E4" color:border-color="#1E7B3A"><dc:Bounds x="2627" y="232" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2585" y="273" width="120" height="15" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_X_start_X_pflicht_di" bpmnElement="Flow_X_start_X_pflicht"><di:waypoint x="283" y="250" /><di:waypoint x="369" y="250" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_X_pflicht_X_pre_di" bpmnElement="Flow_X_pflicht_X_pre"><di:waypoint x="501" y="250" /><di:waypoint x="539" y="250" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_X_pre_X_gwHard_di" bpmnElement="Flow_X_pre_X_gwHard"><di:waypoint x="671" y="250" /><di:waypoint x="750" y="250" /></bpmndi:BPMNEdge>
@@ -114,8 +111,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmndi:BPMNEdge id="Flow_X_gwFmt_X_xr_di" bpmnElement="Flow_X_gwFmt_X_xr"><di:waypoint x="2135" y="275" /><di:waypoint x="2135" y="370" /><di:waypoint x="2239" y="370" /><bpmndi:BPMNLabel><dc:Bounds x="2143" y="353" width="70" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_X_zf_X_audit_di" bpmnElement="Flow_X_zf_X_audit"><di:waypoint x="2371" y="250" /><di:waypoint x="2409" y="250" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_X_xr_X_audit_di" bpmnElement="Flow_X_xr_X_audit"><di:waypoint x="2371" y="370" /><di:waypoint x="2390" y="370" /><di:waypoint x="2390" y="250" /><di:waypoint x="2409" y="250" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_X_audit_X_dl_di" bpmnElement="Flow_X_audit_X_dl"><di:waypoint x="2541" y="250" /><di:waypoint x="2579" y="250" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_X_dl_X_end_di" bpmnElement="Flow_X_dl_X_end"><di:waypoint x="2711" y="250" /><di:waypoint x="2797" y="250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_X_audit_X_end_di" bpmnElement="Flow_X_audit_X_end"><di:waypoint x="2541" y="250" /><di:waypoint x="2627" y="250" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="XN_pre_di" bpmnElement="XN_pre" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="530" y="80" width="160" height="100" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc_XN_pre_di" bpmnElement="Assoc_XN_pre"><di:waypoint x="605" y="208" /><di:waypoint x="605" y="180" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="XN_confirm_di" bpmnElement="XN_confirm" bioc:stroke="#6B7280" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#6B7280"><dc:Bounds x="1040" y="602" width="200" height="56" /></bpmndi:BPMNShape>

@@ -234,7 +234,7 @@ const EINGANG = {
 const AUSGANG = {
   key: 'ausgang', file: '02-rechnungsausgang.bpmn', tab: 'ausgang', haupt: true,
   name: 'E-Rechnung Rechnungsausgang', kennung: 'Process_ERechnung_Ausgang',
-  doku: 'Ausgangsrechnungen entstehen im ERP als PDF oder im Reiter „Manuelle Rechnung“ aus einer Vorlage. Der Konverter liest das PDF (Parser für WGC, SHB, ZAI, EIS, EWA, LEG, MEG), prüft die Daten, erzeugt ZUGFeRD oder XRechnung, legt alles in AR_<Werk> ab und bereitet die Mail an den Kunden vor. Werke, die über EDIzone senden, laufen außerhalb dieses Tools.',
+  doku: 'Ausgangsrechnungen entstehen im ERP als PDF oder im Reiter „Manuelle Rechnung“ aus einer Vorlage. Der Konverter liest das PDF (Parser für WGC, SHB, ZAI, EIS, EWA, LEG, MEG), prüft die Daten, erzeugt ZUGFeRD oder XRechnung und legt alles in AR_<Werk> ab. Erst danach gibt es die Datei zum Herunterladen oder den Mail-Entwurf an den Kunden. Werke, die über EDIzone senden, laufen außerhalb dieses Tools.',
   pools: [
     { id: 'P_Kunde', name: 'Kunde', actor: 'extern', blackbox: true },
     {
@@ -261,9 +261,9 @@ const AUSGANG = {
         { id: 'K_fix', k: 'user', n: 'Daten korrigieren', lane: 'LK', c: 6, r: 1, tone: 'warn' },
         { id: 'S_abl', k: 'service', n: 'E-Rechnung, lesbares PDF und Prüfpfad in AR_<Werk> ablegen', lane: 'LS', c: 8, r: 0 },
         { id: 'S_gwAbl', k: 'gw', n: 'Abgelegt?', lane: 'LS', c: 9, r: 0 },
-        { id: 'K_abl', k: 'user', n: 'Ablage wiederholen (ohne Ablage keine Mail)', lane: 'LK', c: 9, r: 1, tone: 'warn' },
+        { id: 'K_abl', k: 'user', n: 'Ablage wiederholen (ohne Ablage keine Datei und keine Mail)', lane: 'LK', c: 9, r: 1, tone: 'warn' },
         { id: 'S_meta', k: 'service', n: 'Metadaten setzen (Ausgang, Format, konform, USt-IdNr.-Nachweis)', lane: 'LS', c: 10, r: 0 },
-        { id: 'K_mail', k: 'user', n: 'Mail-Entwurf mit Anhang erstellen (Outlook oder .eml)', lane: 'LK', c: 11, r: 0 },
+        { id: 'K_mail', k: 'user', n: 'Datei herunterladen oder Mail erstellen', lane: 'LK', c: 11, r: 0 },
         { id: 'F_send', k: 'user', n: 'Rechnung an den Kunden senden', lane: 'LF', c: 12, r: 0 },
         { id: 'F_end', k: 'end', n: 'versendet', lane: 'LF', c: 13, r: 0 },
       ],
@@ -298,7 +298,7 @@ const AUSGANG = {
         { id: 'N_abl', of: 'S_abl', lane: 'LS', c: 8, r: 1, w: 300, h: 56,
           text: 'Ablegen darf, wer im Werk FIBU oder Vertrieb ist (Mitwirken auf AR_<Werk>).' },
         { id: 'N_mail', of: 'K_mail', lane: 'LK', c: 11, r: 1, w: 260, h: 110,
-          text: 'Die Mail trägt genau die abgelegte Datei. Rechnungsadresse und Betreff kommen aus der Kundenliste des Werks, sofern dort hinterlegt. Alternativ Datei herunterladen und im Kundenportal hochladen.' },
+          text: 'Download und Mail-Entwurf (Outlook oder .eml) tragen genau die abgelegte Datei. Rechnungsadresse und Betreff kommen aus der Kundenliste des Werks, sofern dort hinterlegt. Die heruntergeladene Datei lässt sich auch im Kundenportal hochladen.' },
       ],
     },
   ],
@@ -638,7 +638,7 @@ const ERFASSEN = {
 const ERZEUGEN = {
   key: 'erzeugen', file: '02b-pruefen-und-erzeugen.bpmn', tab: 'ausgang', von: 'ausgang',
   name: 'E-Rechnung Prüfen und erzeugen', kennung: 'Process_ERechnung_Erzeugen',
-  doku: 'Vor dem Export und vor der Mail prüft der Konverter in derselben Reihenfolge: Pflichtfelder (auch Telefon und Mail des Ansprechpartners), Stammdaten des Rechnungsstellers gegen die Registry des Werks, IBAN, Summen und USt-IdNr. als harte Fehler, dann Abweichungen zum Original-PDF, dann die Rückfragen (Kunde im Ausland bei EIS, EWA und LEG, Rechnungsadresse der eigenen Firma, abweichende gemerkte Adresse) und zuletzt den Nummernkreis bei manuellen Rechnungen. Danach entsteht die XML nach EN 16931, wird zurückgelesen und als ZUGFeRD oder XRechnung mit Prüfpfad ausgegeben.',
+  doku: 'Vor dem Export und vor der Mail prüft der Konverter in derselben Reihenfolge: Pflichtfelder (auch Telefon und Mail des Ansprechpartners), Stammdaten des Rechnungsstellers gegen die Registry des Werks, IBAN, Summen und USt-IdNr. als harte Fehler, dann Abweichungen zum Original-PDF, dann die Rückfragen (Kunde im Ausland bei EIS, EWA und LEG, Rechnungsadresse der eigenen Firma, abweichende gemerkte Adresse) und zuletzt den Nummernkreis bei manuellen Rechnungen. Danach entsteht die XML nach EN 16931, wird zurückgelesen und als ZUGFeRD oder XRechnung mit Prüfpfad erzeugt. Heruntergeladen oder versendet wird die Datei erst nach der Ablage (Rechnungsausgang).',
   pools: [{
     id: 'P_Erz', name: 'Prüfen und E-Rechnung erzeugen', main: true,
     lanes: [
@@ -665,8 +665,7 @@ const ERZEUGEN = {
       { id: 'X_zf', k: 'service', n: 'ZUGFeRD-PDF/A-3b mit eingebetteter XML erzeugen', lane: 'LXK', c: 12, r: 1 },
       { id: 'X_xr', k: 'service', n: 'XRechnung-XML und lesbares PDF erzeugen', lane: 'LXK', c: 12, r: 2 },
       { id: 'X_audit', k: 'service', n: 'Prüfpfad schreiben (Hash, manuelle Änderungen, Prüfer)', lane: 'LXK', c: 13, r: 1 },
-      { id: 'X_dl', k: 'service', n: 'Dateien zum Herunterladen bereitstellen', lane: 'LXK', c: 14, r: 1 },
-      { id: 'X_end', k: 'end', n: 'E-Rechnung erstellt', lane: 'LXK', c: 15, r: 1 },
+      { id: 'X_end', k: 'end', n: 'E-Rechnung erstellt', lane: 'LXK', c: 14, r: 1 },
     ],
     flows: [
       F('X_start', 'X_pflicht'), F('X_pflicht', 'X_pre'), F('X_pre', 'X_gwHard'),
@@ -678,7 +677,7 @@ const ERZEUGEN = {
       F('X_gwSelf', 'X_err2', 'ja'), F('X_gwSelf', 'X_gwFmt', 'nein'),
       F('X_gwFmt', 'X_zf', 'ZUGFeRD'), F('X_gwFmt', 'X_xr', 'XRechnung'),
       F('X_zf', 'X_audit'), F('X_xr', 'X_audit'),
-      F('X_audit', 'X_dl'), F('X_dl', 'X_end'),
+      F('X_audit', 'X_end'),
     ],
     annotations: [
       { id: 'XN_pre', of: 'X_pre', lane: 'LXK', c: 2, r: 0, w: 160, h: 100,

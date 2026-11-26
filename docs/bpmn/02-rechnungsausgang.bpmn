@@ -7,7 +7,7 @@
     <bpmn:messageFlow id="Msg_F_send_P_Kunde" name="E-Rechnung (ZUGFeRD oder XRechnung)" sourceRef="F_send" targetRef="P_Kunde" />
   </bpmn:collaboration>
   <bpmn:process id="Process_ERechnung_Ausgang" name="E-Rechnung Rechnungsausgang" isExecutable="false">
-    <bpmn:documentation>Ausgangsrechnungen entstehen im ERP als PDF oder im Reiter „Manuelle Rechnung“ aus einer Vorlage. Der Konverter liest das PDF (Parser für WGC, SHB, ZAI, EIS, EWA, LEG, MEG), prüft die Daten, erzeugt ZUGFeRD oder XRechnung, legt alles in AR_&lt;Werk&gt; ab und bereitet die Mail an den Kunden vor. Werke, die über EDIzone senden, laufen außerhalb dieses Tools.
+    <bpmn:documentation>Ausgangsrechnungen entstehen im ERP als PDF oder im Reiter „Manuelle Rechnung“ aus einer Vorlage. Der Konverter liest das PDF (Parser für WGC, SHB, ZAI, EIS, EWA, LEG, MEG), prüft die Daten, erzeugt ZUGFeRD oder XRechnung und legt alles in AR_&lt;Werk&gt; ab. Erst danach gibt es die Datei zum Herunterladen oder den Mail-Entwurf an den Kunden. Werke, die über EDIzone senden, laufen außerhalb dieses Tools.
 Anwender-Ansicht: https://e-rechnung.dihag-extern.com/prozess.html#ausgang
 Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflichten
 [[rms:policies=119]]</bpmn:documentation>
@@ -34,9 +34,9 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:userTask id="K_fix" name="Daten korrigieren"><bpmn:incoming>Flow_K_bErr_K_fix</bpmn:incoming><bpmn:outgoing>Flow_K_fix_K_erk</bpmn:outgoing></bpmn:userTask>
       <bpmn:serviceTask id="S_abl" name="E-Rechnung, lesbares PDF und Prüfpfad in AR_&lt;Werk&gt; ablegen"><bpmn:incoming>Flow_K_exp_S_abl</bpmn:incoming><bpmn:incoming>Flow_K_abl_S_abl</bpmn:incoming><bpmn:outgoing>Flow_S_abl_S_gwAbl</bpmn:outgoing></bpmn:serviceTask>
       <bpmn:exclusiveGateway id="S_gwAbl" name="Abgelegt?"><bpmn:incoming>Flow_S_abl_S_gwAbl</bpmn:incoming><bpmn:outgoing>Flow_S_gwAbl_S_meta</bpmn:outgoing><bpmn:outgoing>Flow_S_gwAbl_K_abl</bpmn:outgoing></bpmn:exclusiveGateway>
-      <bpmn:userTask id="K_abl" name="Ablage wiederholen (ohne Ablage keine Mail)"><bpmn:incoming>Flow_S_gwAbl_K_abl</bpmn:incoming><bpmn:outgoing>Flow_K_abl_S_abl</bpmn:outgoing></bpmn:userTask>
+      <bpmn:userTask id="K_abl" name="Ablage wiederholen (ohne Ablage keine Datei und keine Mail)"><bpmn:incoming>Flow_S_gwAbl_K_abl</bpmn:incoming><bpmn:outgoing>Flow_K_abl_S_abl</bpmn:outgoing></bpmn:userTask>
       <bpmn:serviceTask id="S_meta" name="Metadaten setzen (Ausgang, Format, konform, USt-IdNr.-Nachweis)"><bpmn:incoming>Flow_S_gwAbl_S_meta</bpmn:incoming><bpmn:outgoing>Flow_S_meta_K_mail</bpmn:outgoing></bpmn:serviceTask>
-      <bpmn:userTask id="K_mail" name="Mail-Entwurf mit Anhang erstellen (Outlook oder .eml)"><bpmn:incoming>Flow_S_meta_K_mail</bpmn:incoming><bpmn:outgoing>Flow_K_mail_F_send</bpmn:outgoing></bpmn:userTask>
+      <bpmn:userTask id="K_mail" name="Datei herunterladen oder Mail erstellen"><bpmn:incoming>Flow_S_meta_K_mail</bpmn:incoming><bpmn:outgoing>Flow_K_mail_F_send</bpmn:outgoing></bpmn:userTask>
       <bpmn:userTask id="F_send" name="Rechnung an den Kunden senden"><bpmn:incoming>Flow_K_mail_F_send</bpmn:incoming><bpmn:outgoing>Flow_F_send_F_end</bpmn:outgoing></bpmn:userTask>
       <bpmn:endEvent id="F_end" name="versendet"><bpmn:incoming>Flow_F_send_F_end</bpmn:incoming></bpmn:endEvent>
       <bpmn:sequenceFlow id="Flow_V_start_V_wa" sourceRef="V_start" targetRef="V_wa" />
@@ -66,7 +66,7 @@ Im Einklang mit den Richtlinien: ISMS-Richtlinie Aufbewahrungsfristen und -pflic
       <bpmn:association id="Assoc_N_vorl" associationDirection="None" sourceRef="K_vorl" targetRef="N_vorl" />
       <bpmn:textAnnotation id="N_abl"><bpmn:text>Ablegen darf, wer im Werk FIBU oder Vertrieb ist (Mitwirken auf AR_&lt;Werk&gt;).</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_abl" associationDirection="None" sourceRef="S_abl" targetRef="N_abl" />
-      <bpmn:textAnnotation id="N_mail"><bpmn:text>Die Mail trägt genau die abgelegte Datei. Rechnungsadresse und Betreff kommen aus der Kundenliste des Werks, sofern dort hinterlegt. Alternativ Datei herunterladen und im Kundenportal hochladen.</bpmn:text></bpmn:textAnnotation>
+      <bpmn:textAnnotation id="N_mail"><bpmn:text>Download und Mail-Entwurf (Outlook oder .eml) tragen genau die abgelegte Datei. Rechnungsadresse und Betreff kommen aus der Kundenliste des Werks, sofern dort hinterlegt. Die heruntergeladene Datei lässt sich auch im Kundenportal hochladen.</bpmn:text></bpmn:textAnnotation>
       <bpmn:association id="Assoc_N_mail" associationDirection="None" sourceRef="K_mail" targetRef="N_mail" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="Diagram_ausgang">

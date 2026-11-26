@@ -75,7 +75,10 @@ beim Speichern im Editor in die Dokumentation der Kollaboration, der Import in d
 Prozesses. Beides muss erhalten bleiben (`procXmlDokuNeu` für den Prozess, die
 Kollaborations-Doku unverändert übernehmen).
 
-Letzte Übernahme: 20.11.2026 (RMS seit 17.11. unverändert, RMS-Angaben übernommen): Rechnungseingang v0.16 (keine Anlagen bei E-Rechnungen, DSO mit Archiv-Mail, welche Datei ins Archiv geht), Sonstige Rechnung einschätzen v0.3 (Lieferant und gelesene Daten prüfen, korrigieren), Rechnungsausgang v0.12 (Rechnungsadresse und Betreff aus der Kundenliste).
+Letzte Übernahme: 26.11.2026 (RMS seit 20.11. unverändert, RMS-Angaben übernommen): Rechnungsausgang v0.13
+(ohne Ablage keine Datei und keine Mail, Herunterladen erst danach), Prüfen und erzeugen v0.9 (endet mit der erzeugten E-Rechnung).
+
+Davor: 20.11.2026 (RMS seit 17.11. unverändert, RMS-Angaben übernommen): Rechnungseingang v0.16 (keine Anlagen bei E-Rechnungen, DSO mit Archiv-Mail, welche Datei ins Archiv geht), Sonstige Rechnung einschätzen v0.3 (Lieferant und gelesene Daten prüfen, korrigieren), Rechnungsausgang v0.12 (Rechnungsadresse und Betreff aus der Kundenliste).
 
 Davor: 17.11.2026, Nachtrag Versandstart Lieferanten-Mails 1.1.2027: Rechnungseingang v0.15, Sonstige Rechnung einschätzen v0.2.
 
